@@ -189,7 +189,16 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 - **验证证据**（编译结果、文件清单验证、边界验证）"
 ```
 
-> **占位符说明**: `{backend-root}` 在运行时由编排器根据 `state.json` 中 `projectConfig.backendRoot` 的值解析为实际路径。
+> **占位符说明**: `{backend-root}` 在运行时由编排器根据 `state.json` 中 `projectConfig.backendRoot` 的值解析为实际路径。如果 `projectConfig.repos[]` 存在，优先从 repos 中按 type 匹配路径。
+>
+> **多仓库模式（repos[] 适配）**:
+> 当 `projectConfig.repos[]` 存在时，编排器按以下规则分配文件所有权：
+> - 遍历 `repos[]`，对每个 `type=backend` 的 repo 分配一个后端开发 Agent，独占目录为 `repo.path`
+> - 对每个 `type=frontend` 的 repo 分配 `@web-developer`，独占目录为 `repo.path`
+> - 对每个 `type=miniprogram` 的 repo 分配 `@miniprogram-developer`
+> - `type=common` 的 repo 作为公共模块区域
+> - 各 Agent 的文件所有权声明直接使用 `repo.path` 替代 `{backend-root}/{领域}/`
+> - 跨仓库修改的协调规则与跨领域修改一致（向编排器报告，等待协调）
 >
 > **全新项目路径处理**（`projectConfig.projectType = "new"`）:
 > - 路径字段已在 INIT 阶段由编排器根据 PRD 技术分析结果自动推导并经用户确认（如 `my-app-frontend/`），Agent 在首次写入文件时自动创建目标目录

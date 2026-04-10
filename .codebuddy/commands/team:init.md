@@ -105,24 +105,32 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
 ```
 
 **自动推断逻辑**：
-1. 扫描项目根目录，识别技术栈：
-   - `pom.xml` / `build.gradle` → Java
-   - `package.json` + 检查 dependencies → React/Vue/Taro/Next.js 等
-   - `go.mod` → Go
-   - `requirements.txt` / `pyproject.toml` → Python
-2. 扫描 README.md 提取项目描述
-3. 扫描 `docs/` 目录判断是否有业务文档
+1. 扫描工作区内的仓库和项目目录（兼容单仓和多仓）：
+   - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个项目
+   - 扫描一级子目录的 `.git/`（排除 `node_modules` 等）→ 多仓模式
+   - 对每个发现的目录检测：
+     - `pom.xml` / `build.gradle` → Java
+     - `package.json` + 检查 dependencies → React/Vue/Taro/Next.js 等
+     - `go.mod` → Go
+     - `requirements.txt` / `pyproject.toml` → Python
+2. 聚合所有仓库的技术栈（去重）作为 project.yaml 的 tech_stack
+3. 扫描 README.md 提取项目描述
+4. 扫描 `docs/` 目录判断是否有业务文档
 
 **交互确认**：
 
 ```
 🤖 AI 推断结果：
 
-项目名称: {从 package.json name 或 目录名推断}
-技术栈:
-  后端: [Java, Spring Boot, MyBatis-Plus]    ← 检测到 pom.xml
-  前端: [TypeScript, React, Taro]            ← 检测到 package.json
-  基础设施: [MySQL, Redis]                    ← 检测到配置文件
+项目名称: {从工作区目录名推断}
+仓库/项目: {N} 个
+  - ad-service (后端, Java/Spring Boot)
+  - creative-service (后端, Java/Spring Boot)
+  - ad-frontend (前端, TypeScript/React)
+技术栈（聚合）:
+  后端: [Java, Spring Boot, MyBatis-Plus]
+  前端: [TypeScript, React]
+  基础设施: [MySQL, Redis]
 
 请确认以上信息，或输入修正。
 

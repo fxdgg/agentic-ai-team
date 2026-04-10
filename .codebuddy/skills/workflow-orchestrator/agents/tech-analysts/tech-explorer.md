@@ -108,11 +108,13 @@
    - 检查 `analysis/product-clarify.json` 中是否有已回答的补充信息
 
 2. **现有架构全景扫描**
-   - 使用 `Glob` + `Bash(tree)` 快速了解项目目录结构
-   - 识别 `microservice-group/` 下的微服务模块划分
-   - 识别 `frontend-group/` 下的前端项目结构
-   - 读取核心配置文件（`pom.xml`、`package.json`、`application.yml` 等）了解技术栈版本
-   - **产出**: 内部数据——`projectOverview`（模块列表、技术栈、项目约定）
+   - 读取 `state.json` 的 `projectConfig.repos[]` 获取工作区内的仓库列表
+   - 对 `repos[]` 中每个仓库执行扫描：
+     - 使用 `Glob` + `Bash(tree)` 了解仓库目录结构
+     - 读取核心配置文件（`pom.xml`、`package.json`、`application.yml` 等）了解技术栈版本
+   - 如果 `repos[]` 不存在（旧模式），回退到扫描 `microservice-group/` 和 `frontend-group/`
+   - **搜索预算分配**：总预算不变，按 repos 数量均分（如 3 个仓库各分 20 次搜索）
+   - **产出**: 内部数据——`projectOverview`（各仓库的模块列表、技术栈、项目约定）
 
 3. **建立需求-模块映射初稿**
    - 将产品需求中的每个用户故事初步映射到可能涉及的模块

@@ -2,6 +2,19 @@
 
 > **加载时机**: 编排器进入 BUILD_VERIFY 阶段时加载本文件，包括调度模式选择、Agent Teams 团队管理、编译失败回退等。
 
+### repos[] 适配规则
+
+当 `projectConfig.repos[]` 存在时，BUILD_VERIFY 的"平台"概念从固定的 backend/web/miniprogram 扩展为 **repos[] 中每个有改动的仓库**：
+
+- 遍历 `repos[]`，对每个 repo 检查 `implementation/` 下是否有该 repo 相关的改动报告
+- 有改动的 repo → 加入待验证列表
+- 每个 repo 使用其自身的 `repo.buildCommand` 执行编译（`cd {repo.path} && {repo.buildCommand}`）
+- 如果 `repo.buildCommand` 为 null → 跳过该 repo 的编译验证
+- 编译结果按 repo 粒度记录到对应 report.md
+- 回退时也按 repo 粒度精细回退（仅回退编译失败的 repo 对应的 Agent）
+
+> 当 repos[] 不存在时（旧模式），仍按原有的 backend/web/miniprogram 平台逻辑执行。
+
 ---
 
 ## 0. 三级降级调度策略

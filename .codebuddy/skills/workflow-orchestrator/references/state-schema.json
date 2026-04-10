@@ -467,28 +467,64 @@
         },
         "backendRoot": {
           "type": ["string", "null"],
-          "description": "后端微服务组根目录",
+          "description": "(deprecated, 由 repos[] 替代) 后端微服务组根目录。兼容旧逻辑，INIT 阶段从 repos[] 中第一个 type=backend 的 repo.path 自动填充。",
           "examples": ["microservice-group/"]
         },
         "frontendRoot": {
           "type": ["string", "null"],
-          "description": "前端项目组根目录",
+          "description": "(deprecated, 由 repos[] 替代) 前端项目组根目录。从 repos[] 中第一个 type=frontend 的 repo.path 自动填充。",
           "examples": ["frontend-group/"]
         },
         "webProject": {
           "type": ["string", "null"],
-          "description": "Web 端项目目录",
+          "description": "(deprecated, 由 repos[] 替代) Web 端项目目录。从 repos[] 中第一个 type=frontend 的 repo.path 自动填充。",
           "examples": ["frontend-group/operation-fe/"]
         },
         "miniprogramProject": {
           "type": ["string", "null"],
-          "description": "小程序端项目目录",
+          "description": "(deprecated, 由 repos[] 替代) 小程序端项目目录。从 repos[] 中第一个 type=miniprogram 的 repo.path 自动填充。",
           "examples": ["frontend-group/miniprogram-fe/"]
         },
         "commonModule": {
           "type": ["string", "null"],
-          "description": "后端公共模块名称",
+          "description": "(deprecated, 由 repos[] 替代) 后端公共模块名称。从 repos[] 中 type=common 的 repo.name 自动填充。",
           "examples": ["vibe-common"]
+        },
+        "repos": {
+          "type": ["array", "null"],
+          "description": "工作区内的仓库/项目列表。INIT 阶段自动扫描填充。统一模型：单仓=1个元素，多仓=多个元素，代码路径一致无分支判断。",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "仓库名称（通常为目录名）"
+              },
+              "path": {
+                "type": "string",
+                "description": "相对于工作区根的路径（如 'ad-service/'，单仓模式为 './'）"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["backend", "frontend", "fullstack", "miniprogram", "common"],
+                "description": "仓库类型。backend=后端服务，frontend=Web前端，fullstack=前后端一体，miniprogram=小程序，common=公共模块"
+              },
+              "techStack": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "该仓库使用的技术栈标签（如 ['java', 'spring-boot']）"
+              },
+              "buildCommand": {
+                "type": ["string", "null"],
+                "description": "该仓库的编译命令（如 'mvn clean package -DskipTests'），BUILD_VERIFY 阶段使用"
+              },
+              "hasGit": {
+                "type": "boolean",
+                "description": "该目录下是否有 .git/（独立 Git 仓库）"
+              }
+            },
+            "required": ["name", "path", "type"]
+          }
         },
         "d2cBootstrapped": {
           "type": "boolean",

@@ -648,11 +648,50 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
    e) **目录创建**：确认后，在 IMPLEMENT 阶段首次执行时由开发 Agent 自动创建所需目录（INIT 阶段仅规划，不创建目录）
 
-4. **项目路径自动检测**（历史项目，`projectType ≠ "new"` 时执行。若 `projectConfig` 中路径字段为空）：
-   - 扫描 `pom.xml` / `build.gradle` 定位 `backendRoot`
-   - 扫描 `package.json` + `src/` 定位 `frontendRoot` / `webProject` / `miniprogramProject`
-   - 扫描后端根目录下名称含 common/shared/base/core 的模块定位 `commonModule`
-   - 检测结果写入 `projectConfig`，供后续阶段使用路径占位符
+4. **项目仓库扫描**（统一 `repos[]` 模型，单仓和多仓兼容）：
+   a) 扫描工作区内的仓库和项目目录：
+      - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个 repo
+      - 扫描一级子目录的 `.git/`（排除 `node_modules`、`.ai-team-install`、`docs` 等）
+      - 对每个发现的目录，检测 `pom.xml` / `build.gradle` / `package.json` / `go.mod` 判断类型和技术栈
+   b) 填充 `projectConfig.repos[]` 数组，每个仓库/项目一条记录：
+      ```json
+      {
+        "name": "{目录名}",
+        "path": "{相对路径}/",
+        "type": "backend|frontend|fullstack|miniprogram|common",
+        "techStack": ["java", "spring-boot"],
+        "buildCommand": "mvn clean package -DskipTests",
+        "hasGit": true
+      }
+      ```
+      **类型推断规则**：
+      - 有 `pom.xml` / `build.gradle` 且无前端 → `backend`
+      - 有 `package.json` + React/Vue/Next.js 依赖 → `frontend`
+      - 有 `package.json` + Taro 依赖 → `miniprogram`
+      - 有 `pom.xml` + `package.json` → `fullstack`
+      - 目录名含 common/shared/base/core → `common`
+      **编译命令推断**：
+      - Java (`pom.xml`) → `mvn clean package -DskipTests`
+      - Gradle (`build.gradle`) → `./gradlew build`
+      - Node.js (`package.json`) → `npm run build`（检查 scripts.build 存在性）
+   c) 向用户展示检测结果并确认：
+      ```
+      📁 项目结构检测结果（{N} 个仓库/项目）：
+      
+      | 仓库 | 路径 | 类型 | 技术栈 | 编译命令 |
+      |------|------|------|--------|---------|
+      | {name} | {path} | {type} | {techStack} | {buildCommand} |
+      ...
+      
+      请确认或修正。
+      ```
+   d) 用户确认后写入 `state.json` 的 `projectConfig.repos`
+   e) 同时填充旧字段（兼容）：
+      - `backendRoot` = 第一个 `type=backend` 的 `repo.path`（无则 null）
+      - `frontendRoot` = 第一个 `type=frontend` 的 `repo.path`（无则 null）
+      - `webProject` = 第一个 `type=frontend` 的 `repo.path`（无则 null）
+      - `miniprogramProject` = 第一个 `type=miniprogram` 的 `repo.path`（无则 null）
+      - `commonModule` = 第一个 `type=common` 的 `repo.name`（无则 null）
 5. **全局知识路径注入**（团队共享知识架构）：
    a) 检查 `{项目根目录}/.ai-team/project.yaml` 是否存在
    b) 如存在，读取并将以下信息写入 `state.json` 的 `knowledgeContext` 字段：
