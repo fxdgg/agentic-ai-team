@@ -1,5 +1,5 @@
 ---
-name: flow:import
+name: flow-import
 description: 历史项目知识导入。收集项目文档和代码信息，构建标准化知识基线，为后续的需求开发工作流提供项目上下文。
 ---
 
@@ -11,8 +11,8 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 转化为标准格式，接入 AI 工作流的知识传承体系。
 
 **触发方式**：
-1. `/flow:run` Step 0 自动检测后引导（推荐）
-2. 用户手动执行 `/flow:import`
+1. `/flow-run` Step 0 自动检测后引导（推荐）
+2. 用户手动执行 `/flow-import`
 
 **核心原则**：导入流程不创建 PRD，不进入常规工作流阶段，仅构建知识基线。
 
@@ -246,12 +246,12 @@ TAPD MCP 提供 3 个核心工具：
 问题: 项目知识导入已完成，接下来您想：
 
 选项:
-  - "🚀 开始新需求开发 — 启动 /flow:run 工作流"
+  - "🚀 开始新需求开发 — 启动 /flow-run 工作流"
   - "📊 查看导入结果 — 查看知识基线报告"
   - "⏸️ 暂时到这里 — 稍后再开始开发"
 ```
 
-- 用户选择"开始新需求开发" → 调用 `/flow:run`（此时 Step 0 会检测到知识库存在，直接进入 Step 1）
+- 用户选择"开始新需求开发" → 调用 `/flow-run`（此时 Step 0 会检测到知识库存在，直接进入 Step 1）
 - 用户选择"查看导入结果" → 展示 `docs/knowledge-import/SUMMARY.md` 内容
 - 用户选择"暂时到这里" → 结束
 
@@ -259,29 +259,29 @@ TAPD MCP 提供 3 个核心工具：
 
 ## 使用示例
 
-### 示例 1：从 /flow:run 自动引导
+### 示例 1：从 /flow-run 自动引导
 ```
-用户：/flow:run
+用户：/flow-run
 → Step 0 检测到历史项目 → 用户选择"导入历史知识"
-→ 自动进入 /flow:import 流程
+→ 自动进入 /flow-import 流程
 ```
 
 ### 示例 2：手动执行
 ```
-用户：/flow:import
+用户：/flow-import
 → 直接进入知识导入流程，展示输入选项（多选）
 ```
 
 ### 示例 3：附带本地文档执行
 ```
-用户：/flow:import @项目设计文档.pdf @API接口规范.docx @架构说明.md
+用户：/flow-import @项目设计文档.pdf @API接口规范.docx @架构说明.md
 → 自动识别文件类型 → PDF 用 pdf skill 解析 → DOCX 用 docx skill 解析 → MD 直接读取
 → 解析完成后进入知识导入流程
 ```
 
 ### 示例 4：提供 Git 仓库 + TAPD 链接
 ```
-用户：/flow:import
+用户：/flow-import
 → 用户选择 "Git 代码仓库" + "TAPD 需求链接"
 → 粘贴 git 地址: https://git.woa.com/org/project（HTTPS 格式）
 → AI 自动转换为 SSH: git@git.woa.com:org/project.git → 克隆成功
@@ -292,7 +292,7 @@ TAPD MCP 提供 3 个核心工具：
 
 ### 示例 5：混合输入
 ```
-用户：/flow:import @设计文档.pdf
+用户：/flow-import @设计文档.pdf
 → 用户额外选择 "口述项目背景"
 → 用户输入: "这是一个电商项目，后端用 Java Spring Boot..."
 → PDF 解析 + 口述记录 → 汇总确认 → 启动导入
@@ -300,7 +300,7 @@ TAPD MCP 提供 3 个核心工具：
 
 ### 示例 6：TAPD MCP 未配置时的引导
 ```
-用户：/flow:import
+用户：/flow-import
 → 用户选择 "TAPD 需求链接"
 → 粘贴 TAPD 链接
 → AI 检查 MCP 配置 → 发现 mcp.json 不存在
@@ -368,7 +368,7 @@ TAPD MCP 提供 3 个核心工具：
    ```markdown
    # {模块名称} 上下文
 
-   > 本文件由 /flow:import 深度导入模式自动生成。
+   > 本文件由 /flow-import 深度导入模式自动生成。
    > 生成时间：{ISO8601}
    > 置信度：0.5（imported，需通过后续工作流验证提升）
 

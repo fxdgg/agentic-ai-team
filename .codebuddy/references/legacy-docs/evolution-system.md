@@ -17,7 +17,7 @@ Bug 修复 / 缺陷发现
       ↓
 生成改进建议 → EvolveRecord (status: pending)
       ↓
-Owner 审阅 (/evolve:apply)
+Owner 审阅 (/evolve-apply)
       ↓
 ┌─────────────────────────────────────────────┐
 │ APPLIED  → 更新 Rule + Agent 定义 + 版本号   │

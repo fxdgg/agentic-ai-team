@@ -50,7 +50,7 @@ ANALYSE_ISSUE → IMPLEMENT_FIX → VERIFY_FIX → ARCHIVE
 1. 复制最接近需求的模板作为起点
 2. 修改 `phases` 定义（增减阶段、调整依赖）
 3. 修改 `transitions` 规则（回退、跳过策略）
-4. 在 `flow:run` 命令中通过参数指定使用的模板
+4. 在 `flow-run` 命令中通过参数指定使用的模板
 
 ## 与 Agent Catalog 的关系
 

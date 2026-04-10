@@ -89,7 +89,7 @@ Task 3: 调用 @knowledge-builder
 
 ### 2.3 特殊情况：跳过 @doc-collector
 
-当用户在 `/flow:import` Step 1 选择"直接扫描当前代码"且无其他输入源时：
+当用户在 `/flow-import` Step 1 选择"直接扫描当前代码"且无其他输入源时：
 
 ```
 跳过 T1 → 直接创建空的 _doc-collection.json:

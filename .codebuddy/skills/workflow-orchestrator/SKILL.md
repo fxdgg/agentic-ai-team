@@ -588,10 +588,10 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 ### 7.3 新建需求流程（INIT 阶段）
 
 1. 从 PRD 解析需求信息（或询问用户输入）
-2. **项目类型写入**：从 `/flow:run` Step 0 传入的项目类型信息写入 `state.json` 的 `projectConfig.projectType`
+2. **项目类型写入**：从 `/flow-run` Step 0 传入的项目类型信息写入 `state.json` 的 `projectConfig.projectType`
 3. **工作区布局与路径脚手架**（全新项目专用，`projectType = "new"` 时执行）：
 
-   > **核心思路**：布局决策不再由 `/flow:run` 提前传入，而是在 INIT 阶段基于 PRD 的技术分析结果（涉及哪些平台、是否有前后端分离等），由编排器**自主推导**最合适的目录结构，并向用户确认。
+   > **核心思路**：布局决策不再由 `/flow-run` 提前传入，而是在 INIT 阶段基于 PRD 的技术分析结果（涉及哪些平台、是否有前后端分离等），由编排器**自主推导**最合适的目录结构，并向用户确认。
 
    a) **从 PRD 中提取技术特征**（复用步骤 1 的 PRD 解析结果）：
       - 是否涉及前端（Web / 小程序）
@@ -725,7 +725,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       ```
       💡 当前项目未配置 .ai-team/project.yaml
       
-      执行 /team:init 可初始化项目配置，连接团队知识仓库，启用跨项目知识复用。
+      执行 /team-init 可初始化项目配置，连接团队知识仓库，启用跨项目知识复用。
       此操作不阻断工作流，可稍后执行。
       ```
 6. **知识基线注入**（Phase 3 — 知识消费闭环）：
@@ -1011,7 +1011,7 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 
 | 能力 | 使用阶段 | 说明 |
 |------|---------|------|
-| **TAPD 需求拉取** | `/flow:import`、`@doc-collector` | 从 TAPD 链接直接拉取需求内容作为项目文档输入 |
+| **TAPD 需求拉取** | `/flow-import`、`@doc-collector` | 从 TAPD 链接直接拉取需求内容作为项目文档输入 |
 | **图片/附件上传** | ARCHIVE | 将产出物上传到 TAPD 需求/缺陷作为附件 |
 | **附件查询与下载** | 任意阶段 | 通过 MCP 工具查询和下载 TAPD 附件 |
 

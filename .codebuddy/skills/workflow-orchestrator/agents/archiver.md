@@ -387,7 +387,7 @@ duration: "2026-03-19 ~ 2026-03-20"
      - `globalBizWikiPath` — 业务知识库路径
      - `contributorName` — 当前贡献者姓名（INIT 阶段已从 `~/.ai-team/preferences/profile.yaml` 注入）
      - `contributorRole` — 当前贡献者角色（INIT 阶段已从 `.knowledge-config.yaml` 注入）
-   - **如果 `contributorName` 为 null**（profile.yaml 未填写姓名）→ 跳过知识提升，记录 `knowledgePromote: "skipped-no-contributor"`，并提示用户执行 `/team:init`
+   - **如果 `contributorName` 为 null**（profile.yaml 未填写姓名）→ 跳过知识提升，记录 `knowledgePromote: "skipped-no-contributor"`，并提示用户执行 `/team-init`
 
 2. **Git 同步 — 拉取最新**：
    ```bash

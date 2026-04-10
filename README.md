@@ -7,7 +7,7 @@
 
 ## 这是什么
 
-AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一条命令 `/flow:run` 驱动 AI Agent 完成从需求分析到代码归档的全流程。它不是一个独立平台，而是一组 `.codebuddy/` 目录下的 Skill、Agent、Command 定义文件，被 CodeBuddy IDE 原生识别和执行。
+AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一条命令 `/flow-run` 驱动 AI Agent 完成从需求分析到代码归档的全流程。它不是一个独立平台，而是一组 `.codebuddy/` 目录下的 Skill、Agent、Command 定义文件，被 CodeBuddy IDE 原生识别和执行。
 
 **核心价值**：Skill、Agent、工具链会随模型迭代更新，但**领域知识是永恒的**。AI Team 的每次交付都自动沉淀知识到团队共享仓库，所有成员共建共享，新工作流启动时自动站在前人肩上。
 
@@ -62,7 +62,7 @@ team-knowledge.git
 **三类仓库各司其职**：
 - **ai-team 仓库**（本仓库）：工作流引擎代码，复制到各工作区使用
 - **业务项目仓库**（一个或多个）：你的实际代码
-- **团队知识仓库**：跨项目共享的知识库，通过 `/team:init` 连接，不同工作区可连同一个
+- **团队知识仓库**：跨项目共享的知识库，通过 `/team-init` 连接，不同工作区可连同一个
 
 ---
 
@@ -93,21 +93,21 @@ team-knowledge.git
 
 ```bash
 # 1. 首次使用：连接团队知识仓库（每个项目执行一次）
-/team:init
+/team-init
 
 # 2. 已有代码库：导入历史知识（可选但推荐）
-/flow:import
+/flow-import
 
 # 3. 日常开发：启动交付工作流
-/flow:run                              # 从上下文推断需求
-/flow:run docs/prd/my-requirement.md   # 从 PRD 文档启动
+/flow-run                              # 从上下文推断需求
+/flow-run docs/prd/my-requirement.md   # 从 PRD 文档启动
 
 # 4. 查看进度
-/flow:status
+/flow-status
 
 # 5. 复盘改进
 /evolve                                # 分析改进建议
-/evolve:apply                          # 落地改进
+/evolve-apply                          # 落地改进
 ```
 
 ---
@@ -115,7 +115,7 @@ team-knowledge.git
 ## 工作流：16 阶段状态机
 
 ```
-/flow:run 启动后自动流转：
+/flow-run 启动后自动流转：
 
 INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FRONTEND
   → ARCHITECT_MINIPROGRAM → IMPLEMENT → BUILD_VERIFY → VISUAL_REVIEW
@@ -156,7 +156,7 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
 ### 知识如何流动
 
 ```
-/flow:import（一次性）           /flow:run（每次）
+/flow-import（一次性）           /flow-run（每次）
       │                              │
       ▼                              ▼
  冷启动导入                     INIT: git pull 知识仓库 + 注入查询入口
@@ -171,7 +171,7 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
                                      └→ Layer 2（业务）: biz-wiki/  ← git push
                                                      │
                                                      ▼
-                                              下一个人的 /flow:run 自动受益
+                                              下一个人的 /flow-run 自动受益
 ```
 
 ### 按需查询，不是 Top-N 推送
@@ -225,7 +225,7 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 
 ### 团队协作
 
-通过 `/team:init` 连接独立 Git 知识仓库。所有成员的工作流 ARCHIVE 阶段自动提取知识并 push。
+通过 `/team-init` 连接独立 Git 知识仓库。所有成员的工作流 ARCHIVE 阶段自动提取知识并 push。
 
 **冲突解决**：纯新增/证据追加 → 自动合并；内容矛盾 → 写入 `contributions/conflicts/`，maintainer 裁决。
 
@@ -233,9 +233,9 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 
 ---
 
-## 冷启动：/flow:import
+## 冷启动：/flow-import
 
-对已有代码库，先跑一次 `/flow:import` 构建知识基线：
+对已有代码库，先跑一次 `/flow-import` 构建知识基线：
 
 ```
 @doc-collector → 多源资料收集（文档/TAPD/口述/代码扫描）
@@ -253,12 +253,12 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 
 | 命令 | 用途 |
 |------|------|
-| `/flow:run` | 启动交付工作流 |
-| `/flow:import` | 历史项目知识导入 |
-| `/flow:status` | 查看工作流状态 |
-| `/team:init` | 初始化项目配置，连接团队知识仓库 |
+| `/flow-run` | 启动交付工作流 |
+| `/flow-import` | 历史项目知识导入 |
+| `/flow-status` | 查看工作流状态 |
+| `/team-init` | 初始化项目配置，连接团队知识仓库 |
 | `/evolve` | 分析改进建议 |
-| `/evolve:apply` | 落地改进 |
+| `/evolve-apply` | 落地改进 |
 | `/guard` | SKILL/Rule 变更守护检查 |
 
 ## 可用 Skills
@@ -299,9 +299,9 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 │   └── ...                              # 其余 Skills
 │
 ├── commands/                            # 用户命令
-│   ├── flow:run.md                      # 启动交付工作流
-│   ├── flow:import.md                   # 历史知识导入
-│   ├── team:init.md                     # 初始化+连接知识仓库
+│   ├── flow-run.md                      # 启动交付工作流
+│   ├── flow-import.md                   # 历史知识导入
+│   ├── team-init.md                     # 初始化+连接知识仓库
 │   └── ...
 │
 ├── rules/                               # 编码规则（java-backend, tcb, anydev）

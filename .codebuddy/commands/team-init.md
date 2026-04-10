@@ -1,5 +1,5 @@
 ---
-name: team:init
+name: team-init
 description: 初始化当前项目的 AI Team 配置。连接团队知识仓库，关联业务领域和技术栈，启用跨项目团队知识共享。
 ---
 
@@ -10,8 +10,8 @@ description: 初始化当前项目的 AI Team 配置。连接团队知识仓库�
 本指令用于在当前项目中初始化 `.ai-team/project.yaml` 配置文件，建立项目与**团队共享知识仓库**的连接。
 
 **触发方式**：
-1. 用户手动执行 `/team:init`
-2. `/flow:run` 的 INIT 阶段检测到缺少配置时引导执行
+1. 用户手动执行 `/team-init`
+2. `/flow-run` 的 INIT 阶段检测到缺少配置时引导执行
 
 **核心原则**：初始化只创建项目级配置文件和克隆知识仓库，不修改知识仓库中的已有内容。
 
@@ -46,7 +46,7 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
 
 如果尚未创建，可选择：
   ➕ 创建新的知识仓库（将在本地初始化并提供推送指引）
-  ⏭️ 暂不配置知识仓库（可稍后通过 /team:init 补充）
+  ⏭️ 暂不配置知识仓库（可稍后通过 /team-init 补充）
 ```
 
 **已有仓库**：
@@ -91,7 +91,7 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
    git remote add origin {your-repo-url}
    git push -u origin main
    
-   然后将此仓库地址告知团队其他成员，让他们也执行 /team:init 连接。
+   然后将此仓库地址告知团队其他成员，让他们也执行 /team-init 连接。
    ```
 
 ### Step 3：收集项目信息
@@ -151,7 +151,7 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
 
 ```yaml
 # AI Team 项目配置 — 知识路由的锚点
-# 由 /team:init 自动生成，可手动编辑
+# 由 /team-init 自动生成，可手动编辑
 
 project_name: "{确认后的项目名}"
 domain: "{选择的领域 ID 或 null}"
@@ -273,17 +273,17 @@ team_size: 1
 👥 团队角色: {maintainer/contributor}
 
 接下来你可以：
-  - /flow:run — 启动需求开发工作流（知识会自动注入）
-  - /flow:import — 导入历史项目知识到团队知识库
+  - /flow-run — 启动需求开发工作流（知识会自动注入）
+  - /flow-import — 导入历史项目知识到团队知识库
 ```
 
 ---
 
 ## 注意事项
 
-1. `/team:init` **不修改知识仓库中的已有内容**（除非创建新领域或注册成员）
-2. 新创建的业务领域是空的，需要通过 `/flow:import` 或工作流 ARCHIVE 沉淀知识
+1. `/team-init` **不修改知识仓库中的已有内容**（除非创建新领域或注册成员）
+2. 新创建的业务领域是空的，需要通过 `/flow-import` 或工作流 ARCHIVE 沉淀知识
 3. 一个项目可以关联到多个业务领域（高级场景，通过手动编辑 project.yaml 的 domain 字段为数组实现）
-4. `/team:init` 可以多次执行（重新配置）
+4. `/team-init` 可以多次执行（重新配置）
 5. 团队知识仓库默认克隆到 `~/.ai-team/team-knowledge`，可通过 `knowledge_repo.local_path` 自定义
 6. 个人偏好（`~/.ai-team/preferences/`）始终为本地私有，不会被推送到团队知识仓库

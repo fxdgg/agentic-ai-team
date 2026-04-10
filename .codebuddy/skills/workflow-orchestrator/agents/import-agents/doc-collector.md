@@ -12,15 +12,15 @@
 
 | 输入项 | 来源 | 是否必须 |
 |--------|------|---------|
-| 已解析的文档内容（.md/.txt 原文 + .pdf/.docx/.pptx 的提取文本） | `/flow:import` Step 2c 前置解析 | 可选 |
-| 用户口述的文字描述 | `/flow:import` Step 1.5 | 可选 |
-| 已拉取的 TAPD 需求数据 | `/flow:import` Step 2b 延迟检测拉取 | 可选 |
-| 克隆的 Git 仓库本地路径 | `/flow:import` Step 2a Git 克隆 | 可选 |
+| 已解析的文档内容（.md/.txt 原文 + .pdf/.docx/.pptx 的提取文本） | `/flow-import` Step 2c 前置解析 | 可选 |
+| 用户口述的文字描述 | `/flow-import` Step 1.5 | 可选 |
+| 已拉取的 TAPD 需求数据 | `/flow-import` Step 2b 延迟检测拉取 | 可选 |
+| 克隆的 Git 仓库本地路径 | `/flow-import` Step 2a Git 克隆 | 可选 |
 | 项目根目录路径 | 编排器注入 | 必须 |
 
 > **至少一项有内容**：如果用户选择"直接扫描当前代码"，则跳过本 Agent，直接启动 @codebase-profiler。
 >
-> **关键变化**：PDF/DOCX/PPTX 文件的解析、Git 仓库的克隆、TAPD 链接的拉取均已在 `/flow:import` Step 2 中完成。本 Agent 接收的是**已处理过的结构化内容**，无需自行调用 skill 或 MCP 工具。
+> **关键变化**：PDF/DOCX/PPTX 文件的解析、Git 仓库的克隆、TAPD 链接的拉取均已在 `/flow-import` Step 2 中完成。本 Agent 接收的是**已处理过的结构化内容**，无需自行调用 skill 或 MCP 工具。
 
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: evolve:apply
+name: evolve-apply
 description: 流水线进化落地。仅限流水线 Owner 使用。浏览 evolve-log 中的 pending 改进记录，逐条审阅后选择性地将改进建议落地到 Agent 定义文件和规则文件中。
 ---
 
@@ -27,13 +27,13 @@ description: 流水线进化落地。仅限流水线 Owner 使用。浏览 evolv
 
 ```
 docs/workflows/evolve-log/
-├── pending/          ← 待处理（/evolve:apply 只扫描此目录）
+├── pending/          ← 待处理（/evolve-apply 只扫描此目录）
 ├── applied/          ← 已落地
 ├── rejected/         ← 已拒绝
 └── deferred/         ← 已暂缓
 ```
 
-> **核心设计**：文件所在子目录即代表状态。`/evolve:apply` **只需扫描 `pending/` 目录**，无需全量遍历和解析 frontmatter。
+> **核心设计**：文件所在子目录即代表状态。`/evolve-apply` **只需扫描 `pending/` 目录**，无需全量遍历和解析 frontmatter。
 
 ---
 
@@ -211,7 +211,7 @@ docs/workflows/evolve-log/
 - pending/: 0 条
 - deferred/: 1 条
 
-> 💡 建议：修改后可通过 `/flow:run` 在下一个需求中验证改进效果。
+> 💡 建议：修改后可通过 `/flow-run` 在下一个需求中验证改进效果。
 ```
 
 #### 4.2 发送企微通知
@@ -264,18 +264,18 @@ docs/workflows/evolve-log/
 
 ### 示例 1：常规审阅
 ```
-用户：/evolve:apply
+用户：/evolve-apply
 ```
 → 列出 pending 记录 → 逐条审阅 → 择优落地 → 汇总报告
 
 ### 示例 2：指定记录审阅
 ```
-用户：/evolve:apply 只看今天的记录
+用户：/evolve-apply 只看今天的记录
 ```
 → 过滤 2026-03-22 的记录 → 逐条审阅 → 落地
 
 ### 示例 3：快速浏览
 ```
-用户：/evolve:apply 有多少条待处理的？
+用户：/evolve-apply 有多少条待处理的？
 ```
 → 仅展示概览统计，不进入审阅流程

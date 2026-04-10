@@ -11,7 +11,7 @@ description: 流水线进化分析。基于刚修复的 Bug，自动追溯根因
 
 **核心原则：只分析、只记录，不修改任何 Agent 定义文件或流水线配置。**
 
-> 改进记录的实际落地由流水线 Owner 通过 `/evolve:apply` 指令择优执行。
+> 改进记录的实际落地由流水线 Owner 通过 `/evolve-apply` 指令择优执行。
 
 ---
 
@@ -30,12 +30,12 @@ description: 流水线进化分析。基于刚修复的 Bug，自动追溯根因
 ```
 docs/workflows/evolve-log/
 ├── pending/          ← /evolve 产出直接写入这里
-├── applied/          ← /evolve:apply 接受后移入
-├── rejected/         ← /evolve:apply 拒绝后移入
-└── deferred/         ← /evolve:apply 暂缓后移入
+├── applied/          ← /evolve-apply 接受后移入
+├── rejected/         ← /evolve-apply 拒绝后移入
+└── deferred/         ← /evolve-apply 暂缓后移入
 ```
 
-> **核心设计**：文件所在子目录即代表状态，无需解析 frontmatter 即可判断。`/evolve:apply` 只需扫描 `pending/` 目录即可获取待处理列表。
+> **核心设计**：文件所在子目录即代表状态，无需解析 frontmatter 即可判断。`/evolve-apply` 只需扫描 `pending/` 目录即可获取待处理列表。
 
 ### 文件命名
 
@@ -95,9 +95,9 @@ applied_by:
 
 **状态流转**（通过 `git mv` 移动文件到对应子目录实现）：
 - `pending/` — 新产出，等待 Owner review（`/evolve` 产出的默认状态）
-- `applied/` — 已落地到流水线（由 `/evolve:apply` 移入）
-- `rejected/` — Owner review 后决定不采纳（由 `/evolve:apply` 移入）
-- `deferred/` — 暂缓，后续再处理（由 `/evolve:apply` 移入）
+- `applied/` — 已落地到流水线（由 `/evolve-apply` 移入）
+- `rejected/` — Owner review 后决定不采纳（由 `/evolve-apply` 移入）
+- `deferred/` — 暂缓，后续再处理（由 `/evolve-apply` 移入）
 
 > frontmatter 中的 `status` 字段保留作为冗余记录，但**主判断依据是文件所在目录**。
 
@@ -292,7 +292,7 @@ applied_by:
    👤 提交人：{author}
    🌿 分支：{branch}
 
-   ▶ /evolve:apply 审核
+   ▶ /evolve-apply 审核
    ```
 
    **字段说明**：
@@ -346,7 +346,7 @@ applied_by:
 
 ### 📝 改进记录已保存
 → `docs/workflows/evolve-log/pending/{文件名}.md`
-→ 状态：`pending`（等待 Owner 通过 `/evolve:apply` review）
+→ 状态：`pending`（等待 Owner 通过 `/evolve-apply` review）
 
 ### 📨 企微通知
 → {发送成功/发送失败：原因}

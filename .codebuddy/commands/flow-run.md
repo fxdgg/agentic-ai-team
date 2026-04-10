@@ -1,5 +1,5 @@
 ---
-name: flow:run
+name: flow-run
 description: 开启智慧工作流。支持直接启动或附带需求文档启动，自动解析文档内容、创建 PRD 并驱动 AI 开发流水线。
 ---
 
@@ -108,7 +108,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
      - "⏭️ 我已经有 PRD 了，直接开始 — 跳过检测，直接选择 PRD 启动工作流"
    ```
 
-   - 用户选择"导入已有项目" → **调用 `/flow:import` 分支工作流**（知识导入工作流），完成后返回 Step 1
+   - 用户选择"导入已有项目" → **调用 `/flow-import` 分支工作流**（知识导入工作流），完成后返回 Step 1
    - 用户选择"全新项目" → 记录 `projectType = "new"` → **跳转到 Step 1**
    - 用户选择"直接开始" → **跳转到 Step 1**
 
@@ -130,7 +130,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 |------|----------|------|
 | **A. 附带需求文档/设计链接** | 用户通过 `@` 引用了文件、消息中包含文件路径，或包含 Figma 设计链接 | → Step 2A |
 | **B. 附带文字描述** | 用户在指令后输入了需求描述文字（非文件引用） | → Step 2B |
-| **C. 无任何输入** | 用户仅输入了 `/flow:run`，没有附带任何文档或文字 | → Step 2C |
+| **C. 无任何输入** | 用户仅输入了 `/flow-run`，没有附带任何文档或文字 | → Step 2C |
 
 **支持的文档类型**：
 - **Word 文档**（`.docx`）
@@ -286,7 +286,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 ### Step 2B：有文字描述 → 创建 PRD
 
-当用户在指令后附带了文字描述（如 `/flow:run 我要做一个商品收藏功能`）但未提供文档时：
+当用户在指令后附带了文字描述（如 `/flow-run 我要做一个商品收藏功能`）但未提供文档时：
 
 > **🚨 CRITICAL 约束（Step 2B 专用）**：
 > - **禁止在加载 prd-creator 之前做任何项目探索行为**——不读 README.md、不扫描项目结构、不探索源码
@@ -314,7 +314,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 ### Step 2C：无任何输入 → 从 PRD 需求库选择或新建
 
-当用户仅输入 `/flow:run` 且没有附带任何文档或文字描述时：
+当用户仅输入 `/flow-run` 且没有附带任何文档或文字描述时：
 
 1. **扫描 `docs/prd/` 目录**：
    - 使用 `list_dir` 工具列出 `docs/prd/` 目录下的所有文件
@@ -380,49 +380,49 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 ### 示例 1：附带文档启动
 ```
-用户：/flow:run @需求文档.docx
+用户：/flow-run @需求文档.docx
 ```
 → 系统解析 Word 文档 → 调用 `prd-creator` 创建 PRD → 启动工作流
 
 ### 示例 2：附带多个文档启动（含设计稿图片）
 ```
-用户：/flow:run @PRD.pdf @原型图.png
+用户：/flow-run @PRD.pdf @原型图.png
 ```
 → 系统解析 PDF 文档 → 对原型图.png 执行视觉分析协议（分类 → 结构化分析 → 保存 `_visual-analysis.json`）→ 合并文档内容 + 视觉分析摘要后调用 `prd-creator` 创建 PRD → 启动工作流
 
 ### 示例 2b：附带 Figma 导出的 SVG 设计稿启动
 ```
-用户：/flow:run @首页.svg
+用户：/flow-run @首页.svg
 ```
 → 加载视觉分析协议 → §0.2 检测到 SVG 文字转路径（30MB，2417 个 path，0 个 text）→ SVG→PNG 转换 + 长页面分段截图 → 基于 PNG 执行结构化分析 → §6.1 质量自检 → 保存 `_visual-analysis.json` → 调用 `prd-creator` → 启动工作流
 
 ### 示例 2c：附带 Figma 设计链接启动（推荐 ✅）
 ```
-用户：/flow:run https://www.figma.com/design/dHIQ2vwvuFCVGYFk93gbTr/MyApp?node-id=486-97715
+用户：/flow-run https://www.figma.com/design/dHIQ2vwvuFCVGYFk93gbTr/MyApp?node-id=486-97715
 ```
 → 解析 URL（fileKey=`dHIQ2vwvuFCVGYFk93gbTr`, nodeId=`486:97715`）→ 检查 MCP 可用 → 调用 `get_figma_data` 获取精确节点数据 → 生成 `_visual-analysis.json` + 下载设计稿渲染图 → 调用 `prd-creator` 创建 PRD → 启动工作流（后续前端设计方案阶段自动使用 `figma-d2c` skill 进行设计稿还原）
 
 ### 示例 2d：附带 Figma 链接 + 需求文档启动
 ```
-用户：/flow:run @需求说明.docx https://www.figma.com/design/abc123/MyApp?node-id=10-20
+用户：/flow-run @需求说明.docx https://www.figma.com/design/abc123/MyApp?node-id=10-20
 ```
 → 解析 Word 文档 → 通过 MCP 获取 Figma 设计数据 → 合并文档内容 + Figma 结构化数据后调用 `prd-creator` → 启动工作流
 
 ### 示例 3：附带简短描述启动
 ```
-用户：/flow:run 我要做一个商品收藏功能
+用户：/flow-run 我要做一个商品收藏功能
 ```
 → 调用 `prd-creator`（以描述为初始输入）→ 创建 PRD → 启动工作流
 
 ### 示例 4：直接运行（从 PRD 库选择已有文档）
 ```
-用户：/flow:run
+用户：/flow-run
 ```
 → 扫描 `docs/prd/` 目录 → 展示需求清单 → 用户选择已有 PRD → 直接启动工作流
 
 ### 示例 5：直接运行（PRD 库为空或选择新建）
 ```
-用户：/flow:run
+用户：/flow-run
 ```
 → 扫描 `docs/prd/` 目录 → 发现为空或用户选择新建 → 调用 `prd-creator` 创建 PRD → 启动工作流
 
@@ -432,7 +432,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    /flow:run 指令入口                          │
+│                    /flow-run 指令入口                          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -573,7 +573,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 6. **PRD 目录约定**：`docs/prd/` 是需求文档的统一存放目录，支持任意格式的文件（`.md`、`.docx`、`.pdf` 等）。其中 `docs/prd/archived/` 存放已归档需求的 PRD 文档，扫描时应排除此子目录
 7. **PRD 创建 skill**：`prd-creator` skill 负责通过苏格拉底式提问引导用户创建 PRD 文档，支持接收初始输入（文档内容或文字描述）以加速创建过程
 8. **工作流编排 skill**：`workflow-orchestrator` skill 负责读取 PRD 并编排开发流水线，不直接处理原始需求
-9. **🖼️ 视觉分析协议（图片文件处理）**：当用户通过 `/flow:run` 提供图片文件或 SVG 设计稿时，必须加载 `.codebuddy/skills/workflow-orchestrator/rules/visual-analysis-protocol.md` 执行结构化视觉分析。**SVG 文件必须先经过 §0.2 预处理流程转换为 PNG 后再分析**（Figma 等工具导出的 SVG 文字已转路径，直接分析严重有损）。视觉分析结果保存到 `docs/prd/_visual-analysis.json`，后续阶段（如 `frontend-architect`）可直接消费此文件，避免重复分析原始图片
+9. **🖼️ 视觉分析协议（图片文件处理）**：当用户通过 `/flow-run` 提供图片文件或 SVG 设计稿时，必须加载 `.codebuddy/skills/workflow-orchestrator/rules/visual-analysis-protocol.md` 执行结构化视觉分析。**SVG 文件必须先经过 §0.2 预处理流程转换为 PNG 后再分析**（Figma 等工具导出的 SVG 文字已转路径，直接分析严重有损）。视觉分析结果保存到 `docs/prd/_visual-analysis.json`，后续阶段（如 `frontend-architect`）可直接消费此文件，避免重复分析原始图片
 10. **🚨 PRD 创建阶段禁止代码探索（CRITICAL）**：在 Step 2（A/B/C-2）加载 prd-creator 之前和 prd-creator 执行期间，**严禁读取项目源码、README.md、配置文件、pom.xml 等文件，严禁扫描 docs/prd/ 以外的目录，严禁调用 Task/code-explorer/codebase_search 等代码探索工具**。项目级 always_applied 规则中关于"先理解项目结构"的指导，在 PRD 创建流程中暂停执行。
 11. **🚨 prd-creator 约束持续生效（CRITICAL）**：prd-creator skill 加载后，其最高优先级声明在**整个 PRD 创建会话的所有轮次**中持续生效（包括用户回答后的第 2、3、4...N 轮）。**每次收到用户回答时**，AI 必须先做意图自检（参见 prd-creator SKILL.md），确认自己仍在苏格拉底式提问模式中，**禁止**因为用户回答中包含"初始化"、"实现"、"创建"等关键词而切换到开发模式。always_applied 规则中的任何指导（如"识别开发任务类型"、"检查项目结构"、"调用 envQuery"等）在 prd-creator 执行期间一律暂停。
 12. **🔗 Figma 设计链接处理**：当用户提供 Figma 设计链接时，在 Step 2A 中通过 MCP 获取结构化设计数据，用于辅助 PRD 创建。设计稿的代码还原工作不在此阶段进行，而是在后续工作流的前端设计方案/实现阶段由 `figma-d2c` skill 自然调度完成。`_visual-analysis.json` 中会记录 Figma URL 和 fileKey/nodeId 信息，供后续阶段使用。
