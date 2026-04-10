@@ -31,10 +31,12 @@ description: 初始化当前项目的 AI Team 配置。连接团队知识仓库�
    - 已存在 → 展示当前配置摘要，进入增量操作选择：
 ```
 
-**增量操作选择**（project.yaml 已存在时）：
+**已初始化提示**（project.yaml 已存在时）：
+
+使用 `ask_followup_question` 展示当前配置：
 
 ```
-📋 当前项目已配置 AI Team
+✅ 当前项目已完成 AI Team 初始化
 
 项目名称: {project_name}
 业务领域: {domain}
@@ -42,20 +44,11 @@ description: 初始化当前项目的 AI Team 配置。连接团队知识仓库�
   {遍历 repos[] 展示 name + path + type}
 知识仓库: {knowledge_repo.url}
 
-请选择操作：
-  A — ➕ 添加新仓库（扫描工作区，选择新目录绑定）
-  B — ➖ 移除已绑定仓库
-  C — ✏️ 修改项目信息（名称、领域、技术栈）
-  D — 🔄 重新配置（清空后从头开始）
-  E — ⏭️ 不做修改，退出
-```
+如需变更配置（新增仓库、修改领域、刷新知识），请使用：
+  /flow-import — 导入新仓库、刷新项目画像、补充知识
 
-**选择 A（添加新仓库）**时：
-1. 扫描工作区一级子目录中包含 `.git/` 且**不在已有 `repos[]` 中**的目录
-2. 展示候选列表让用户选择（流程同 Step 3b）
-3. 选中的仓库追加到 `project.yaml` 的 `repos[]` 中
-4. 重新聚合 `tech_stack`
-5. 提示用户：如需为新仓库导入历史知识，可执行 `/flow-import`
+如需完全重新配置，请删除 .ai-team/project.yaml 后重新执行 /team-init
+```
 
 ### Step 2：连接团队知识仓库
 

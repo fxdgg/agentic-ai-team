@@ -61,22 +61,38 @@ description: "知识进化引擎。当用户提到项目知识沉淀、经验总
 
 **知识仓库结构**：
 ```
-{knowledge-repo}/                          # 独立 Git 仓库
+{knowledge-repo}/                          # 独立 Git 仓库（唯一的知识存储）
+├── knowledge-catalog.md                   # Layer A: 全景目录
 ├── .knowledge-config.yaml                 # 团队配置（成员、冲突策略）
 ├── team-conventions/                      # Layer 0-T: 团队约定
 │   ├── coding-standards.md
 │   ├── commit-conventions.md
 │   └── log.md
 ├── tech-wiki/                             # Layer 1: 技术知识
-│   ├── index.md / index.json / log.md
+│   ├── catalog.md / index.json / log.md
 │   ├── languages/ / frameworks/ / patterns/ / devops/ / anti-patterns/
+│   ├── ui-patterns/                       # UI 模式（原 baselineUIPatterns 归宿）
+│   │   ├── web/
+│   │   └── miniprogram/
+│   └── conventions/                       # 编码约定（原 codebase-profile.conventions 归宿）
 ├── biz-wiki/                              # Layer 2: 业务知识
 │   ├── domains.yaml
 │   ├── _cross-domain/
-│   └── {domain}/ (index.md / index.json / log.md / entities/ / relations/ / rules/ / flows/ / pitfalls/)
-└── contributions/                         # 贡献暂存区
-    ├── pending/                            # 待合并的贡献清单
-    └── conflicts/                         # 检测到的冲突
+│   └── {domain}/
+│       ├── catalog.md / index.json / log.md
+│       ├── entities/                      # 业务实体（原 baselineDataEntities 归宿）
+│       ├── relations/                     # 实体关系图
+│       ├── rules/                         # 业务规则（原 baselineBusinessRules 归宿）
+│       ├── flows/                         # 业务流程/用户故事（原 baselineUserStories 归宿）
+│       └── pitfalls/                      # 踩坑记录
+├── project-profiles/                      # 项目画像（原 codebase-profile.json 归宿）
+│   └── {project-name}.yaml               # 每个项目一个画像文件
+└── contributions/
+    ├── pending/
+    └── conflicts/
+```
+
+> **统一存储原则**：flow-import 和 ARCHIVE 写入同一个仓库。flow-import 批量灌入 draft 级别条目，ARCHIVE 增量追加 + 验证提升。本地不再维护 `knowledge-baseline.json` 和 `codebase-profile.json`。
 ```
 
 ### 2.6 团队协作机制

@@ -300,6 +300,16 @@
 2. 如果找到匹配 → 读对应 SUMMARY.md 的"经验教训"章节
 3. 迭代判定第 4 层信号增强：有具体历史需求+经验支撑
 
+> **统一知识仓库模式**：不再读取 `docs/knowledge-import/knowledge-baseline.json`。迭代判定的业务知识参考改为：
+> 1. 从 `biz-wiki/{domain}/catalog.md` 查询已有业务规则和实体
+> 2. 从 `docs/workflows/archived/index.md` 检索同功能域的历史需求
+> 3. 如果 `knowledgeContext.baselineAvailable = true`（旧模式兼容），仍可读取 baseline
+
+> **统一知识仓库模式**：不再读取 `docs/knowledge-import/knowledge-baseline.json`。迭代判定的业务知识参考改为：
+> 1. 从 `biz-wiki/{domain}/catalog.md` 查询已有业务规则和实体
+> 2. 从 `docs/workflows/archived/index.md` 检索同功能域的历史需求
+> 3. 如果 `knowledgeContext.baselineAvailable = true`（旧模式兼容），仍可读取 baseline
+
 **业务规则参考时**：
 1. 读 `biz-wiki/{domain}/catalog.md` 扫描已有业务规则
 2. 如果发现与当前需求相关的规则 → 读完整条目 BK-*.md

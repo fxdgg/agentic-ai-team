@@ -77,6 +77,21 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
        克隆到工作区根目录下可确保编排器传入的路径与 Agent 预期一致。
   3. 执行 git clone（浅克隆: --depth 1 --single-branch），使用 SSH 地址
   4. 克隆成功 → 记录本地路径到 inputSources.clonedPaths[]
+  5.5. 仓库绑定（自动追加到 project.yaml）：
+     - 检查 `.ai-team/project.yaml` 是否存在
+       - 如不存在 → 提示用户先执行 `/team-init`
+       - 如存在 → 继续
+     - 对每个新 clone 的仓库：
+       a) 检测类型和技术栈（pom.xml → Java, package.json → React 等）
+       b) 推断编译命令
+       c) 向用户确认：
+          ```
+          📁 新仓库已克隆: {repo-name}
+          类型: {type} | 技术栈: {techStack} | 编译命令: {buildCommand}
+          → 绑定到 project.yaml repos[]？[是/否]
+          ```
+       d) 用户确认后 → 追加到 `project.yaml` 的 `repos[]`
+       e) 重新聚合 `tech_stack`
   5. 克隆失败 → 记录错误原因，提供选项:
      - "重试" / "跳过该仓库继续" / "我手动克隆后告诉你路径"
 ```
@@ -236,6 +251,14 @@ TAPD MCP 提供 3 个核心工具：
 ```
 
 > **关键变化**：传入编排器的是**已处理过的输入**（git 已克隆、PDF/DOCX 已解析、TAPD 已拉取），@doc-collector 无需再关心输入源的获取方式，只需消费已结构化的内容。
+
+> **统一知识仓库模式**：@knowledge-builder 不再生成 `knowledge-baseline.json` 和 `codebase-profile.json`。改为：
+> - 业务知识（用户故事/业务规则/数据实体）→ 直接写入 `{knowledgeRepoLocalPath}/biz-wiki/{domain}/`（maturity: draft）
+> - UI 模式 → 写入 `{knowledgeRepoLocalPath}/tech-wiki/ui-patterns/`（maturity: draft）
+> - 编码约定 → 写入 `{knowledgeRepoLocalPath}/tech-wiki/conventions/`（maturity: draft）
+> - 技术决策(ADR) → 写入 `{knowledgeRepoLocalPath}/tech-wiki/` 对应目录（maturity: draft）
+> - 项目画像 → 写入 `{knowledgeRepoLocalPath}/project-profiles/{project}.yaml`
+> - 所有写入通过 Git 分支工作流（同 archiver 阶段七的 Git 操作流程）
 
 ### Step 4：导入完成后的衔接
 

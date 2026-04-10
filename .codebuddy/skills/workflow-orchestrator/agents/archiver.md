@@ -505,6 +505,33 @@ duration: "2026-03-19 ~ 2026-03-20"
 
 13. **收集知识引用记录**：扫描本次工作流各阶段产物中的 `knowledgeReferences` 字段（如存在），批量更新被引用条目的 `evidence.last_referenced` 为当前日期。
 
+14. **项目画像增量更新**：
+    a) 读取 `{knowledgeRepoLocalPath}/project-profiles/{project_name}.yaml`（如不存在则跳过）
+    b) 对比本次工作流产物：
+       - `architecture/*.md` 中是否引入了新技术栈？→ 更新 `tech_stack`
+       - `implementation/` 中是否创建了新模块/服务？→ 更新 `modules[]`
+       - `tech-requirements.md` 中是否有新的 API？→ 更新 `api_summary`
+    c) 如有变化 → 更新画像文件，记录 `last_updated` 和 `source_workflow`
+    d) 如无变化 → 跳过
+
+15. **配置漂移检测**：
+    a) 扫描本次工作流产物，检测以下变化：
+       - `implementation/` 中是否创建了不在 `project.yaml` `repos[]` 中的新目录？
+       - 架构设计中是否引入了不在 `project.yaml` `tech_stack` 中的新技术？
+       - `product-requirements.md` 中是否涉及了不在 `project.yaml` `domain` 中的新业务领域？
+    b) 如检测到漂移 → 向用户展示并确认：
+       ```
+       ⚠️ 本次工作流检测到配置变化：
+       
+       📁 新目录: {目录名}（IMPLEMENT 阶段创建）
+         → 添加到 project.yaml repos[]？[是/否]
+       
+       🔧 新技术: {技术名}（架构设计引入）
+         → 更新 project.yaml tech_stack？[是/否]
+       ```
+    c) 用户确认后 → 自动更新 `project.yaml`
+    d) 如无漂移 → 跳过
+
 ---
 
 ## 编排器对接行为（ARCHIVE 阶段）
@@ -590,6 +617,10 @@ duration: "2026-03-19 ~ 2026-03-20"
 
 ### 知识进化
 - [ ] 阶段七知识进化已执行（或已记录跳过原因）
+
+### 项目画像与配置漂移
+- [ ] 项目画像已检查并按需更新（或记录跳过原因）
+- [ ] 配置漂移检测已执行（或记录无漂移）
 
 ### 权限合规
 - [ ] 未修改任何源码文件

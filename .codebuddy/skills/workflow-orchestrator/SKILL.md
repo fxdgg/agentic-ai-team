@@ -78,6 +78,26 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 - **执行**: 调用子 Agent（通过 Task 工具），实时显示进度
 - **总结确认**: 展示产出物清单和关键决策，用户选择进入下一阶段或回退
 
+### 2.4.1 阶段间知识仓库刷新（Level 2 时效性）
+
+> 在每个阶段的 Summary 确认后、下一阶段的 Preview 前，编排器自动检查并刷新团队知识仓库。
+
+**触发时机**：阶段 N Summary 确认 → 用户选择"继续" → 进入阶段 N+1 前
+
+**执行流程**：
+```
+1. cd {knowledgeRepoLocalPath} && git fetch --dry-run origin main 2>&1
+2. 如有新 commit → git pull --rebase origin main
+3. 如无新 commit → 跳过（零开销）
+```
+
+**约束**：
+- pull 失败（冲突或网络问题）→ 静默跳过，不阻断工作流
+- 一次 flow-run 中最多触发 ~10 次（阶段数），开销可忽略
+- 刷新后下一阶段的 Agent 查询 catalog.md 自然拿到最新知识
+- 此操作在编排器层执行，Agent 无感知
+- 仅当 `knowledgeContext.knowledgeRepoLocalPath` 不为 null 时执行
+
 ### 2.5 阶段完成后的澄清阶段判断流程（CRITICAL）
 
 每个执行阶段完成后，编排器需要判断下一阶段是否为澄清阶段，若是则检查澄清文件：
@@ -698,15 +718,17 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       执行 /team-init 可初始化项目配置，连接团队知识仓库，启用跨项目知识复用。
       此操作不阻断工作流，可稍后执行。
       ```
-6. **知识基线注入**（Phase 3 — 知识消费闭环）：
-   a) 检查 `docs/knowledge-import/knowledge-baseline.json` 是否存在
-   b) 如存在，读取并将以下信息写入 `state.json` 的 `knowledgeContext` 字段：
-      - `baselineAvailable: true`
-      - `baselinePath: "docs/knowledge-import/knowledge-baseline.json"`
-      - `profilePath: "docs/knowledge-import/codebase-profile.json"`
-      - `storyIndexPath: "docs/knowledge-import/tapd-stories/_story-index.json"`（仅当该文件存在时设置，否则为 null）
-      - `importedKeywords: [...]`（从 `docs/knowledge-import/SUMMARY.md` front-matter 提取）
-   c) 如不存在，设置 `knowledgeContext.baselineAvailable: false`
+6. **知识消费准备**（统一知识仓库模式）：
+   a) 如果 `knowledgeRepoLocalPath` 不为 null（团队仓库已配置）：
+      - 读取 `{knowledgeRepoLocalPath}/project-profiles/{project_name}.yaml` → 写入 `knowledgeContext.projectProfilePath`
+      - **不再读取** `docs/knowledge-import/knowledge-baseline.json`（已由团队仓库 biz-wiki/tech-wiki 替代）
+      - **不再读取** `docs/knowledge-import/codebase-profile.json`（已由 project-profiles 替代）
+      - 设置 `knowledgeContext.baselineAvailable: false`（标记旧模式不启用）
+   b) 兼容旧项目（`knowledgeRepoLocalPath` 为 null 但本地 baseline 存在）：
+      - 检查 `docs/knowledge-import/knowledge-baseline.json` 是否存在
+      - 如存在 → 按旧逻辑注入 `baselineAvailable`/`baselinePath`/`profilePath`（兼容模式）
+      - 提示用户："⚠️ 检测到旧版知识基线，建议执行 /flow-import 迁移到团队知识仓库"
+   c) 如两者都不存在 → 设置 `baselineAvailable: false`
 7. **TAPD 集成检测**（非阻断，自动探测）：
    a) **凭证检测**: 使用 `search_file` 检查 `~/.tapd/credentials` 文件是否存在
    b) **MCP 工具检测**: 尝试调用 `CallMcpTool: user-tapd_mcp_http / lookup_tool_param_schema`（参数: `{"tool_name": "stories_get"}`），判断 TAPD MCP 服务是否已连接

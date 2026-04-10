@@ -539,15 +539,19 @@
       "properties": {
         "baselineAvailable": {
           "type": "boolean",
-          "description": "是否有可用的知识基线"
+          "description": "(deprecated, 由团队知识仓库替代) 是否有可用的知识基线。迁移期兼容字段。"
         },
         "baselinePath": {
           "type": ["string", "null"],
-          "description": "知识基线文件路径"
+          "description": "(deprecated, 由团队知识仓库替代) 知识基线文件路径。迁移期兼容字段。"
         },
         "profilePath": {
           "type": ["string", "null"],
-          "description": "代码画像文件路径"
+          "description": "(deprecated, 由 project-profiles/ 替代) 代码画像文件路径。迁移期兼容字段。"
+        },
+        "projectProfilePath": {
+          "type": ["string", "null"],
+          "description": "项目画像路径（{knowledge-repo}/project-profiles/{project}.yaml），替代本地 codebase-profile.json。INIT 阶段从团队知识仓库读取。"
         },
         "storyIndexPath": {
           "type": ["string", "null"],

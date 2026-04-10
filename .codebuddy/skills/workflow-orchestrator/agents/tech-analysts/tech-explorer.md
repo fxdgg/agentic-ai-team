@@ -113,6 +113,11 @@
      - 使用 `Glob` + `Bash(tree)` 了解仓库目录结构
      - 读取核心配置文件（`pom.xml`、`package.json`、`application.yml` 等）了解技术栈版本
    - 如果 `repos[]` 不存在（旧模式），回退到扫描 `microservice-group/` 和 `frontend-group/`
+   - 如果 `knowledgeContext.projectProfilePath` 存在 → 读取项目画像文件作为扫描起点
+     - 已知的 modules[]、tech_stack、api_summary 可跳过重复扫描
+     - 画像数据来自团队知识仓库，比本地 codebase-profile.json 更新
+   - 如果 `projectProfilePath` 不存在但 `knowledgeContext.profilePath` 存在（旧模式兼容）→ 读取本地 codebase-profile.json
+   - **搜索预算节省**：已有画像的模块跳过全景扫描，预算集中在新模块和变更模块
    - **搜索预算分配**：总预算不变，按 repos 数量均分（如 3 个仓库各分 20 次搜索）
    - **产出**: 内部数据——`projectOverview`（各仓库的模块列表、技术栈、项目约定）
 
