@@ -15,27 +15,54 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 
 ## 部署拓扑
 
+支持单仓和多仓（小仓/微服务拆分），统一 `repos[]` 模型，无需切换模式。
+
+**单仓模式**（一个 Git 仓库包含所有代码）：
 ```
-本仓库（ai-team）                       你的业务项目（如 cloud-mall）
-  └── .codebuddy/  ── cp -r ──────►  ├── .codebuddy/          ← 引擎副本，IDE 识别后驱动一切
-      工作流引擎源码                    ├── .ai-team/project.yaml ← /team:init 创建的知识锚点
-                                      ├── src/                  ← 你的业务代码
-                                      └── docs/workflows/       ← 工作流产物（state.json、分析文档、架构、归档）
-                                             │
-                                             │ ARCHIVE 阶段自动 git push
-                                             ▼
-                                      团队知识仓库（独立 Git 仓库，所有成员 clone）
-                                        ├── knowledge-catalog.md   ← 全景目录（Agent 查询入口）
-                                        ├── tech-wiki/             ← 技术知识（按语言/框架/模式）
-                                        ├── biz-wiki/{domain}/     ← 业务知识（按领域）
-                                        ├── team-conventions/      ← 团队编码约定
-                                        └── contributions/         ← 贡献暂存与冲突记录
+工作区根/（= Git 仓库根）
+├── .codebuddy/               ← 引擎副本
+├── .ai-team/project.yaml     ← 知识锚点
+├── docs/workflows/            ← 工作流产物
+├── src/                       ← 你的代码
+└── pom.xml / package.json
+
+→ repos[]: [{ name: "my-project", path: "./", type: "fullstack" }]
 ```
 
-**三个独立仓库，各司其职**：
-- **ai-team 仓库**（本仓库）：工作流引擎代码，复制到各业务项目使用
-- **业务项目仓库**：你的实际代码 + 工作流产物
-- **团队知识仓库**：跨项目共享的知识库，通过 `/team:init` 连接
+**多仓模式**（多个独立 Git 仓库，微服务拆分）：
+```
+工作区根/（CodeBuddy 打开的父目录，不是 Git 仓库）
+├── .codebuddy/               ← 引擎副本
+├── .ai-team/project.yaml     ← 知识锚点
+├── docs/workflows/            ← 工作流产物（不属于任何 Git 仓库）
+│
+├── ad-service/        (.git/) ← Git 仓库 A（后端微服务）
+├── creative-service/  (.git/) ← Git 仓库 B（后端微服务）
+└── ad-frontend/       (.git/) ← Git 仓库 C（前端）
+
+→ repos[]: [
+    { name: "ad-service",       path: "ad-service/",       type: "backend" },
+    { name: "creative-service", path: "creative-service/",  type: "backend" },
+    { name: "ad-frontend",      path: "ad-frontend/",       type: "frontend" }
+  ]
+```
+
+两种模式的工作流完全一致：INIT 自动扫描填充 `repos[]`，后续阶段遍历 `repos[]` 执行。
+
+**团队知识仓库**（独立 Git 仓库，所有成员 clone，跨项目/跨工作区共享）：
+```
+team-knowledge.git
+├── knowledge-catalog.md      ← 全景目录（Agent 按需查询入口）
+├── tech-wiki/                ← 技术知识（按语言/框架/模式）
+├── biz-wiki/{domain}/        ← 业务知识（按领域）
+├── team-conventions/         ← 团队编码约定
+└── contributions/            ← 贡献暂存与冲突记录
+```
+
+**三类仓库各司其职**：
+- **ai-team 仓库**（本仓库）：工作流引擎代码，复制到各工作区使用
+- **业务项目仓库**（一个或多个）：你的实际代码
+- **团队知识仓库**：跨项目共享的知识库，通过 `/team:init` 连接，不同工作区可连同一个
 
 ---
 
@@ -102,10 +129,10 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
 | 阶段 | Agent | 做什么 |
 |------|-------|--------|
 | **ANALYSE_PRODUCT** | 4-5 成员 Agent Teams | 需求分析：迭代判定、基线对比、用户故事/业务规则提取、视觉分析 |
-| **ANALYSE_TECH** | 4 成员 Agent Teams | 技术分析：代码全景扫描、3 轮递进复用搜索、技术方案设计、分端拆解、校审 |
+| **ANALYSE_TECH** | 4 成员 Agent Teams | 技术分析：按 repos[] 逐仓库扫描、3 轮递进复用搜索、技术方案设计、分端拆解、校审 |
 | **ARCHITECT** | 架构师 Agent | 后端/前端/小程序架构设计，数据库设计，API 契约定义 |
-| **IMPLEMENT** | 各端开发 Agent 并行 | 代码实现，文件所有权声明，LSP 实时诊断 |
-| **BUILD_VERIFY** | 验证 Agent | LSP 预扫描 + 终端编译双保险 |
+| **IMPLEMENT** | 各端开发 Agent 并行 | 按 repos[] 分配文件所有权，每个仓库独立 Agent，LSP 实时诊断 |
+| **BUILD_VERIFY** | 验证 Agent | 按 repos[] 逐仓库编译（各自 buildCommand），LSP 预扫描 |
 | **VISUAL_REVIEW** | 视觉验收 Agent | AI 对比设计稿 vs 实现截图，还原度评分（A/B/C/D/F） |
 | **ARCHIVE** | @archiver | 归档 + 知识提取 + 团队知识仓库同步（Git push） |
 
@@ -291,6 +318,7 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 | **文件即状态** | `state.json` 管理工作流，阶段产物即进度凭证 |
 | **知识是核心资产** | 团队共享 Git 知识仓库，三级成熟度 + 贡献追踪 + 不可变日志 |
 | **按需消费** | 三层渐进索引，Agent 主动查询而非被动推送 |
+| **单仓多仓统一** | `repos[]` 模型，单仓 = 1 个元素，多仓 = N 个元素，零分支判断 |
 | **人机协同** | 三步模式（Preview → Execute → Summary），每步人工可控 |
 | **安全降级** | Agent Teams 三级降级 + 检查点断点恢复 |
 
