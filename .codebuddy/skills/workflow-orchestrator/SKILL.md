@@ -650,9 +650,11 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 4. **项目仓库扫描**（统一 `repos[]` 模型，单仓和多仓兼容）：
    a) 扫描工作区内的仓库和项目目录：
-      - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个 repo
-      - 扫描一级子目录的 `.git/`（排除 `node_modules`、`.ai-team-install`、`docs` 等）
-      - 对每个发现的目录，检测 `pom.xml` / `build.gradle` / `package.json` / `go.mod` 判断类型和技术栈
+      - **排除目录**：`.codebuddy/`、`node_modules/`、`.ai-team-install/`、`.ai-team/`、`docs/`、`.git/`、`dist/`、`build/`、`target/`
+      - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个 repo（但排除上述目录后扫描技术栈）
+      - 扫描一级子目录的 `.git/`（排除上述目录）
+      - 仅对业务代码目录检测 `pom.xml` / `build.gradle` / `package.json` / `go.mod` 判断类型和技术栈
+      - **禁止**将 `.codebuddy/rules/` 下的编码规则识别为项目技术栈
    b) 填充 `projectConfig.repos[]` 数组，每个仓库/项目一条记录：
       ```json
       {

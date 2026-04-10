@@ -105,17 +105,22 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
 ```
 
 **自动推断逻辑**：
+
+> **⚠️ 排除目录**：扫描时必须跳过以下目录，它们不是业务项目代码：
+> `.codebuddy/`、`node_modules/`、`.ai-team-install/`、`.ai-team/`、`docs/`、`.git/`、`dist/`、`build/`、`target/`
+
 1. 扫描工作区内的仓库和项目目录（兼容单仓和多仓）：
-   - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个项目
-   - 扫描一级子目录的 `.git/`（排除 `node_modules` 等）→ 多仓模式
-   - 对每个发现的目录检测：
+   - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个项目（但仍需排除上述目录后扫描技术栈）
+   - 扫描一级子目录的 `.git/`（排除上述目录）→ 多仓模式
+   - **仅对业务代码目录**检测技术栈：
      - `pom.xml` / `build.gradle` → Java
      - `package.json` + 检查 dependencies → React/Vue/Taro/Next.js 等
      - `go.mod` → Go
      - `requirements.txt` / `pyproject.toml` → Python
-2. 聚合所有仓库的技术栈（去重）作为 project.yaml 的 tech_stack
-3. 扫描 README.md 提取项目描述
-4. 扫描 `docs/` 目录判断是否有业务文档
+   - **禁止**将 `.codebuddy/rules/` 下的编码规则文件（tcb、cloudbase-agent 等）识别为项目技术栈
+2. 聚合所有**业务仓库**的技术栈（去重）作为 project.yaml 的 tech_stack
+3. 扫描 README.md 提取项目描述（工作区根或各仓库根的 README.md）
+4. 扫描 `docs/` 目录判断是否有业务文档（排除 `.codebuddy/` 内的 docs）
 
 **交互确认**：
 
