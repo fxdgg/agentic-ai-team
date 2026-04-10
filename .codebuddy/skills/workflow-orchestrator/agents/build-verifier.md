@@ -34,7 +34,7 @@
 
 ### 与其他角色的协作关系
 ```
-各领域开发 Agent (java-domain-developers/*)
+各领域开发 Agent (backend-developers/*，动态调度)
 Web 端开发 Agent (web-developer)
 小程序端开发 Agent (miniprogram-developer)
        ↓ 输出: implementation/{backend,web,miniprogram}/*-report.md + 源码文件

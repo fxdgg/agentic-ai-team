@@ -287,7 +287,7 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 ├── skills/                              # Skill 定义
 │   ├── workflow-orchestrator/           # 🧠 核心编排器
 │   │   ├── SKILL.md                     #   16 阶段状态机 + Agent Teams
-│   │   ├── agents/                      #   35 个子 Agent 定义
+│   │   ├── agents/                      #   子 Agent 定义（动态调度）
 │   │   ├── phases/                      #   阶段调度规则
 │   │   ├── references/                  #   Schema 定义（state-schema.json 等）
 │   │   ├── rules/                       #   编码规范、诊断策略、视觉协议

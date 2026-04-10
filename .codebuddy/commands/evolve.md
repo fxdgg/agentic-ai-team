@@ -138,7 +138,7 @@ applied_by:
    | 技术方案缺陷 | fullstack-analyst | 技术可行性分析遗漏 |
    | 后端架构设计问题 | java-architect | 架构设计缺陷 |
    | 前端架构设计问题 | frontend-architect | 架构设计缺陷 |
-   | Java 领域代码缺陷 | java-domain-developers/* | 具体领域开发 Agent |
+   | 后端领域代码缺陷 | backend-developers/* | 具体领域开发 Agent |
    | Web 端代码缺陷 | web-developer | Web 端开发 Agent |
    | 小程序端代码缺陷 | miniprogram-developer | 小程序端开发 Agent |
    | 编译/构建问题 | build-verifier | 编译验证遗漏 |
@@ -269,7 +269,7 @@ applied_by:
 
    ### 热点阶段改进建议
    - ⚠️ **IMPLEMENT**: 工具调用 156 次 + 压缩 3 次
-     → 检查 java-domain-developers 的 Rules 文件大小
+     → 检查 backend-developers 的规范文件大小
      → 考虑增加 Agent Teams 并行度（分散上下文压力）
      → 中间产物是否可进一步压缩后传递
    ```

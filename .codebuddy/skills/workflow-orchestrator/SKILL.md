@@ -274,7 +274,7 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 |-----------|--------------|------|
 | 搜索密集型（@tech-explorer, @codebase-profiler） | ≤60 次 | 允许高搜索量，但通过 Agent Teams 上下文隔离 |
 | 设计型（@tech-designer, @frontend-architect） | ≤5 次 | 极少搜索，信息来自上游中间产物 |
-| 开发型（java-domain-developers, web-developer） | ≤30 次/领域 | 聚焦本领域目录，禁止全局搜索 |
+| 开发型（backend-developers, web-developer） | ≤30 次/领域 | 聚焦本领域目录，禁止全局搜索 |
 | 验证型（build-verifier, e2e-verifier） | ≤20 次 | 以命令执行为主，搜索为辅 |
 
 **每个需求点的搜索策略**（@tech-explorer 专用）：
@@ -296,7 +296,7 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 
 ## 3. 子 Agent 注册表
 
-> **注意**：以下注册表列出了通用的 Agent 角色。具体项目中，后端领域开发 Agent 的数量和领域划分由 Java 架构师根据项目实际情况动态确定，前端 Agent 的启用由 `state.json` 中 `platforms` 字段控制。
+> **注意**：以下注册表列出了通用的 Agent 角色。具体项目中，后端领域开发 Agent 的数量和领域划分由架构师根据项目实际情况动态确定（通过 `domain-registry.json` 驱动），所有后端领域 Agent 共享 `backend-dev-specification.md` 通用规范。前端 Agent 的启用由 `state.json` 中 `platforms` 字段控制。
 
 | Agent 文件 | 角色 | 调用阶段 |
 |------------|------|----------|
@@ -313,7 +313,7 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 | `agents/java-architect.md` | 资深 Java 架构师（Java 专版） | ARCHITECT_BACKEND |
 | `agents/backend-architect.md` | 资深后台架构师（通用版，技术栈无关） | ARCHITECT_BACKEND |
 | `agents/frontend-architect.md` | 资深前端架构师 | ARCHITECT_FRONTEND |
-| `agents/java-domain-developers/*.md` | 后端领域开发 Agent（动态注册） | IMPLEMENT |
+| `agents/backend-developers/backend-dev-specification.md` | 后端领域开发通用规范（动态调度时引用） | IMPLEMENT |
 | `agents/web-developer.md` | 资深 Web 端代码开发 | IMPLEMENT（web） |
 | `agents/miniprogram-developer.md` | 资深小程序端代码开发 | IMPLEMENT（miniprogram） |
 | `agents/build-verifier.md` | 编译验证专家（单体/降级模式） | BUILD_VERIFY |
@@ -373,7 +373,7 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 
 ```bash
 python3 scripts/resolve_agent_paths.py \
-  --agent-file agents/java-domain-developers/common-developer.md \
+  --agent-file agents/backend-developers/backend-dev-specification.md \
   --project-root . \
   --mode replace \
   --output json
@@ -963,13 +963,16 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 >
 > 推导结果同样写入 `projectConfig` 的路径字段，下游 Agent 通过相同的占位符机制消费，**无需感知项目是全新还是历史**。
 
-### 12.2 后端领域开发 Agent 动态注册
+### 12.2 后端领域开发 Agent 动态调度
 
-后端领域开发 Agent 不硬编码固定数量，而是由 Java 架构师在 ARCHITECT_BACKEND 阶段根据项目实际情况动态确定：
+后端领域开发 Agent 不硬编码固定数量，而是由架构师在 ARCHITECT_BACKEND 阶段根据项目实际情况动态确定，通过 `domain-registry.json` 驱动：
 
-1. 架构师分析项目需求，确定微服务拆分方案
-2. 为每个微服务生成对应的领域技术需求文档
-3. IMPLEMENT 阶段根据 `priority-list.md` 中的优先级顺序调度对应的领域开发 Agent
+1. 架构师分析项目需求，确定领域/模块拆分方案
+2. 用户确认后将领域列表写入 `domain-registry.json`
+3. 为每个领域生成对应的技术需求文档
+4. IMPLEMENT 阶段编排器读取 `domain-registry.json`，为每个领域动态生成开发 Agent
+5. 所有领域 Agent 共享 `agents/backend-developers/backend-dev-specification.md` 通用规范
+6. 领域差异通过 Prompt 注入和 `domain-registry.json` 的 `extraRules` / `extraQualityChecks` 字段表达
 
 ### 12.3 通知机制（可选）
 

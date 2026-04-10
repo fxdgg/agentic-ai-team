@@ -20,8 +20,8 @@
   │ 优先级     │ 成员名            │ 领域      │ 依赖         │
   ├───────────┼──────────────────┼──────────┼─────────────┤
   │ P0        │ @common-dev      │ 公共模块   │ 无           │
-  │ P1        │ @user-center-dev │ 用户中心   │ @common-dev  │
-  │ P1        │ @merchant-center-dev │ 商户中心 │ @common-dev  │
+  │ P1        │ @{domain-a}-dev  │ {领域A}    │ @common-dev  │
+  │ P1        │ @{domain-b}-dev  │ {领域B}    │ @common-dev  │
   │ ...       │ ...              │ ...      │ ...         │
   └───────────┴──────────────────┴──────────┴─────────────┘
 
@@ -51,15 +51,12 @@
 ⏱️ 已运行: [时长]
 
 📊 成员状态:
-  ✅ @common-dev      — 完成（P0）— 耗时 5m — 新增 3 文件，修改 2 文件
-  🔄 @user-center-dev — 执行中（P1）— 已运行 3m
-  🔄 @merchant-center-dev — 执行中（P1）— 已运行 2m
-  ⏳ @product-center-dev — 等待中（P2）— 依赖 P1 完成
-  ⏳ @trade-center-dev — 等待中（P3）
-  ⏳ @marketing-center-dev — 等待中（P3）
-  ⏳ @logistics-center-dev — 等待中（P4）
+  ✅ @common-dev       — 完成（P0）— 耗时 5m — 新增 3 文件，修改 2 文件
+  🔄 @{domain-a}-dev  — 执行中（P1）— 已运行 3m
+  🔄 @{domain-b}-dev  — 执行中（P1）— 已运行 2m
+  ⏳ @{domain-c}-dev  — 等待中（P2）— 依赖 P1 完成
 
-📈 总体进度: [2/7] 领域完成
+📈 总体进度: [1/N] 领域完成（N 由 domain-registry.json 决定）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

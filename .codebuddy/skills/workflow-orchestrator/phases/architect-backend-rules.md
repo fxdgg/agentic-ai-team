@@ -303,21 +303,13 @@ Step 2（并行，多成员）:
 识别流程：
 1. 读取 analysis/tech-requirements-backend.md
 2. 定位「## 1. 改动范围」章节，提取涉及的后端模块列表
-3. 根据 §0.1 选择的架构师 Agent 类型执行不同的匹配策略：
-
-   a) 当 selected-architect = java-architect 时（Java 项目）：
-      - 与项目已注册的领域列表交叉匹配
-      - 领域列表来自 `agents/java-domain-developers/` 目录下的 Agent 文件名
-      - 为每个匹配的领域创建对应的 @domain-architect-{service} 成员
-   
-   b) 当 selected-architect = backend-architect 时（通用项目）：
-      - 直接使用 tech-requirements-backend.md 中声明的模块列表
-      - 无需与预注册领域交叉匹配（通用版不依赖预注册的领域 Agent）
-      - 根据模块划分原则将模块分组：
-        * 公共基础模块（database/middleware/utils 等）→ 合并为 common 领域
-        * 独立业务模块 → 各自作为独立领域
-      - 为每个领域创建对应的 @domain-architect-{module} 成员
-
+3. 统一使用动态识别策略（不区分架构师类型）：
+   - 直接使用 tech-requirements-backend.md 中声明的模块列表
+   - 根据模块划分原则将模块分组：
+     * 公共基础模块（database/middleware/utils 等）→ 合并为 common 领域
+     * 独立业务模块 → 各自作为独立领域
+   - 为每个领域创建对应的 @domain-architect-{module} 成员
+   - 如已有 domain-registry.json（历史需求产出），检查同名领域复用
 4. 执行领域数量治理规则校验（§3.6）
 5. 确认领域/模块数量，选择调度模式（§0.2）
 ```

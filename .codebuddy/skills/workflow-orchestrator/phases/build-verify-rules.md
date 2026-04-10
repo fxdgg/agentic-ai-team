@@ -121,17 +121,13 @@ BUILD_VERIFY 发现编译错误
 
 ## 4.1 后端回退时的领域级精细调度
 
-当后端编译失败时，不需要重新调度全部 7 个 Java 领域开发 Agent。编排器应从编译错误信息中提取涉及的模块，只调度相关领域 Agent：
+当后端编译失败时，不需要重新调度全部领域开发 Agent。编排器应从编译错误信息中提取涉及的模块，通过 `domain-registry.json` 映射到对应领域，只调度相关领域 Agent：
 
-| 编译错误模块 | 调度的 Agent |
-|-------------|-------------|
-| `{common-module}` | common-developer |
-| `{user-center}-*` | user-center-developer |
-| `{product-center}-*` | product-center-developer |
-| `{merchant-center}-*` | merchant-center-developer |
-| `{marketing-center}-*` | marketing-center-developer |
-| `{trade-center}-*` | trade-center-developer |
-| `{logistics-center}-*` | logistics-center-developer |
+**映射规则**:
+1. 从编译错误信息中提取失败的模块路径
+2. 读取 `domain-registry.json`，遍历 `domains[].modules` 匹配失败模块
+3. 确定涉及的领域 ID，仅调度这些领域的开发 Agent（成员名: `@{domain-id}-dev`）
+4. 公共模块错误 → 调度 `@common-dev`
 
 **上游依赖错误处理**: 如果错误涉及上游依赖（如公共模块的 optional 依赖问题导致下游模块编译失败），编排器应：
 1. 根据 `dependency-graph.md` 分析错误根源

@@ -257,7 +257,7 @@ flowchart TB
 
 ### 实现阶段 — 后端领域开发 Agent
 
-后端领域开发 Agent 的数量和领域划分由 Java 架构师在 ARCHITECT_BACKEND 阶段根据项目实际情况动态确定。Agent 定义文件存放在 `agents/java-domain-developers/` 目录下，每个微服务对应一个领域开发 Agent。
+后端领域开发 Agent 的数量和领域划分由架构师在 ARCHITECT_BACKEND 阶段根据项目实际情况动态确定。所有领域 Agent 共享 `agents/backend-developers/backend-dev-specification.md` 通用规范，领域差异通过 `domain-registry.json` 和 Prompt 动态注入。
 
 调度顺序依据 `architecture/backend/priority-list.md` 中定义的优先级执行。
 
@@ -535,8 +535,8 @@ workflow-orchestrator/
 │   ├── e2e-link-verifier.md          #   端到端链路验证专家
 │   ├── test-engineer.md              #   测试工程师
 │   ├── archiver.md                   #   归档专员
-│   └── java-domain-developers/       #   后端领域开发 Agent（按项目动态确定）
-│       └── ...                       #     每个微服务一个 Agent 定义文件
+│   └── backend-developers/            #   后端领域开发 Agent 规范
+│       └── backend-dev-specification.md  # 通用后端开发规范（所有领域共享）
 │
 ├── phases/                           # 阶段规则片段（编排器按需加载）
 │   ├── clarify-rules.md              #   澄清流程 + 回填规范

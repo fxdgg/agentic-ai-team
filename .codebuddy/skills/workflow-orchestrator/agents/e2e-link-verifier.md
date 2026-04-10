@@ -24,7 +24,7 @@
 
 ### 与其他角色的协作关系
 ```
-各领域开发 Agent (java-domain-developers/*)
+各领域开发 Agent (backend-developers/*，动态调度)
        ↓ 输出: implementation/backend/*-report.md + 源码文件
 编译验证 Agent (build-verifier)
        ↓ 输出: 在各领域 report.md 中追加"编译验证"章节

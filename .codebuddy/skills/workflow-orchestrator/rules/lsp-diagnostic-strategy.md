@@ -214,8 +214,7 @@ BUILD_VERIFY 执行流程（增强后）：
 |-------|---------|---------|
 | `agents/web-developer.md` | 强制引用 | IMPLEMENT 阶段 Web 端开发中的实时诊断 |
 | `agents/miniprogram-developer.md` | 强制引用 | IMPLEMENT 阶段小程序端开发中的实时诊断 |
-| `agents/java-domain-developers/_template.md` | 强制引用 | IMPLEMENT 阶段 Java 后端开发中的实时诊断 |
-| `agents/java-domain-developers/common-developer.md` | 强制引用 | IMPLEMENT 阶段公共模块开发中的实时诊断 |
+| `agents/backend-developers/backend-dev-specification.md` | 强制引用 | IMPLEMENT 阶段后端开发中的实时诊断 |
 | `agents/build-verifier.md` | 条件引用 | BUILD_VERIFY 阶段的前置 LSP 扫描 |
 | `agents/build-verifiers/web-build-verifier.md` | 条件引用 | BUILD_VERIFY 阶段 Web 端前置 LSP 扫描 |
 | `agents/build-verifiers/backend-build-verifier.md` | 条件引用 | BUILD_VERIFY 阶段后端前置 LSP 扫描 |

@@ -27,7 +27,7 @@
        ↓ 输出: tech-requirements.md（总纲，包含接口基准契约）
 资深 Java 架构师 (java-architect) ← 当前角色
        ↓ 输出: 各领域技术需求文档
-各领域开发 Agent (java-domain-developers/*)
+各领域开发 Agent (backend-developers/*，动态调度)
 ```
 
 ### 与全栈开发专家的协作约束

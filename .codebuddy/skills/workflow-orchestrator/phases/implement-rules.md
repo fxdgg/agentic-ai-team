@@ -36,85 +36,40 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 - 无接口交互的纯前端需求可直接执行前端 Agent
 - 每个平台 Agent 执行完毕后单独更新 `state.json` 中对应平台的 `status`
 
-## 2. 后端领域调度规则
+## 2. 后端领域调度规则（统一动态模式）
 
 当 `backend.enabled: true` 时，编排器按以下规则调度后端领域开发 Agent：
 
 1. **读取架构文档**: 从 `architecture/backend/priority-list.md` 获取开发优先级
 2. **确定涉及领域**: 从 `architecture/backend/` 下各领域 `tech-requirements.md` 的存在性判断哪些领域需要开发
-3. **读取领域注册表**: 从 `architecture/backend/domain-registry.json` 获取领域元信息（项目类型、Agent 规范等）
+3. **读取领域注册表**: 从 `architecture/backend/domain-registry.json` 获取领域元信息
 4. **按优先级调度**: 按 P0 → P1 → P2 → P3 → P4 顺序调度对应领域的开发 Agent
-5. **同优先级可并行**: 同一优先级的多个领域 Agent 可并行执行（如 P1 的 user-center 和 merchant-center）
+5. **同优先级可并行**: 同一优先级的多个领域 Agent 可并行执行
 6. **公共模块优先**: `common` 领域始终最先执行（P0）
-7. **领域 Agent 映射**（根据项目类型分两种策略）:
+7. **领域 Agent 映射**: 统一使用动态生成模式，不区分项目类型
 
-### 2.1 Java 项目的领域 Agent 映射（预注册模式）
+### 2.1 统一动态映射规则
 
-当 `domain-registry.json` 中 `projectType = "java"` 时：
+> **设计意图**: 所有项目（Java / Node.js / Python / Go 等）统一使用 `domain-registry.json` 驱动的动态 Agent 调度，无需预先创建领域 Agent 文件。领域差异通过 Prompt 注入和 `domain-registry.json` 的 `extraRules` / `extraQualityChecks` 字段表达。
 
-> **注意**: 以下为**示例领域映射表**（以电商项目为例）。实际项目中，领域名称由 ARCHITECT_BACKEND 阶段动态确定，编排器根据 `architecture/backend/` 下的领域目录自动映射到对应的 Agent。
-
-| 领域（示例） | Agent 文件 | Agent Teams 成员名 |
-|------|-----------|-------------------|
-| {common-module} | `agents/java-domain-developers/common-developer.md` | `@common-dev` |
-| {user-center} | `agents/java-domain-developers/user-center-developer.md` | `@user-center-dev` |
-| {product-center} | `agents/java-domain-developers/product-center-developer.md` | `@product-center-dev` |
-| {merchant-center} | `agents/java-domain-developers/merchant-center-developer.md` | `@merchant-center-dev` |
-| {marketing-center} | `agents/java-domain-developers/marketing-center-developer.md` | `@marketing-center-dev` |
-| {trade-center} | `agents/java-domain-developers/trade-center-developer.md` | `@trade-center-dev` |
-| {logistics-center} | `agents/java-domain-developers/logistics-center-developer.md` | `@logistics-center-dev` |
-
-### 2.2 通用项目的领域 Agent 映射（动态生成模式）
-
-当 `domain-registry.json` 中 `projectType = "generic"` 时：
-
-> **设计意图**: 通用项目（Node.js / Python / Go 等）没有预注册的领域开发 Agent 文件，编排器需要基于 `domain-registry.json` 和通用 Agent 模板动态生成领域开发成员。
-
-**映射规则**:
+**映射流程**:
 
 ```
-通用项目领域 Agent 映射流程：
+领域 Agent 动态映射流程：
 1. 读取 architecture/backend/domain-registry.json
 2. 遍历 domains[] 列表
 3. 对每个领域：
-   a) Agent 规范 → 使用 agents/backend-architect.md 中的开发相关规范
-      （通用项目共享同一份 Agent 规范，通过 Prompt 注入差异化上下文）
-   b) 成员名 → @{domain-id}-dev（如 @common-dev, @user-service-dev）
-   c) Prompt 中注入：
+   a) Agent 规范 → 所有领域共享 agents/backend-developers/backend-dev-specification.md
+   b) 成员名 → @{domain-id}-dev（如 @common-dev, @ad-service-dev）
+   c) Prompt 中注入（见 §3.2 成员 Prompt 模板）：
       - 领域 ID 和中文名（来自 domain-registry.json）
       - 领域包含的模块列表
       - 领域边界约束（仅允许操作指定目录）
+      - 领域特有规则（来自 extraRules）
+      - 领域特有检查项（来自 extraQualityChecks）
       - 技术需求文档路径
       - 全局架构文档路径
 4. 优先级 → 从 priority-list.md 读取，common 领域始终 P0
-```
-
-**通用项目领域 Agent Prompt 模板**:
-
-```
-生成一个 {领域中文名} 开发成员（{成员名}），Prompt 如下：
-
-"你是一位资深后端开发工程师，负责 {领域名} 的代码实现。
-
-你的工作职责：
-1. 读取技术需求文档：{architecture/backend/{领域ID}/tech-requirements.md 的绝对路径}
-2. 读取后端整体架构文档：{architecture/backend/architecture.md 的绝对路径}
-3. 读取领域注册表确认边界：{architecture/backend/domain-registry.json 的绝对路径}
-4. 严格按照技术需求文档中的文件级改动清单逐一实现代码
-5. 生成实现报告到：{implementation/backend/{领域ID}-report.md 的绝对路径}
-
-领域边界约束：
-- ✅ 仅允许操作 {领域对应的目录路径} 下的代码
-- ❌ 严禁修改其他领域目录的代码
-- 模块列表：{domain-registry.json 中该领域的 modules 数组}
-
-需求 ID：{state.json 中的 id}
-当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
-
-完成后，请向领导发送消息汇报完成状态，包含：
-- 新增/修改的文件数量
-- 关键变更摘要
-- 是否存在风险项"
 ```
 
 ---
@@ -145,67 +100,7 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 为每个涉及的领域生成一个独立成员。成员的初始 Prompt 必须包含充分的上下文：
 
-**成员 Prompt 注入规范（根据项目类型选择模板）**:
-
-#### Java 项目（`domain-registry.json` 中 `projectType = "java"`）
-
-```
-生成一个 {领域中文名} 开发成员（{成员名}），Prompt 如下：
-
-"你是一位资深 Java 后端开发工程师，负责 {领域名} 的代码实现。
-
-## ⚠️ 文件所有权声明
-
-你（{成员名}）拥有以下目录的**独占写权限**：
-- ✅ {backend-root}/{领域}/ — 你的领域代码目录
-
-以下目录是**公共区域**，需要通过编排器协调后才能修改：
-- ⚠️ {backend-root}/{common-module}/ — 公共模块（修改前必须向领导申请）
-
-**严禁修改**其他 Agent 的所有权目录：
-{动态生成的其他领域目录列表，每行一个，格式: - ❌ {backend-root}/{其他领域}/ — 归属 @{其他成员名}}
-
-如需跨领域修改，向编排器报告依赖关系，等待协调指令。
-
-## 工作职责
-
-1. 读取技术需求文档：{architecture/backend/{领域}/tech-requirements.md 的绝对路径}
-2. 读取后端整体架构文档：{architecture/backend/architecture.md 的绝对路径}
-3. 读取 Agent 行为规范：{agents/java-domain-developers/{领域}-developer.md 的绝对路径}
-4. 严格按照技术需求文档中的文件级改动清单逐一实现代码
-5. 生成实现报告到：{implementation/backend/{领域}-report.md 的绝对路径}
-
-领域边界约束：
-- ✅ 仅允许操作 {backend-root}/{领域}/ 目录下的代码
-- ❌ 严禁修改其他领域目录的代码
-
-需求 ID：{state.json 中的 id}
-当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
-
-完成后，请向领导发送消息汇报完成状态，包含：
-- 新增/修改的文件数量
-- 关键变更摘要
-- 是否存在风险项
-- **验证证据**（编译结果、文件清单验证、边界验证）"
-```
-
-> **占位符说明**: `{backend-root}` 在运行时由编排器根据 `state.json` 中 `projectConfig.backendRoot` 的值解析为实际路径。如果 `projectConfig.repos[]` 存在，优先从 repos 中按 type 匹配路径。
->
-> **多仓库模式（repos[] 适配）**:
-> 当 `projectConfig.repos[]` 存在时，编排器按以下规则分配文件所有权：
-> - 遍历 `repos[]`，对每个 `type=backend` 的 repo 分配一个后端开发 Agent，独占目录为 `repo.path`
-> - 对每个 `type=frontend` 的 repo 分配 `@web-developer`，独占目录为 `repo.path`
-> - 对每个 `type=miniprogram` 的 repo 分配 `@miniprogram-developer`
-> - `type=common` 的 repo 作为公共模块区域
-> - 各 Agent 的文件所有权声明直接使用 `repo.path` 替代 `{backend-root}/{领域}/`
-> - 跨仓库修改的协调规则与跨领域修改一致（向编排器报告，等待协调）
->
-> **全新项目路径处理**（`projectConfig.projectType = "new"`）:
-> - 路径字段已在 INIT 阶段由编排器根据 PRD 技术分析结果自动推导并经用户确认（如 `my-app-frontend/`），Agent 在首次写入文件时自动创建目标目录
-> - 编排器在生成成员 Prompt 前**必须** `read_file` 读取最新 `state.json`，确保使用 INIT 阶段已确认的路径值
-> - 若 `{backend-root}` 或 `{web-project}` 为 `null`（该平台未启用），编排器不为其生成 Agent 成员
-
-#### 通用项目（`domain-registry.json` 中 `projectType = "generic"`）
+**统一成员 Prompt 模板**（所有项目类型共用）:
 
 ```
 生成一个 {领域中文名} 开发成员（{成员名}），Prompt 如下：
@@ -227,16 +122,23 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 ## 工作职责
 
-1. 读取技术需求文档：{architecture/backend/{领域ID}/tech-requirements.md 的绝对路径}
-2. 读取后端整体架构文档：{architecture/backend/architecture.md 的绝对路径}
-3. 读取领域注册表确认边界：{architecture/backend/domain-registry.json 的绝对路径}
-4. 严格按照技术需求文档中的文件级改动清单逐一实现代码
-5. 生成实现报告到：{implementation/backend/{领域ID}-report.md 的绝对路径}
+1. 读取后端开发通用规范：{agents/backend-developers/backend-dev-specification.md 的绝对路径}
+2. 读取技术需求文档：{architecture/backend/{领域ID}/tech-requirements.md 的绝对路径}
+3. 读取后端整体架构文档：{architecture/backend/architecture.md 的绝对路径}
+4. 读取领域注册表确认边界：{architecture/backend/domain-registry.json 的绝对路径}
+5. 严格按照技术需求文档中的文件级改动清单逐一实现代码
+6. 生成实现报告到：{implementation/backend/{领域ID}-report.md 的绝对路径}
+
+## 领域上下文
+
+- 领域职责模块：{domain-registry.json 中该领域的 modules 数组}
+- 领域依赖关系：{domain-registry.json 中该领域的 dependencies 数组}
+- 领域特有规则：{domain-registry.json 中该领域的 extraRules 数组，逐条列出}
+- 领域特有检查项：{domain-registry.json 中该领域的 extraQualityChecks 数组，逐条列出}
 
 领域边界约束：
 - ✅ 仅允许操作 {领域对应的目录路径} 下的代码
 - ❌ 严禁修改其他领域目录的代码
-- 模块列表：{domain-registry.json 中该领域的 modules 数组}
 
 需求 ID：{state.json 中的 id}
 当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
@@ -248,6 +150,22 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 - **验证证据**（编译结果、文件清单验证、边界验证）"
 ```
 
+> **占位符说明**: `{领域对应的目录路径}` 在运行时由编排器根据 `state.json` 中 `projectConfig` 的路径配置解析为实际路径。如果 `projectConfig.repos[]` 存在，优先从 repos 中按 type 匹配路径。
+>
+> **多仓库模式（repos[] 适配）**:
+> 当 `projectConfig.repos[]` 存在时，编排器按以下规则分配文件所有权：
+> - 遍历 `repos[]`，对每个 `type=backend` 的 repo 分配一个后端开发 Agent，独占目录为 `repo.path`
+> - 对每个 `type=frontend` 的 repo 分配 `@web-developer`，独占目录为 `repo.path`
+> - 对每个 `type=miniprogram` 的 repo 分配 `@miniprogram-developer`
+> - `type=common` 的 repo 作为公共模块区域
+> - 各 Agent 的文件所有权声明直接使用 `repo.path` 替代领域目录路径
+> - 跨仓库修改的协调规则与跨领域修改一致（向编排器报告，等待协调）
+>
+> **全新项目路径处理**（`projectConfig.projectType = "new"`）:
+> - 路径字段已在 INIT 阶段由编排器根据 PRD 技术分析结果自动推导并经用户确认，Agent 在首次写入文件时自动创建目标目录
+> - 编排器在生成成员 Prompt 前**必须** `read_file` 读取最新 `state.json`，确保使用 INIT 阶段已确认的路径值
+> - 若某平台路径为 `null`（该平台未启用），编排器不为其生成 Agent 成员
+
 > **关键**: 成员 Prompt 中的所有路径必须为**绝对路径**（通过 `scripts/resolve_agent_paths.py` 解析），因为成员**不会继承领导的对话历史**。
 
 ### 3.3 任务列表与依赖关系
@@ -255,14 +173,11 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 编排器根据 `priority-list.md` 中的优先级生成共享任务列表，并设置依赖关系：
 
 ```
-任务列表：
+任务列表（示例，实际由 domain-registry.json + priority-list.md 动态生成）：
 1. [P0] 公共模块开发 — 分配给 @common-dev — 无依赖
-2. [P1] 用户中心开发 — 分配给 @user-center-dev — 依赖任务 1
-3. [P1] 商户中心开发 — 分配给 @merchant-center-dev — 依赖任务 1
-4. [P2] 商品中心开发 — 分配给 @product-center-dev — 依赖任务 1
-5. [P3] 交易中心开发 — 分配给 @trade-center-dev — 依赖任务 4
-6. [P3] 营销中心开发 — 分配给 @marketing-center-dev — 依赖任务 4
-7. [P4] 物流中心开发 — 分配给 @logistics-center-dev — 依赖任务 5
+2. [P1] 领域 A 开发 — 分配给 @{domain-a}-dev — 依赖任务 1
+3. [P1] 领域 B 开发 — 分配给 @{domain-b}-dev — 依赖任务 1
+4. [P2] 领域 C 开发 — 分配给 @{domain-c}-dev — 依赖任务 2, 3
 ```
 
 **依赖关系转化规则**:
@@ -356,7 +271,7 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 1. **识别回退来源**: 编排器从 `rollbackLog` 中读取最近一条 `fromPhase = "BUILD_VERIFY"` 的记录
 2. **仅调度失败平台**: 根据 `rollbackLog.failedPlatforms` 确定需要重新调度的平台，跳过 `passedPlatforms` 中的平台
-3. **后端领域级调度**: 当后端失败时，根据 `rollbackLog.failedDimensions.B1.modules` 映射到具体领域 Agent，仅调度相关领域（而非全部 7 个）
+3. **后端领域级调度**: 当后端失败时，根据 `rollbackLog.failedDimensions.B1.modules` 映射到具体领域 Agent（通过 `domain-registry.json` 查找），仅调度相关领域
 4. **上游依赖分析**: 如果编译错误涉及上游依赖问题（如 optional 依赖未传递），编排器应根据 `dependency-graph.md` 分析错误根源，调度根因所在模块的 Agent
 5. **注入修复上下文**: 调用开发 Agent 时注入以下额外上下文：
 
