@@ -2,3 +2,10 @@
 *.swp
 *.swo
 *~
+
+# Agent Teams 运行时状态（进程ID、消息队列），工作流结束即失效
+.codebuddy/teams/
+
+# memory 文件是项目级经验记忆，应在业务项目仓库中积累提交
+# 但在 ai-team 引擎仓库中应为空（引擎模板不带运行数据）
+.codebuddy/memory/*.md
