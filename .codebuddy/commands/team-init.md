@@ -94,50 +94,62 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
    然后将此仓库地址告知团队其他成员，让他们也执行 /team-init 连接。
    ```
 
-### Step 3：收集项目信息
+### Step 3：仓库绑定（扫描→确认→持久化）
 
-使用 `ask_followup_question` 引导用户填写：
+> **核心原则**：扫描只是"建议"，最终哪些目录作为 repo 由用户确认。确认后写入 `project.yaml` 的 `repos[]`，后续工作流直接读取配置，不再重复扫描。
 
-```
-📋 AI Team 项目初始化
+**3a. 自动扫描（仅首次，生成候选列表）**：
 
-请提供以下信息（AI 会根据项目代码自动推断，你只需确认或修正）：
-```
+> **⚠️ 排除目录**：`.codebuddy/`、`node_modules/`、`.ai-team-install/`、`.ai-team/`、`docs/`、`.git/`、`dist/`、`build/`、`target/`
 
-**自动推断逻辑**：
+1. 扫描工作区一级子目录中包含 `.git/` 的目录（排除上述列表）
+2. 同时检查工作区根目录是否直接包含 `.git/`
+3. 对每个候选目录检测技术栈：
+   - `pom.xml` / `build.gradle` → Java
+   - `package.json` + 检查 dependencies → React/Vue/Taro/Next.js 等
+   - `go.mod` → Go
+   - `requirements.txt` / `pyproject.toml` → Python
+4. 推断仓库类型：backend / frontend / miniprogram / fullstack / common
+5. 推断编译命令：Maven → `mvn clean package -DskipTests`、Node.js → `npm run build` 等
 
-> **⚠️ 排除目录**：扫描时必须跳过以下目录，它们不是业务项目代码：
-> `.codebuddy/`、`node_modules/`、`.ai-team-install/`、`.ai-team/`、`docs/`、`.git/`、`dist/`、`build/`、`target/`
+**3b. 用户确认仓库列表**：
 
-1. 扫描工作区内的仓库和项目目录（兼容单仓和多仓）：
-   - 检查工作区根是否有 `.git/` → 如有，整个工作区作为一个项目（但仍需排除上述目录后扫描技术栈）
-   - 扫描一级子目录的 `.git/`（排除上述目录）→ 多仓模式
-   - **仅对业务代码目录**检测技术栈：
-     - `pom.xml` / `build.gradle` → Java
-     - `package.json` + 检查 dependencies → React/Vue/Taro/Next.js 等
-     - `go.mod` → Go
-     - `requirements.txt` / `pyproject.toml` → Python
-   - **禁止**将 `.codebuddy/rules/` 下的编码规则文件（tcb、cloudbase-agent 等）识别为项目技术栈
-2. 聚合所有**业务仓库**的技术栈（去重）作为 project.yaml 的 tech_stack
-3. 扫描 README.md 提取项目描述（工作区根或各仓库根的 README.md）
-4. 扫描 `docs/` 目录判断是否有业务文档（排除 `.codebuddy/` 内的 docs）
-
-**交互确认**：
+使用 `ask_followup_question` 展示扫描结果，**用户逐个确认或排除**：
 
 ```
-🤖 AI 推断结果：
+📁 工作区仓库扫描结果
+
+扫描到以下 Git 仓库，请确认哪些是本项目的业务代码仓库：
+
+  ✅ 1. ad-service/           后端 | Java, Spring Boot | mvn clean package
+  ✅ 2. creative-service/     后端 | Java, Spring Boot | mvn clean package
+  ✅ 3. ad-frontend/          前端 | TypeScript, React | npm run build
+  ❓ 4. infra-scripts/        未识别 | Shell | 无编译命令
+
+操作：
+  - 输入要排除的序号（如 "排除 4"）
+  - 输入要修正的信息（如 "3 类型改为 fullstack"）
+  - 输入 "确认" 完成绑定
+```
+
+**3c. 持久化到 project.yaml**：
+
+用户确认后，将 repos[] 写入 `.ai-team/project.yaml`（见 Step 4）。**后续 `/flow-run` 的 INIT 阶段直接读取 `project.yaml` 中的 `repos[]`，不再重复扫描。**
+
+### Step 4：收集项目信息并创建 project.yaml
+
+基于 Step 3 确认的仓库列表，聚合技术栈信息：
+
+```
+🤖 项目信息汇总：
 
 项目名称: {从工作区目录名推断}
-仓库/项目: {N} 个
-  - ad-service (后端, Java/Spring Boot)
-  - creative-service (后端, Java/Spring Boot)
-  - ad-frontend (前端, TypeScript/React)
-技术栈（聚合）:
-  后端: [Java, Spring Boot, MyBatis-Plus]
+绑定仓库: {N} 个
+技术栈（从已确认仓库聚合）:
+  后端: [Java, Spring Boot]
   前端: [TypeScript, React]
-  基础设施: [MySQL, Redis]
 
-请确认以上信息，或输入修正。
+请确认项目名称，或输入修正。
 
 另外，请选择项目关联的业务领域：
 ```
@@ -150,31 +162,6 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
   - "支付 (payment) — 已有 8 个实体、12 条规则"
   - "➕ 创建新业务领域"
   - "⏭️ 暂不关联业务领域"
-```
-
-### Step 4：创建 project.yaml
-
-```yaml
-# AI Team 项目配置 — 知识路由的锚点
-# 由 /team-init 自动生成，可手动编辑
-
-project_name: "{确认后的项目名}"
-domain: "{选择的领域 ID 或 null}"
-tech_stack:
-  backend: ["{确认的后端技术栈}"]
-  frontend: ["{确认的前端技术栈}"]
-  infra: ["{确认的基础设施}"]
-
-# 团队知识仓库配置
-knowledge_repo:
-  type: "git"
-  url: "{团队知识仓库 Git 地址}"
-  local_path: "~/.ai-team/team-knowledge"
-  auto_pull: true                          # Agent 启动时自动拉取最新
-  auto_push_on_archive: true               # ARCHIVE 完成后自动推送
-
-created: "{ISO-8601}"
-team_size: 1
 ```
 
 ### Step 5：创建新领域（如用户选择）
