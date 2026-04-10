@@ -1,0 +1,134 @@
+# =============================================================================
+# 后端架构 Agent (Backend Architect)
+# =============================================================================
+# 负责后端技术方案设计、API 接口定义、数据模型设计、技术选型决策。
+# =============================================================================
+
+name: "backend-architect"
+version: "1.0.0"
+role: "backend-architect"
+description: >
+  后端架构 Agent。负责后端技术方案设计，包括 API 接口设计、
+  数据模型定义、微服务拆分策略、技术选型决策等。
+  输出架构设计文档和 API 规格。
+
+capability_tags:
+  - backend-architecture
+  - api-design
+  - data-modeling
+  - system-design
+  - microservices
+
+phase_bindings:
+  - ARCHITECT
+
+parameters:
+  tech_stack:
+    type: string
+    description: "后端技术栈偏好（如：Python/FastAPI, Java/Spring, Go/Gin）"
+    default: "Python/FastAPI"
+  database:
+    type: string
+    description: "数据库选型（如：PostgreSQL, MySQL, MongoDB）"
+    default: "PostgreSQL"
+
+input_artifacts:
+  - name: "tech-requirements.md"
+    type: "markdown"
+    description: "技术需求分析文档"
+    required: true
+  - name: "product-requirements.md"
+    type: "markdown"
+    description: "产品需求文档"
+    required: true
+
+output_artifacts:
+  - name: "backend-architecture.md"
+    type: "markdown"
+    description: "后端架构设计文档"
+    required: true
+  - name: "api-spec.yaml"
+    type: "yaml"
+    description: "OpenAPI 3.0 接口规格"
+    required: true
+  - name: "data-model.md"
+    type: "markdown"
+    description: "数据模型设计文档"
+    required: true
+  - name: "adr-backend.json"
+    type: "json"
+    description: "后端架构决策记录"
+    required: false
+
+prompt_template: |
+  # 角色定义
+  你是一位资深后端架构师，精通分布式系统设计、API 设计和数据建模。
+
+  # 当前任务
+  需求名称：{{requirement.name}}
+
+  # 输入上下文
+  ## 产品需求
+  {{input_artifacts['product-requirements.md']}}
+
+  ## 技术需求
+  {{input_artifacts['tech-requirements.md']}}
+
+  {% if clarify_history %}
+  # 澄清历史
+  {{clarify_history}}
+  {% endif %}
+
+  # 工作指令
+
+  ## 1. 架构设计
+  - 确定系统分层架构（API 层、业务逻辑层、数据访问层）
+  - 设计核心模块和职责划分
+  - 确定模块间通信方式
+  - 评估是否需要消息队列、缓存等中间件
+
+  ## 2. API 接口设计
+  按照 RESTful 规范设计 API：
+  - 明确所有资源和端点
+  - 定义请求/响应 Schema
+  - 设计认证和授权方案
+  - 考虑 API 版本化策略
+  - 输出 OpenAPI 3.0 格式规格文档
+
+  ## 3. 数据模型设计
+  - 设计数据库表结构和关系
+  - 确定索引策略
+  - 考虑数据一致性和事务边界
+  - 设计 JSONB 灵活字段（如适用）
+
+  ## 4. 技术决策记录 (ADR)
+  对每个关键决策记录：
+  - 决策背景和问题
+  - 考虑的方案选项
+  - 选择的方案及理由
+  - 潜在风险和应对
+
+  # 输出格式
+  1. `backend-architecture.md` - 完整的后端架构设计文档
+  2. `api-spec.yaml` - OpenAPI 3.0 接口规格
+  3. `data-model.md` - 数据模型设计文档
+  4. `adr-backend.json` - 架构决策记录
+
+evaluation:
+  criteria:
+    - name: "架构合理性"
+      weight: 0.3
+      description: "架构设计是否满足功能和非功能需求"
+    - name: "API 完整性"
+      weight: 0.3
+      description: "API 设计是否覆盖所有业务场景"
+    - name: "数据模型"
+      weight: 0.2
+      description: "数据模型是否合理、可扩展"
+    - name: "决策透明度"
+      weight: 0.2
+      description: "技术决策是否有清晰的理由"
+
+constraints:
+  max_token_usage: 60000
+  timeout_minutes: 45

@@ -1,0 +1,44 @@
+{
+  "version": "5.8.0",
+  "rulesetVersion": "5.8.0",
+  "request": {
+    "action": "create",
+    "figmaUrl": "",
+    "nodeId": "",
+    "mode": "page",
+    "outputPath": ""
+  },
+  "profile": {
+    "name": "default-react-web",
+    "version": "5.8.0"
+  },
+  "componentMapVersion": "5.8.0",
+  "tokenAliasesVersion": "5.8.0",
+  "deterministicOutput": {
+    "nodeSort": [
+      "y",
+      "x",
+      "id"
+    ],
+    "importOrder": "locked",
+    "classOrder": "locked",
+    "assetNaming": "locked"
+  },
+  "artifacts": {
+    "generatedFiles": [],
+    "downloadedAssets": [],
+    "reusedComponents": [],
+    "createdTokens": []
+  },
+  "validation": {
+    "level": "strict",
+    "score": 0,
+    "status": "pending",
+    "failures": []
+  },
+  "replay": {
+    "seed": "figma-d2c",
+    "idempotencyPassed": false,
+    "lastGeneratedAt": ""
+  }
+}

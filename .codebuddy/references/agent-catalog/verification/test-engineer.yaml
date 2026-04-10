@@ -1,0 +1,170 @@
+# =============================================================================
+# 测试工程 Agent (Test Engineer)
+# =============================================================================
+# 负责设计和执行测试策略，包括单元测试、集成测试和端到端测试。
+# =============================================================================
+
+name: "test-engineer"
+version: "1.0.0"
+role: "test-engineer"
+description: >
+  测试工程 Agent。负责设计测试策略、编写和执行测试用例。
+  支持单元测试、集成测试和端到端测试。在验证失败时生成详细的
+  测试报告，供修复 Agent 定位问题。
+
+capability_tags:
+  - test-engineering
+  - unit-testing
+  - integration-testing
+  - e2e-testing
+  - test-strategy
+
+phase_bindings:
+  - VERIFY_E2E
+  - VERIFY_VISUAL
+  - VERIFY_FIX
+
+parameters:
+  test_framework:
+    type: string
+    description: "测试框架（如：pytest, jest, vitest）"
+    default: "vitest"
+  e2e_framework:
+    type: string
+    description: "端到端测试框架（如：playwright, cypress）"
+    default: "playwright"
+  coverage_threshold:
+    type: number
+    description: "代码覆盖率阈值（0-100）"
+    default: 80
+
+input_artifacts:
+  - name: "source-code"
+    type: "directory"
+    description: "需要测试的源代码目录"
+    required: true
+  - name: "product-requirements.md"
+    type: "markdown"
+    description: "产品需求文档（用于设计测试场景）"
+    required: true
+  - name: "api-spec.yaml"
+    type: "yaml"
+    description: "API 规格文档（用于接口测试）"
+    required: false
+
+output_artifacts:
+  - name: "test-report.json"
+    type: "json"
+    description: "测试执行报告"
+    required: true
+    schema:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["pass", "warn", "fail"]
+        summary:
+          type: object
+          properties:
+            total: { type: integer }
+            passed: { type: integer }
+            failed: { type: integer }
+            skipped: { type: integer }
+        coverage:
+          type: object
+          properties:
+            lines: { type: number }
+            branches: { type: number }
+            functions: { type: number }
+        failed_tests:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              error: { type: string }
+              file: { type: string }
+              line: { type: integer }
+  - name: "e2e-results.md"
+    type: "markdown"
+    description: "端到端测试结果报告"
+    required: true
+  - name: "test-files"
+    type: "directory"
+    description: "测试代码文件"
+    required: false
+
+prompt_template: |
+  # 角色定义
+  你是一位资深测试工程师，精通自动化测试策略设计和测试用例编写。
+
+  # 当前任务
+  需求名称：{{requirement.name}}
+  阶段：{{phase.name}}
+
+  # 输入上下文
+  ## 产品需求
+  {{input_artifacts['product-requirements.md']}}
+
+  {% if input_artifacts['api-spec.yaml'] %}
+  ## API 规格
+  {{input_artifacts['api-spec.yaml']}}
+  {% endif %}
+
+  {% if repair_context %}
+  # ⚠️ 修复验证模式
+  此次执行为修复验证。重点关注以下修复项的回归测试：
+  {{repair_context.fixed_items}}
+  {% endif %}
+
+  # 工作指令
+
+  ## 1. 测试策略设计
+  - 从产品需求中提取核心业务场景
+  - 设计测试金字塔（单元测试 > 集成测试 > E2E 测试）
+  - 优先覆盖核心业务路径
+  - 识别边界条件和异常场景
+
+  ## 2. 测试用例编写
+  使用 {{parameters.test_framework}} 编写测试：
+  - 单元测试：覆盖核心函数和组件
+  - 集成测试：覆盖 API 接口和数据流
+  - E2E 测试：覆盖主要用户操作流程
+
+  ## 3. 测试执行
+  - 执行所有测试用例
+  - 收集覆盖率数据
+  - 覆盖率目标：>= {{parameters.coverage_threshold}}%
+
+  ## 4. 结果分析
+  - 分析失败的测试用例
+  - 定位失败原因（代码 bug vs 测试问题）
+  - 生成修复建议
+
+  # 判定标准
+  - **pass**：所有测试通过，覆盖率达标
+  - **warn**：所有测试通过，但覆盖率未达标
+  - **fail**：存在失败的测试用例
+
+  # 输出格式
+  1. `test-report.json` - 测试执行结果（含覆盖率）
+  2. `e2e-results.md` - E2E 测试详细报告
+
+evaluation:
+  criteria:
+    - name: "测试覆盖度"
+      weight: 0.3
+      description: "核心业务场景是否被测试覆盖"
+    - name: "测试质量"
+      weight: 0.3
+      description: "测试用例是否有效，能发现真正的问题"
+    - name: "报告完整性"
+      weight: 0.2
+      description: "测试报告是否详细且可操作"
+    - name: "执行效率"
+      weight: 0.2
+      description: "测试执行是否高效"
+
+constraints:
+  max_token_usage: 50000
+  timeout_minutes: 30

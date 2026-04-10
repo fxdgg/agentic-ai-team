@@ -1,0 +1,139 @@
+# =============================================================================
+# 编译验证 Agent (Build Verifier)
+# =============================================================================
+# 负责验证代码是否能成功编译和构建，检查依赖完整性和产物生成。
+# 参考 vibe-coding 的 build-verify-rules.md 设计。
+# =============================================================================
+
+name: "build-verifier"
+version: "1.0.0"
+role: "build-verifier"
+description: >
+  编译验证 Agent。负责在代码实现完成后验证构建是否成功。
+  包括依赖安装检查、编译检查、Lint 检查、构建产物验证。
+  构建失败时生成详细的错误报告，供修复 Agent 使用。
+
+capability_tags:
+  - build-verification
+  - dependency-check
+  - lint-check
+  - compilation
+
+phase_bindings:
+  - VERIFY_BUILD
+  - VERIFY_VISUAL
+  - VERIFY_FIX
+
+parameters:
+  build_command:
+    type: string
+    description: "构建命令"
+    default: "npm run build"
+  lint_command:
+    type: string
+    description: "Lint 检查命令"
+    default: "npm run lint"
+  package_manager:
+    type: string
+    enum: ["npm", "yarn", "pnpm", "pip", "poetry"]
+    description: "包管理器"
+    default: "npm"
+
+input_artifacts:
+  - name: "source-code"
+    type: "directory"
+    description: "需要验证的源代码目录"
+    required: true
+
+output_artifacts:
+  - name: "build-report.json"
+    type: "json"
+    description: "构建验证报告"
+    required: true
+    schema:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: ["pass", "warn", "fail"]
+        dependency_check:
+          type: object
+          properties:
+            status: { type: string }
+            missing: { type: array }
+            outdated: { type: array }
+        compilation:
+          type: object
+          properties:
+            status: { type: string }
+            errors: { type: array }
+            warnings: { type: array }
+        lint:
+          type: object
+          properties:
+            status: { type: string }
+            errors: { type: array }
+            warnings: { type: array }
+        build_output:
+          type: object
+          properties:
+            status: { type: string }
+            artifacts: { type: array }
+            size: { type: string }
+
+prompt_template: |
+  # 角色定义
+  你是一位 CI/CD 构建验证专家，负责确保代码能成功构建。
+
+  # 当前任务
+  需求名称：{{requirement.name}}
+  阶段：{{phase.name}}
+
+  # 工作指令
+  请依次执行以下验证步骤：
+
+  ## 1. 依赖检查
+  - 验证 package.json / pyproject.toml 中的依赖定义是否完整
+  - 检查是否有缺失的依赖
+  - 检查是否有版本冲突
+  - 执行 `{{parameters.package_manager}} install` 验证安装
+
+  ## 2. 编译检查
+  - 执行 TypeScript 编译检查（`tsc --noEmit`）
+  - 检查类型错误
+  - 检查导入路径是否正确
+
+  ## 3. Lint 检查
+  - 执行 `{{parameters.lint_command}}`
+  - 记录所有 error 级别的问题
+  - 记录 warning 级别的问题（不阻断）
+
+  ## 4. 构建验证
+  - 执行 `{{parameters.build_command}}`
+  - 验证构建产物是否生成
+  - 检查构建产物大小是否合理
+
+  # 判定标准
+  - **pass**：所有步骤通过，无 error
+  - **warn**：所有步骤通过，但有 warning
+  - **fail**：任何步骤存在 error
+
+  # 输出格式
+  输出 `build-report.json`，包含每个步骤的详细结果。
+  如果 fail，确保错误信息足够详细，以便修复 Agent 定位问题。
+
+evaluation:
+  criteria:
+    - name: "检查覆盖度"
+      weight: 0.4
+      description: "验证步骤是否全面覆盖"
+    - name: "报告准确性"
+      weight: 0.4
+      description: "错误定位是否准确"
+    - name: "执行效率"
+      weight: 0.2
+      description: "验证执行是否高效"
+
+constraints:
+  max_token_usage: 30000
+  timeout_minutes: 15

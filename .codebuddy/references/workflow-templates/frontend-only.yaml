@@ -1,0 +1,208 @@
+# =============================================================================
+# 纯前端交付工作流模板 (Frontend-Only Delivery Workflow)
+# =============================================================================
+# 适用于纯前端需求的简化工作流。省去后端架构设计，聚焦 UI/UX 交付。
+#
+# 特性：
+#   - 简化的 5 阶段流程
+#   - 聚焦 UI 设计和前端实现
+#   - 包含可视化回归测试
+# =============================================================================
+
+name: "纯前端交付工作流"
+version: "1.0.0"
+description: >
+  适用于纯前端需求的交付工作流。涵盖需求分析、UI 设计、前端实现、
+  视觉回归验证和归档。适合不涉及后端改动的页面开发、组件开发等场景。
+
+tags:
+  - frontend
+  - ui
+  - lightweight
+
+config:
+  max_parallel_agents: 3
+  default_token_budget: 300000
+  quality_gate_threshold: 0.8
+  max_clarify_rounds: 2
+  timeout_hours: 48
+
+# =============================================================================
+# 阶段定义
+# =============================================================================
+phases:
+  # ---------------------------------------------------------------------------
+  # 阶段 1：需求与 UI 设计分析
+  # ---------------------------------------------------------------------------
+  - id: ANALYSE_UI
+    name: "需求与 UI 设计分析"
+    description: >
+      分析 UI 需求，确定交互模式、视觉风格、组件复用策略。
+      输出 UI 规格文档和组件清单。
+    agent_role: "product-analyst"
+    three_step_mode: true
+    clarify_enabled: true
+    max_clarify_rounds: 2
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "UI 规格完整性"
+          description: "所有页面/组件的交互和视觉要求明确"
+          weight: 0.5
+        - name: "组件复用分析"
+          description: "可复用组件已识别"
+          weight: 0.5
+    outputs:
+      - name: "ui-requirements.md"
+        type: "markdown"
+        required: true
+      - name: "component-list.json"
+        type: "json"
+        required: true
+    estimated_duration_hours: 2
+    token_budget: 40000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 2：前端架构设计
+  # ---------------------------------------------------------------------------
+  - id: DESIGN_FRONTEND
+    name: "前端架构设计"
+    description: >
+      设计前端架构方案，包括组件结构、状态管理、路由规划、API 对接方案。
+    agent_role: "frontend-architect"
+    three_step_mode: true
+    clarify_enabled: true
+    max_clarify_rounds: 2
+    depends_on:
+      - ANALYSE_UI
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "组件架构"
+          description: "组件层级和数据流设计合理"
+          weight: 0.5
+        - name: "技术选型"
+          description: "框架和库选择合理"
+          weight: 0.5
+    outputs:
+      - name: "frontend-architecture.md"
+        type: "markdown"
+        required: true
+    estimated_duration_hours: 2
+    token_budget: 50000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 3：前端实现
+  # ---------------------------------------------------------------------------
+  - id: IMPLEMENT_FRONTEND
+    name: "前端实现"
+    description: >
+      实现前端页面和组件代码。按组件/页面粒度分派 Agent。
+    dynamic_dispatch: true
+    dispatch_strategy: "by_capability_domain"
+    three_step_mode: true
+    clarify_enabled: false
+    depends_on:
+      - DESIGN_FRONTEND
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "代码规范"
+          description: "ESLint/Prettier 检查通过"
+          weight: 0.3
+        - name: "响应式设计"
+          description: "支持主流屏幕尺寸"
+          weight: 0.3
+        - name: "组件测试"
+          description: "核心组件有测试覆盖"
+          weight: 0.4
+    outputs:
+      - name: "source-code"
+        type: "directory"
+        required: true
+    estimated_duration_hours: 6
+    token_budget: 150000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 4：视觉与功能验证
+  # ---------------------------------------------------------------------------
+  - id: VERIFY_VISUAL
+    name: "视觉与功能验证"
+    description: >
+      构建验证 + 视觉回归测试 + 交互测试。
+    sequential_agents:
+      - "build-verifier"
+      - "test-engineer"
+    three_step_mode: false
+    clarify_enabled: false
+    depends_on:
+      - IMPLEMENT_FRONTEND
+    rollback:
+      enabled: true
+      target: IMPLEMENT_FRONTEND
+      max_attempts: 2
+      repair_mode: true
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "构建成功"
+          description: "项目构建通过"
+          weight: 0.4
+        - name: "视觉回归"
+          description: "无非预期的视觉变更"
+          weight: 0.3
+        - name: "交互测试"
+          description: "核心交互流程通过"
+          weight: 0.3
+    outputs:
+      - name: "verify-report.json"
+        type: "json"
+        required: true
+    estimated_duration_hours: 1
+    token_budget: 30000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 5：归档
+  # ---------------------------------------------------------------------------
+  - id: ARCHIVE
+    name: "归档"
+    description: "整理交付产物，更新组件文档。"
+    agent_role: "archiver"
+    three_step_mode: false
+    clarify_enabled: false
+    depends_on:
+      - VERIFY_VISUAL
+    quality_gate:
+      enabled: false
+    outputs:
+      - name: "delivery-summary.md"
+        type: "markdown"
+        required: true
+    estimated_duration_hours: 0.5
+    token_budget: 15000
+
+# =============================================================================
+# 阶段转换规则
+# =============================================================================
+transitions:
+  ANALYSE_UI:
+    next: DESIGN_FRONTEND
+    can_skip_to: null
+    requires_gate_pass: true
+  DESIGN_FRONTEND:
+    next: IMPLEMENT_FRONTEND
+    can_skip_to: null
+    requires_gate_pass: true
+  IMPLEMENT_FRONTEND:
+    next: VERIFY_VISUAL
+    can_skip_to: null
+    requires_gate_pass: true
+  VERIFY_VISUAL:
+    next: ARCHIVE
+    can_skip_to: null
+    requires_gate_pass: true
+    rollback_to: IMPLEMENT_FRONTEND
+  ARCHIVE:
+    next: DONE
+    can_skip_to: null
+    requires_gate_pass: false

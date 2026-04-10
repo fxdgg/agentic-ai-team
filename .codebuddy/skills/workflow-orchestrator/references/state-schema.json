@@ -1,0 +1,1033 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WorkflowState",
+  "description": "需求工作流状态追踪核心文件 Schema",
+  "type": "object",
+  "required": ["id", "name", "description", "createdAt", "updatedAt", "currentPhase", "phaseHistory", "platforms"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "需求唯一标识，格式: YYYYMMDD-自定义名称",
+      "pattern": "^\\d{8}-.+$",
+      "examples": ["20260316-用户注册优化"]
+    },
+    "name": {
+      "type": "string",
+      "description": "需求名称（中文）",
+      "examples": ["用户注册优化"]
+    },
+    "description": {
+      "type": "string",
+      "description": "需求描述（一段话概述）"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "创建时间（ISO 8601）"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "最后更新时间（ISO 8601）"
+    },
+    "currentPhase": {
+      "$ref": "#/definitions/PhaseId",
+      "description": "当前阶段 ID"
+    },
+    "phaseHistory": {
+      "type": "array",
+      "description": "阶段执行历史记录",
+      "items": {
+        "type": "object",
+        "required": ["phase", "status", "startedAt"],
+        "properties": {
+          "phase": {
+            "$ref": "#/definitions/PhaseId",
+            "description": "阶段 ID（必须使用合法的阶段枚举值）"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed", "rolled_back", "skipped"],
+            "description": "阶段状态"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "预览开始时间（编排器开始构造预览输出时写入）"
+          },
+          "confirmedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "用户确认执行时间（收到用户'执行'指令时写入）"
+          },
+          "executionStartedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Agent 开始执行时间（创建 Agent Teams 或调用 Task 时写入）"
+          },
+          "executionCompletedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "Agent 完成执行时间（Task 返回或 Teams 全员完成时写入）"
+          },
+          "completedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "总结确认时间（用户选择进入下一阶段时写入）"
+          }
+        }
+      }
+    },
+    "platforms": {
+      "type": "object",
+      "description": "涉及的平台及各平台进度",
+      "properties": {
+        "backend": {
+          "$ref": "#/definitions/PlatformStatus"
+        },
+        "web": {
+          "$ref": "#/definitions/PlatformStatus"
+        },
+        "miniprogram": {
+          "$ref": "#/definitions/PlatformStatus"
+        }
+      }
+    },
+    "implementMode": {
+      "type": "string",
+      "enum": ["agent-teams", "task", "d2c-to-workflow"],
+      "description": "IMPLEMENT 阶段的调度模式。agent-teams 表示使用 Agent Teams 多智能体协作模式，task 表示使用传统 Task 工具串行调用模式，d2c-to-workflow 表示由 D2C 直通模式转入标准流水线（前端已由 D2C 完成，仅调度后端）。由编排器在 IMPLEMENT 阶段开始时自动设置。"
+    },
+    "agentTeam": {
+      "type": ["object", "null"],
+      "description": "Agent Teams 模式下的团队状态信息。仅当 implementMode = agent-teams 时有值。",
+      "properties": {
+        "teamName": {
+          "type": "string",
+          "description": "团队名称，格式: impl-{需求ID} 或 fix-{需求ID}-{回退次数}"
+        },
+        "members": {
+          "type": "array",
+          "description": "团队成员列表及状态",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "成员名称，如 @common-dev"
+              },
+              "domain": {
+                "type": "string",
+                "description": "负责的领域，如 {common-module}"
+              },
+              "priority": {
+                "type": "string",
+                "description": "优先级，如 P0、P1"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "active", "completed", "failed", "cancelled"],
+                "description": "成员状态"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "完成时间"
+              }
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "团队创建时间"
+        },
+        "cleanedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "团队清理时间"
+        }
+      }
+    },
+    "analyseTechMode": {
+      "type": "string",
+      "enum": ["agent-teams", "task"],
+      "description": "ANALYSE_TECH 阶段的调度模式。agent-teams 表示使用 Agent Teams 三成员串行协作模式（@tech-explorer → @tech-designer → @tech-splitter），task 表示使用传统 Task 工具调用单体 fullstack-analyst Agent。由编排器在 ANALYSE_TECH 阶段开始时自动设置。"
+    },
+    "analyseTechTeam": {
+      "type": ["object", "null"],
+      "description": "ANALYSE_TECH Agent Teams 模式下的团队状态信息。仅当 analyseTechMode = agent-teams 时有值。",
+      "properties": {
+        "teamName": {
+          "type": "string",
+          "description": "团队名称，格式: analyse-tech-{需求ID}"
+        },
+        "members": {
+          "type": "array",
+          "description": "团队成员列表及状态",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "成员名称，如 @tech-explorer"
+              },
+              "role": {
+                "type": "string",
+                "description": "成员角色描述"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "active", "completed", "failed", "cancelled"],
+                "description": "成员状态"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "完成时间"
+              }
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "团队创建时间"
+        },
+        "cleanedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "团队清理时间"
+        }
+      }
+    },
+    "buildVerifyMode": {
+      "type": "string",
+      "enum": ["agent-teams", "task"],
+      "description": "BUILD_VERIFY 阶段的调度模式。agent-teams 表示使用 Agent Teams 多平台并行验证模式，task 表示使用传统 Task 工具调用单体 build-verifier Agent。由编排器在 BUILD_VERIFY 阶段开始时自动设置。"
+    },
+    "buildVerifyTeam": {
+      "type": ["object", "null"],
+      "description": "BUILD_VERIFY Agent Teams 模式下的团队状态信息。仅当 buildVerifyMode = agent-teams 时有值。",
+      "properties": {
+        "teamName": {
+          "type": "string",
+          "description": "团队名称，格式: verify-{需求ID}"
+        },
+        "members": {
+          "type": "array",
+          "description": "验证团队成员列表及状态",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "成员名称，如 @backend-build-verifier"
+              },
+              "platform": {
+                "type": "string",
+                "enum": ["backend", "web", "miniprogram"],
+                "description": "负责的平台"
+              },
+              "dimensions": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "负责的验证维度，如 [\"B1\", \"B2\", \"B2.5\"]"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "active", "completed", "failed", "cancelled"],
+                "description": "成员状态"
+              },
+              "result": {
+                "type": ["string", "null"],
+                "enum": ["PASS", "FAIL", "WARN", "N/A", null],
+                "description": "验证结果"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "完成时间"
+              }
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "团队创建时间"
+        },
+        "cleanedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "团队清理时间"
+        }
+      }
+    },
+    "visualReviewResult": {
+      "type": ["object", "null"],
+      "description": "VISUAL_REVIEW 阶段的验收结果信息。仅当 VISUAL_REVIEW 阶段执行后有值。",
+      "properties": {
+        "overallScore": {
+          "type": "integer",
+          "description": "综合还原度评分（0-100）"
+        },
+        "grade": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D", "F"],
+          "description": "还原度等级"
+        },
+        "qualityGate": {
+          "type": "string",
+          "enum": ["pass", "warn", "fail"],
+          "description": "质量门禁结果"
+        },
+        "reviewedPages": {
+          "type": "integer",
+          "description": "验收的页面数量"
+        },
+        "criticalIssues": {
+          "type": "integer",
+          "description": "严重差异数量"
+        },
+        "majorIssues": {
+          "type": "integer",
+          "description": "明显差异数量"
+        },
+        "minorIssues": {
+          "type": "integer",
+          "description": "微小差异数量"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["full-compare", "spec-only", "skipped"],
+          "description": "验收模式。full-compare=设计稿完整对比，spec-only=仅规范检查（无设计稿），skipped=跳过（不满足触发条件）"
+        },
+        "skipReason": {
+          "type": ["string", "null"],
+          "description": "跳过原因（仅 mode=skipped 时有值）"
+        },
+        "completedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "验收完成时间"
+        }
+      }
+    },
+    "architectBackendMode": {
+      "type": "string",
+      "enum": ["agent-teams", "task"],
+      "description": "ARCHITECT_BACKEND 阶段的调度模式。agent-teams 表示使用 Agent Teams 两步模式（@global-architect → @domain-architect-{service}×N 并行），task 表示使用传统 Task 工具调用单体 java-architect Agent。由编排器在 ARCHITECT_BACKEND 阶段开始时自动设置。"
+    },
+    "analyseProductMode": {
+      "type": "string",
+      "enum": ["agent-teams", "task-pipeline", "fallback", "task"],
+      "description": "ANALYSE_PRODUCT 阶段的调度模式。agent-teams 表示 L1 四成员串行协作（@product-collector → @baseline-differ → @product-extractor → @quality-assessor），task-pipeline 表示 L2 Task 串行管道（2-3 个 Task 按角色合并），fallback 表示 L3 编排器直接执行（加载单体 product-analyst.md），task 表示传统 Task 工具调用单体 Agent。由编排器在 ANALYSE_PRODUCT 阶段开始时自动设置，降级时更新。"
+    },
+    "analyseProductTeam": {
+      "type": ["object", "null"],
+      "description": "ANALYSE_PRODUCT L1 Agent Teams 模式下的团队状态信息。仅当 analyseProductMode = agent-teams 时有值。",
+      "properties": {
+        "teamName": {
+          "type": "string",
+          "description": "团队名称，格式: analyse-product-{需求ID}"
+        },
+        "members": {
+          "type": "array",
+          "description": "团队成员列表及状态",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "成员名称，如 @product-collector"
+              },
+              "role": {
+                "type": "string",
+                "description": "成员角色描述"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "active", "completed", "failed", "cancelled"],
+                "description": "成员状态"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "完成时间"
+              }
+            }
+          }
+        },
+        "iterationType": {
+          "type": "string",
+          "enum": ["new", "incremental"],
+          "description": "需求类型：new=全新需求，incremental=迭代增量需求。由 @product-collector 检测后设置，影响后续是否调度 @baseline-differ。"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "团队创建时间"
+        },
+        "cleanedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "团队清理时间"
+        }
+      }
+    },
+    "analyseProductPipeline": {
+      "type": ["object", "null"],
+      "description": "ANALYSE_PRODUCT L2 Task 串行管道模式下的管道状态信息。仅当 analyseProductMode = task-pipeline 时有值。",
+      "properties": {
+        "completedTasks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "已完成的 Task 列表，如 ['Task1-collect-diff', 'Task2-extract-assess']"
+        },
+        "iterationType": {
+          "type": "string",
+          "enum": ["new", "incremental"],
+          "description": "需求类型，影响管道 Task 数量（new=2个 Task，incremental=3个 Task）"
+        },
+        "degradedFrom": {
+          "type": "string",
+          "enum": ["agent-teams"],
+          "description": "从哪个模式降级而来"
+        },
+        "degradeReason": {
+          "type": "string",
+          "description": "降级原因，如 'team_create_failed: ...' 或 'member_timeout: @product-collector 超过 120s 无响应'"
+        },
+        "completedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "管道完成时间"
+        }
+      }
+    },
+    "analyseProductFallback": {
+      "type": ["object", "null"],
+      "description": "ANALYSE_PRODUCT L3 orchestrator 直接执行模式下的状态信息。仅当 analyseProductMode = fallback 时有值。",
+      "properties": {
+        "degradedFrom": {
+          "type": "string",
+          "enum": ["agent-teams", "task-pipeline"],
+          "description": "从哪个模式降级而来"
+        },
+        "degradeReason": {
+          "type": "string",
+          "description": "降级原因"
+        },
+        "availableArtifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "上级模式已产出的可复用中间产物路径列表，如 ['analysis/_product-collection.json']"
+        },
+        "completedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "降级执行完成时间"
+        }
+      }
+    },
+    "prdSource": {
+      "type": ["string", "null"],
+      "description": "PRD 文档路径（相对于项目根目录）。INIT 阶段由编排器设置。",
+      "examples": ["docs/prd/用户注册优化.md"]
+    },
+    "projectConfig": {
+      "type": ["object", "null"],
+      "description": "项目适配配置。INIT 阶段由用户确认或自动检测。",
+      "properties": {
+        "projectType": {
+          "type": "string",
+          "enum": ["new", "legacy-with-knowledge", "legacy-without-knowledge"],
+          "description": "项目类型。new=全新项目，legacy-with-knowledge=历史项目（已有知识库），legacy-without-knowledge=历史项目（无知识库，需导入）"
+        },
+        "workspaceLayout": {
+          "type": ["string", "null"],
+          "enum": ["flat", "separated", null],
+          "description": "工作区目录布局方案。仅 projectType='new' 时需要用户选择。flat=单项目扁平结构（源码直接展开在工作区根目录，适合只深度迭代一个项目）；separated=分离结构（按前后端/微服务分目录，如 frontend-app/、backend-services/，适合多项目协作与后续扩展）。历史项目根据已有结构自动识别，不需要用户选择。",
+          "default": null
+        },
+        "projectName": {
+          "type": ["string", "null"],
+          "description": "新项目的项目名称（仅 projectType='new' 且 workspaceLayout='separated' 时需要）。用作项目子目录名称，如 'my-webapp'、'todo-app'。",
+          "examples": ["my-webapp", "todo-app", "ecommerce-platform"]
+        },
+        "importCompleted": {
+          "type": "boolean",
+          "description": "历史知识导入是否已完成。仅 legacy-without-knowledge 类型有意义。",
+          "default": false
+        },
+        "importWorkflowId": {
+          "type": ["string", "null"],
+          "description": "关联的知识导入工作流 ID（如有）"
+        },
+        "backendRoot": {
+          "type": ["string", "null"],
+          "description": "后端微服务组根目录",
+          "examples": ["microservice-group/"]
+        },
+        "frontendRoot": {
+          "type": ["string", "null"],
+          "description": "前端项目组根目录",
+          "examples": ["frontend-group/"]
+        },
+        "webProject": {
+          "type": ["string", "null"],
+          "description": "Web 端项目目录",
+          "examples": ["frontend-group/operation-fe/"]
+        },
+        "miniprogramProject": {
+          "type": ["string", "null"],
+          "description": "小程序端项目目录",
+          "examples": ["frontend-group/miniprogram-fe/"]
+        },
+        "commonModule": {
+          "type": ["string", "null"],
+          "description": "后端公共模块名称",
+          "examples": ["vibe-common"]
+        },
+        "d2cBootstrapped": {
+          "type": "boolean",
+          "description": "标记当前前端项目是否由 D2C 流程初始化（如目录创建、package.json 生成等）。D2C Coordinator 在新项目场景下创建前端项目目录后设为 true。后续流程可据此跳过重复的项目初始化步骤。",
+          "default": false
+        }
+      }
+    },
+    "knowledgeContext": {
+      "type": ["object", "null"],
+      "description": "知识上下文信息。INIT 阶段根据项目配置和团队知识仓库状态自动设置。",
+      "properties": {
+        "baselineAvailable": {
+          "type": "boolean",
+          "description": "是否有可用的知识基线"
+        },
+        "baselinePath": {
+          "type": ["string", "null"],
+          "description": "知识基线文件路径"
+        },
+        "profilePath": {
+          "type": ["string", "null"],
+          "description": "代码画像文件路径"
+        },
+        "storyIndexPath": {
+          "type": ["string", "null"],
+          "description": "TAPD 需求-业务能力映射索引文件路径（由导入流程 Step 1.5 生成）"
+        },
+        "importedKeywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "导入的功能关键词列表"
+        },
+        "knowledgeRepoLocalPath": {
+          "type": ["string", "null"],
+          "description": "团队知识仓库本地克隆路径（从 .ai-team/project.yaml 的 knowledge_repo.local_path 读取）"
+        },
+        "knowledgeRepoUrl": {
+          "type": ["string", "null"],
+          "description": "团队知识仓库 Git 远程地址（从 .ai-team/project.yaml 的 knowledge_repo.url 读取）"
+        },
+        "knowledgeCatalogPath": {
+          "type": ["string", "null"],
+          "description": "知识全景目录路径（{knowledge-repo}/knowledge-catalog.md），所有 Agent 的按需查询入口"
+        },
+        "globalPreferencesPath": {
+          "type": ["string", "null"],
+          "description": "个人偏好目录路径（~/.ai-team/preferences/，纯本地不共享）"
+        },
+        "globalTeamConventionsPath": {
+          "type": ["string", "null"],
+          "description": "团队约定目录路径（{knowledge-repo}/team-conventions/）"
+        },
+        "globalTechWikiPath": {
+          "type": ["string", "null"],
+          "description": "团队技术知识库路径（{knowledge-repo}/tech-wiki/）"
+        },
+        "globalBizWikiPath": {
+          "type": ["string", "null"],
+          "description": "团队业务知识库路径（{knowledge-repo}/biz-wiki/{domain}/），domain 从 project.yaml 读取"
+        },
+        "projectDomain": {
+          "type": ["string", "null"],
+          "description": "当前项目关联的业务领域 ID（从 .ai-team/project.yaml 读取）"
+        },
+        "projectTechStack": {
+          "type": ["array", "null"],
+          "items": { "type": "string" },
+          "description": "当前项目的技术栈标签列表（从 .ai-team/project.yaml 读取），用于 Layer 1 知识过滤"
+        },
+        "contributorName": {
+          "type": ["string", "null"],
+          "description": "当前贡献者姓名（从 ~/.ai-team/preferences/profile.yaml 读取），用于知识贡献追踪"
+        },
+        "contributorRole": {
+          "type": ["string", "null"],
+          "enum": ["maintainer", "contributor", "reader", null],
+          "description": "当前贡献者在团队知识仓库中的角色（从 .knowledge-config.yaml 读取）"
+        }
+      }
+    },
+    "notificationConfig": {
+      "type": ["object", "null"],
+      "description": "通知配置。控制关键阶段完成时的通知行为。",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用通知",
+          "default": false
+        },
+        "provider": {
+          "type": "string",
+          "description": "通知提供者"
+        },
+        "events": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "触发通知的事件列表"
+        }
+      }
+    },
+    "tapdConfig": {
+      "type": ["object", "null"],
+      "description": "TAPD 集成配置。INIT 阶段自动检测凭证和 MCP 工具可用性，结果写入此字段。后续阶段可据此判断 TAPD 相关能力是否可用。",
+      "properties": {
+        "available": {
+          "type": "boolean",
+          "description": "TAPD 集成是否可用（凭证 + MCP 工具均就绪）",
+          "default": false
+        },
+        "credentialsFound": {
+          "type": "boolean",
+          "description": "~/.tapd/credentials 凭证文件是否存在且包含 access_token"
+        },
+        "mcpConnected": {
+          "type": "boolean",
+          "description": "TAPD MCP 服务（user-tapd_mcp_http）是否已连接"
+        },
+        "workspaceId": {
+          "type": ["string", "null"],
+          "description": "TAPD 项目 workspace_id（用户在 INIT 阶段确认或手动输入）",
+          "examples": ["20088921"]
+        },
+        "setupGuideShown": {
+          "type": "boolean",
+          "description": "是否已向用户展示过配置引导（避免重复提示）",
+          "default": false
+        }
+      }
+    },
+    "architectBackendCheckpoint": {
+      "type": ["object", "null"],
+      "description": "ARCHITECT_BACKEND 阶段内部的检查点信息，用于断点续传和产物落盘保护。仅当 currentPhase = ARCHITECT_BACKEND 时有意义。",
+      "properties": {
+        "step": {
+          "type": "string",
+          "enum": ["global_pending", "global_completed", "domains_confirmed", "domains_pending", "domains_completed"],
+          "description": "内部进度：global_pending=全局架构未开始, global_completed=全局架构已完成(3个产物已落盘), domains_confirmed=领域划分已经用户确认(domain-registry.json已落盘), domains_pending=领域文档输出中, domains_completed=所有领域文档已完成"
+        },
+        "completedArtifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "已成功落盘的产物文件路径列表，用于中断恢复时跳过已完成的产物"
+        },
+        "pendingDomains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "尚未完成领域文档输出的微服务名称列表（如 ['{user-center}', '{product-center}']）"
+        },
+        "completedDomains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "已完成领域文档输出的微服务名称列表"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "检查点最后更新时间"
+        }
+      }
+    },
+    "architectBackendTeam": {
+      "type": ["object", "null"],
+      "description": "ARCHITECT_BACKEND Agent Teams 模式下的团队状态信息。仅当 architectBackendMode = agent-teams 时有值。",
+      "properties": {
+        "teamName": {
+          "type": "string",
+          "description": "团队名称，格式: arch-backend-{需求ID}"
+        },
+        "members": {
+          "type": "array",
+          "description": "团队成员列表及状态",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "成员名称，如 @global-architect 或 @domain-architect-user-center"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["global", "domain"],
+                "description": "成员角色：global=全局架构分析, domain=领域文档输出"
+              },
+              "domain": {
+                "type": ["string", "null"],
+                "description": "领域名称（仅 domain 角色有值），如 {user-center}"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "active", "completed", "failed", "cancelled"],
+                "description": "成员状态"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "完成时间"
+              }
+            }
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "团队创建时间"
+        },
+        "cleanedAt": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "团队清理时间"
+        }
+      }
+    },
+    "intentAnalysis": {
+      "type": ["object", "null"],
+      "description": "IntentGate 意图分析结果。INIT 完成后、进入 ANALYSE_PRODUCT 前由编排器执行意图深度分析，结果写入此字段。后续阶段可据此优化路由策略。",
+      "properties": {
+        "intentType": {
+          "type": "string",
+          "enum": ["new-feature", "feature-modify", "bug-fix", "tech-refactor", "d2c-to-workflow"],
+          "description": "需求意图类型。new-feature=全新功能，feature-modify=现有功能修改，bug-fix=缺陷修复，tech-refactor=技术重构，d2c-to-workflow=D2C直通模式完成后进入标准流水线"
+        },
+        "ambiguities": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "检测到的歧义点列表，如 '描述过于简短' / '涉及领域过多且未明确优先级'"
+        },
+        "scopeEstimate": {
+          "type": "object",
+          "description": "影响范围预估",
+          "properties": {
+            "domains": {
+              "type": "integer",
+              "description": "预估涉及的领域模块数量"
+            },
+            "platforms": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["backend", "web", "miniprogram"] },
+              "description": "预估影响的平台列表"
+            },
+            "complexity": {
+              "type": "string",
+              "enum": ["low", "medium", "high"],
+              "description": "上下文复杂度预估。low=单领域+单平台，medium=2-3领域或多平台，high=4+领域+多平台"
+            }
+          }
+        },
+        "routingHints": {
+          "type": "object",
+          "description": "路由优化提示，供编排器在阶段流转时参考",
+          "properties": {
+            "skipPhases": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/PhaseId" },
+              "description": "建议跳过的阶段（仅当 canSkipTo 条件满足时有效）"
+            },
+            "emphasizePhases": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/PhaseId" },
+              "description": "建议重点强化的阶段"
+            },
+            "suggestedMode": {
+              "type": "string",
+              "enum": ["agent-teams", "task"],
+              "description": "建议的 Agent 调度模式"
+            }
+          }
+        },
+        "conflictWarnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "activeRequirement": {
+                "type": "string",
+                "description": "冲突的活跃需求 ID"
+              },
+              "overlapKeywords": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "功能关键词重叠列表"
+              }
+            }
+          },
+          "description": "与当前活跃需求的冲突告警"
+        },
+        "analysedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "意图分析执行时间"
+        },
+        "d2cConfig": {
+          "type": ["object", "null"],
+          "description": "D2C 模式的配置和产物信息。当 intentType = d2c-to-workflow（直通模式转入标准流水线）或 IMPLEMENT 阶段检测到 Figma 设计稿关联（嵌入模式）时有值。",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["standalone", "embedded"],
+              "description": "D2C 模式。standalone=直通模式（入口A），embedded=嵌入模式（入口B）"
+            },
+            "figmaUrl": {
+              "type": "string",
+              "description": "原始 Figma 设计链接"
+            },
+            "fileKey": {
+              "type": "string",
+              "description": "Figma 文件 Key"
+            },
+            "nodeId": {
+              "type": "string",
+              "description": "Figma 节点 ID"
+            },
+            "status": {
+              "type": "string",
+              "enum": ["pending", "in_progress", "completed", "failed"],
+              "description": "D2C 执行状态"
+            },
+            "projectDir": {
+              "type": ["string", "null"],
+              "description": "D2C 代码输出的项目目录"
+            },
+            "manifest": {
+              "type": ["string", "null"],
+              "description": "generation-manifest.json 的路径"
+            },
+            "generatedFiles": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "D2C 生成的所有文件路径列表"
+            },
+            "regressionScore": {
+              "type": ["number", "null"],
+              "description": "回归验证得分（0-100）"
+            },
+            "completedAt": {
+              "type": ["string", "null"],
+              "format": "date-time",
+              "description": "D2C 完成时间"
+            }
+          }
+        }
+      }
+    },
+    "contextHealth": {
+      "type": ["object", "null"],
+      "description": "运行时上下文健康度监控数据。编排器在每次阶段切换时更新此字段，记录工具调用估算和压缩事件，供 /evolve 命令的 Phase 2.5 消费。",
+      "properties": {
+        "phaseMetrics": {
+          "type": "array",
+          "description": "各阶段的上下文消耗指标",
+          "items": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "$ref": "#/definitions/PhaseId",
+                "description": "阶段 ID"
+              },
+              "toolCallEstimate": {
+                "type": "integer",
+                "description": "该阶段估算的工具调用次数"
+              },
+              "riskLevel": {
+                "type": "string",
+                "enum": ["low", "medium", "high"],
+                "description": "该阶段上下文风险等级。low=≤40次，medium=41-60次，high=>60次"
+              },
+              "completedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "阶段完成时间"
+              }
+            }
+          }
+        },
+        "compactionEvents": {
+          "type": "array",
+          "description": "检测到的上下文压缩事件列表",
+          "items": {
+            "type": "object",
+            "properties": {
+              "detectedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "压缩检测时间"
+              },
+              "phase": {
+                "$ref": "#/definitions/PhaseId",
+                "description": "压缩发生时所在的阶段"
+              },
+              "action": {
+                "type": "string",
+                "description": "编排器采取的补偿动作，如 're-read state.json'"
+              }
+            }
+          }
+        },
+        "totalToolCalls": {
+          "type": "integer",
+          "description": "工作流累计工具调用估算总数"
+        },
+        "overallRisk": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "工作流整体上下文风险等级"
+        }
+      }
+    },
+    "rollbackLog": {
+      "type": "array",
+      "description": "回退操作日志",
+      "items": {
+        "type": "object",
+        "required": ["fromPhase", "toPhase", "reason", "deletedArtifacts", "timestamp"],
+        "properties": {
+          "fromPhase": {
+            "$ref": "#/definitions/PhaseId",
+            "description": "回退前所在阶段（必须使用合法的阶段枚举值）"
+          },
+          "toPhase": {
+            "$ref": "#/definitions/PhaseId",
+            "description": "回退目标阶段（必须使用合法的阶段枚举值）"
+          },
+          "reason": {
+            "type": "string",
+            "description": "回退原因"
+          },
+          "deletedArtifacts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "被删除的产物文件路径列表"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "回退时间"
+          },
+          "failedDimensions": {
+            "type": "object",
+            "description": "【BUILD_VERIFY 回退专用】各验证维度的失败详情",
+            "properties": {
+              "B1": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] },
+                  "modules": { "type": "array", "items": { "type": "string" }, "description": "失败的 Maven 模块列表" }
+                }
+              },
+              "B2": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["PASS", "FAIL", "WARN", "N/A"] },
+                  "modules": { "type": "array", "items": { "type": "string" }, "description": "存在依赖问题的模块列表" }
+                }
+              },
+              "B3a": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] }
+                }
+              },
+              "B3b": {
+                "type": "object",
+                "properties": {
+                  "status": { "type": "string", "enum": ["PASS", "FAIL", "N/A"] }
+                }
+              }
+            }
+          },
+          "failedPlatforms": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["backend", "web", "miniprogram"] },
+            "description": "【BUILD_VERIFY 回退专用】编译失败的平台列表，回退后仅重新调度这些平台的开发 Agent"
+          },
+          "passedPlatforms": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["backend", "web", "miniprogram"] },
+            "description": "【BUILD_VERIFY 回退专用】编译通过的平台列表，回退后保持 completed 状态不重新调度"
+          },
+          "errors": {
+            "type": "array",
+            "description": "【BUILD_VERIFY 回退专用】具体编译错误列表，用于注入到开发 Agent 的修复上下文",
+            "items": {
+              "type": "object",
+              "properties": {
+                "platform": { "type": "string", "enum": ["backend", "web", "miniprogram"], "description": "错误所属平台" },
+                "module": { "type": "string", "description": "错误所在模块（后端为 Maven 模块名，前端为项目名）" },
+                "file": { "type": "string", "description": "错误文件路径" },
+                "line": { "type": ["integer", "null"], "description": "错误行号" },
+                "error": { "type": "string", "description": "错误信息" },
+                "suggestion": { "type": "string", "description": "修复建议" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "PhaseId": {
+      "type": "string",
+      "description": "合法的阶段 ID 枚举（唯一权威定义，所有阶段字段必须 $ref 引用此处）",
+      "enum": [
+        "INIT",
+        "ANALYSE_PRODUCT",
+        "CLARIFY_PRODUCT",
+        "ANALYSE_TECH",
+        "CLARIFY_TECH",
+        "ARCHITECT_BACKEND",
+        "CLARIFY_ARCH_BACKEND",
+        "ARCHITECT_FRONTEND",
+        "CLARIFY_ARCH_FRONTEND",
+        "IMPLEMENT",
+        "BUILD_VERIFY",
+        "VISUAL_REVIEW",
+        "E2E_VERIFY",
+        "TEST",
+        "ARCHIVE",
+        "DONE"
+      ]
+    },
+    "PlatformStatus": {
+      "type": "object",
+      "required": ["enabled", "status"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "是否启用该平台"
+        },
+        "type": {
+          "type": "string",
+          "description": "平台子类型，用于区分同一平台下的不同项目类型。web 平台可选值: admin-b-end（运营端/B端管理后台）、web-spa（单页应用）、game-app（游戏应用）、web-portal（门户网站）等。backend/miniprogram 平台通常无需设置。",
+          "examples": ["admin-b-end", "web-spa", "game-app", "web-portal"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "completed", "skipped", "rolled_back"],
+          "description": "该平台的实现进度"
+        }
+      }
+    }
+  }
+}
