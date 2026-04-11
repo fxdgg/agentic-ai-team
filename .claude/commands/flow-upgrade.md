@@ -1,17 +1,19 @@
 ---
 name: flow-upgrade
-description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版本，对比差异后选择性更新本地 .claude/ 目录。
+description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版本，对比差异后选择性更新本地 .claude/ 和 .codebuddy/ 目录（双平台同步）。
 ---
 
 # 工作流版本更新
 
 ## 指令概述
 
-本指令用于将当前项目中的 `.claude/` 工作流引擎更新到最新版本。通过版本对比展示变更内容，支持全量更新或选择性更新。
+本指令用于将当前项目中的工作流引擎更新到最新版本。**同时更新 `.claude/` 和 `.codebuddy/` 两个目录**，确保用户可以随时在 Claude Code 和 CodeBuddy IDE 之间切换。
+
+通过版本对比展示变更内容，支持全量更新或选择性更新。
 
 **触发方式**：用户手动执行 `/flow-upgrade`
 
-**核心原则**：先对比再更新，用户完全可控。不自动覆盖用户的本地自定义修改。
+**核心原则**：先对比再更新，用户完全可控。不自动覆盖用户的本地自定义修改。双平台同步更新。
 
 ---
 
@@ -50,7 +52,14 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 ### Step 3：对比差异
 
 ```
-1. 遍历 .ai-team-upgrade/.claude/ 下的所有文件
+分别对比两个平台目录：
+
+对 .claude/ 和 .codebuddy/ 各执行一次对比：
+  远程源: .ai-team-upgrade/.claude/  → 本地目标: .claude/
+  远程源: .ai-team-upgrade/.codebuddy/ → 本地目标: .codebuddy/
+
+对每个平台目录:
+1. 遍历远程源下的所有文件
 2. 按模块分组对比:
    - skills/{skill-name}/      → 每个 Skill 为一个模块
    - commands/                  → 命令集为一个模块
@@ -68,6 +77,7 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 5. 特殊处理:
    - memory/ 目录始终跳过（组织记忆是项目特有的）
    - .ai-team-version 不计入对比（更新后自动重写）
+   - 两个平台的变更合并展示，按模块去重（同一模块在两个平台都有变更只展示一条）
 ```
 
 ### Step 4：展示差异并让用户选择
@@ -125,15 +135,16 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 ### Step 5：执行更新
 
 ```
-按用户选择的范围执行文件复制:
+按用户选择的范围，对 .claude/ 和 .codebuddy/ 同时执行文件复制:
 
 1. 对每个选中的模块:
-   a) 复制远程文件到本地 .claude/ 对应路径
+   a) 分别从远程 .claude/ 和 .codebuddy/ 复制到本地对应路径
    b) 新增文件: 直接复制
    c) 变更文件: 覆盖（本地旧版本不备份，可通过 git 恢复）
    d) 本地自定义文件: 保留不动
 
-2. 更新 .claude/.ai-team-version:
+2. 分别更新两个目录的版本文件:
+   更新 .claude/.ai-team-version 和 .codebuddy/.ai-team-version:
    {
      "commitHash": "{newCommitHash}",
      "installedAt": "{原 installedAt 或当前时间}",
@@ -150,10 +161,11 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 ```
 更新完成后执行验证:
 
-1. 检查关键文件完整性:
+1. 检查关键文件完整性（两个平台都检查）:
    - .claude/skills/workflow-orchestrator/SKILL.md 是否存在
-   - .claude/skills/knowledge-evolution/SKILL.md 是否存在
    - .claude/commands/flow-run.md 是否存在
+   - .codebuddy/skills/workflow-orchestrator/SKILL.md 是否存在
+   - .codebuddy/commands/flow-run.md 是否存在
 
 2. 展示更新报告:
 
@@ -177,9 +189,10 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 
 ## 注意事项
 
-1. **memory/ 目录保护**：更新永远不会覆盖 `.claude/memory/` 目录，组织记忆是项目特有的
+1. **memory/ 目录保护**：更新永远不会覆盖 `.claude/memory/` 和 `.codebuddy/memory/` 目录，组织记忆是项目特有的
 2. **本地自定义保护**：用户自行添加的 Skill/Command/Rule 文件不会被删除
 3. **版本追踪**：`.ai-team-version` 文件记录安装和更新信息，便于后续增量对比
 4. **SSH 优先**：克隆使用 SSH 协议（与 `/flow-import` 的 Git 克隆策略一致）
-5. **可回滚**：如果项目本身在 Git 管理下，更新前的文件可通过 `git checkout -- .claude/` 回滚
+5. **可回滚**：如果项目本身在 Git 管理下，更新前的文件可通过 `git checkout -- .claude/ .codebuddy/` 回滚
 6. **幂等性**：多次执行 `/flow-upgrade` 是安全的，如果已是最新版本会提示无需更新
+7. **双平台同步**：无论从哪个 CLI 工具执行，都会同时更新 `.claude/` 和 `.codebuddy/`，确保用户可随时切换工具
