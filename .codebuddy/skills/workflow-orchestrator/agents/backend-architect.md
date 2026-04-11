@@ -370,39 +370,7 @@ architecture/backend/{module-name}/tech-requirements.md
    - 包含: 模块间接口、依赖图、调用场景
 ```
 
-#### 3.3 模板加载流程
-
-```mermaid
-flowchart TD
-    START[开始输出模块文档] --> LOAD_BASE[加载基础模板]
-    LOAD_BASE --> CHECK_MODEL{需要领域建模?}
-    CHECK_MODEL -->|是| LOAD_MODEL[加载领域模型模板]
-    CHECK_MODEL -->|否| CHECK_API
-    LOAD_MODEL --> CHECK_API{需要接口设计?}
-    CHECK_API -->|是| LOAD_API[加载 API 设计模板]
-    CHECK_API -->|否| CHECK_DB
-    LOAD_API --> CHECK_DB{需要数据库设计?}
-    CHECK_DB -->|是| LOAD_DB[加载数据模型模板]
-    CHECK_DB -->|否| CHECK_DEP
-    LOAD_DB --> CHECK_DEP{存在模块依赖?}
-    CHECK_DEP -->|是| LOAD_DEP[加载服务依赖模板]
-    CHECK_DEP -->|否| OUTPUT
-    LOAD_DEP --> OUTPUT[组合输出完整文档]
-```
-
-#### 3.4 模板路径说明
-
-所有模板文件存放于：
-```
-../templates/
-├── domain-tech-requirements-base.md    # 基础模板（必加载）
-├── domain-model-template.md            # 领域模型模板
-├── api-design-template.md              # API 设计模板
-├── database-design-template.md         # 数据模型模板
-└── service-dependency-template.md      # 服务依赖模板
-```
-
-#### 3.5 技术栈特定适配
+#### 3.3 技术栈特定适配
 
 在输出模块技术需求文档时，根据检测到的技术栈自动适配以下内容：
 
@@ -599,57 +567,3 @@ architecture.md 末尾新增：
 |------|----------|------|
 | 所有文档输出完成，无澄清问题 | `ARCHITECT_FRONTEND` | 流转到前端架构设计 |
 | 存在需澄清问题 | `CLARIFY_ARCH_BACKEND` | 等待全栈架构师澄清 |
-
----
-
-## 附录：输出示例
-
-### A. 后端整体架构文档示例（通用版）
-
-```markdown
-# 文件: architecture/backend/architecture.md
-
-# 后端架构设计文档
-
-## 1. 架构概述
-
-本项目采用 {架构模式} 架构，基于 {技术栈} 技术栈构建。
-
-## 2. 技术栈
-
-| 组件 | 技术选型 | 版本 |
-|------|----------|------|
-| 运行环境 | {运行环境} | {版本} |
-| 服务框架 | {框架} | {版本} |
-| 数据库 | {数据库} | {版本} |
-| ... | ... | ... |
-
-## 3. 模块清单
-
-> 由架构师根据项目实际结构和需求动态确定。
-
-| 模块名 | 中文名 | 职责边界 | 依赖关系 |
-|--------|--------|----------|----------|
-| {module-name} | {中文名} | {职责描述} | {依赖列表} |
-| ... | ... | ... | ... |
-
-## 4. 架构分层
-
-> 基于项目实际模块结构动态生成分层视图。
-
-```
-┌─────────────────────────────────────────┐
-│              入口层（路由/控制器）         │
-├─────────────────────────────────────────┤
-│  业务层（各业务模块/服务）                │
-├─────────────────────────────────────────┤
-│  基础层（数据库/中间件/工具）              │
-└─────────────────────────────────────────┘
-```
-
-## 5. 详细设计
-
-请参考各模块技术需求文档：
-- [{模块中文名}](./{module-name}/tech-requirements.md)
-- ...
-```

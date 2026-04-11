@@ -829,7 +829,8 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 | CLARIFY_ARCH_BACKEND | `phases/clarify-rules.md` | 同上 |
 | CLARIFY_ARCH_FRONTEND | `phases/clarify-rules.md` | 同上 |
 | ANALYSE_TECH | `phases/analyse-tech-rules.md` | 调度模式选择 + Agent Teams 四成员串行协作规则 + 代码画像注入协议 |
-| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` | 调度模式选择 + Agent Teams 两步模式 + 检查点机制 |
+| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` | 主规则（~280行）：调度决策 + 检查点机制 + 三步模式。详细规则按需加载子文件 |
+| ARCHITECT_BACKEND 执行时 | `phases/architect-backend-level{1,2,3}.md` | 按实际降级路径按需加载：Level 1 Agent Teams / Level 2 Task 流水线 / Level 3 兜底 |
 | IMPLEMENT | `phases/implement-rules.md` | 动态调度 + Agent Teams 模式 + 编译修复模式 + D2C 嵌入模式 |
 | BUILD_VERIFY | `phases/build-verify-rules.md` | 调度模式选择 + Agent Teams 规则 + 精细化回退策略 |
 | 任何阶段的"预览"/"总结确认" | `phases/output-formats/common.md` | 通用展示格式（预览/总结/澄清/列表/PRD重复/二次确认） |
@@ -863,11 +864,13 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 编排器进入 ARCHITECT_BACKEND 阶段：
   1. read_file("state.json")                              ← 方案 4：读取唯一状态源
-  2. read_file("phases/architect-backend-rules.md")       ← 方案 2：按需加载阶段规则
+  2. read_file("phases/architect-backend-rules.md")       ← 方案 2：按需加载主规则（~280行）
   3. 检查 architectBackendCheckpoint 决定断点恢复策略
-  4. 判断调度模式（Agent Teams / Task 工具降级）
-  5. Agent Teams 模式：创建团队 → S1(@global-architect) → 检查点落盘 → S2(@domain-architect-*并行) → 逐个检查点落盘 → 清理团队
-     Task 模式：调用 §0.1 选择的单体架构师 Agent（java-architect 或 backend-architect）
+  4. 判断调度模式 → 按需加载对应子文件：
+     Level 1: read_file("phases/architect-backend-level1.md")  ← Agent Teams 完整规则
+     Level 2: read_file("phases/architect-backend-level2.md")  ← Task 流水线规则
+     Level 3: read_file("phases/architect-backend-level3.md")  ← 兜底执行规则
+  5. 按子文件中的规则执行
 
 编排器进入 IMPLEMENT 阶段：
   1. read_file("state.json")                    ← 方案 4：读取唯一状态源
