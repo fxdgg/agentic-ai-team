@@ -1,0 +1,180 @@
+# =============================================================================
+# 热修复工作流模板 (Hotfix Workflow)
+# =============================================================================
+# 适用于生产环境紧急修复的简化工作流。
+# 最小化阶段数，聚焦快速定位、修复和验证。
+#
+# 特性：
+#   - 4 阶段极简流程：分析 → 修复 → 验证 → 归档
+#   - 跳过架构设计阶段
+#   - 强制构建验证
+#   - 紧急优先级调度
+# =============================================================================
+
+name: "热修复工作流"
+version: "1.0.0"
+description: >
+  适用于生产环境缺陷的紧急修复工作流。省去架构设计阶段，聚焦快速问题定位、
+  修复实现和验证。适合已有架构基础上的 bug 修复和小范围功能修补。
+
+tags:
+  - hotfix
+  - urgent
+  - minimal
+
+config:
+  max_parallel_agents: 2
+  default_token_budget: 100000
+  quality_gate_threshold: 0.9     # 热修复需要更高的质量门禁
+  max_clarify_rounds: 1           # 紧急修复限制澄清次数
+  timeout_hours: 12               # 12 小时超时
+  priority: critical              # 紧急优先级
+
+# =============================================================================
+# 阶段定义
+# =============================================================================
+phases:
+  # ---------------------------------------------------------------------------
+  # 阶段 1：问题分析与定位
+  # ---------------------------------------------------------------------------
+  - id: ANALYSE_ISSUE
+    name: "问题分析与定位"
+    description: >
+      快速分析问题根因，定位受影响的代码模块，评估影响范围。
+      输出问题分析报告和修复方案。
+    agent_role: "fullstack-analyst"
+    three_step_mode: true
+    clarify_enabled: true
+    max_clarify_rounds: 1
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "根因定位"
+          description: "问题根因已明确定位"
+          weight: 0.5
+        - name: "影响评估"
+          description: "影响范围和修复方案已确定"
+          weight: 0.5
+    outputs:
+      - name: "issue-analysis.md"
+        type: "markdown"
+        required: true
+      - name: "affected-files.json"
+        type: "json"
+        required: true
+    estimated_duration_hours: 1
+    token_budget: 30000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 2：修复实现
+  # ---------------------------------------------------------------------------
+  - id: IMPLEMENT_FIX
+    name: "修复实现"
+    description: >
+      实施修复代码变更。尽量最小化改动范围，降低引入新问题的风险。
+    dynamic_dispatch: true
+    dispatch_strategy: "by_capability_domain"
+    three_step_mode: true
+    clarify_enabled: false
+    depends_on:
+      - ANALYSE_ISSUE
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "最小改动"
+          description: "修复范围最小化，不引入无关变更"
+          weight: 0.4
+        - name: "代码规范"
+          description: "修复代码符合编码规范"
+          weight: 0.3
+        - name: "回归测试"
+          description: "添加针对此 bug 的回归测试"
+          weight: 0.3
+    outputs:
+      - name: "fix-changeset.md"
+        type: "markdown"
+        required: true
+    estimated_duration_hours: 2
+    token_budget: 40000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 3：验证
+  # ---------------------------------------------------------------------------
+  - id: VERIFY_FIX
+    name: "验证"
+    description: >
+      构建验证 + 回归测试。确保修复生效且不引入新问题。
+      验证失败时回退到修复阶段。
+    sequential_agents:
+      - "build-verifier"
+      - "test-engineer"
+    three_step_mode: false
+    clarify_enabled: false
+    depends_on:
+      - IMPLEMENT_FIX
+    rollback:
+      enabled: true
+      target: IMPLEMENT_FIX
+      max_attempts: 2
+      repair_mode: true
+    quality_gate:
+      enabled: true
+      criteria:
+        - name: "构建成功"
+          description: "项目构建通过"
+          weight: 0.4
+        - name: "回归通过"
+          description: "所有已有测试 + 新增回归测试通过"
+          weight: 0.6
+    outputs:
+      - name: "verify-report.json"
+        type: "json"
+        required: true
+    estimated_duration_hours: 1
+    token_budget: 20000
+
+  # ---------------------------------------------------------------------------
+  # 阶段 4：归档
+  # ---------------------------------------------------------------------------
+  - id: ARCHIVE
+    name: "归档"
+    description: >
+      记录修复过程、根因分析和经验教训。为知识进化体系提供缺陷模式输入。
+    agent_role: "archiver"
+    three_step_mode: false
+    clarify_enabled: false
+    depends_on:
+      - VERIFY_FIX
+    quality_gate:
+      enabled: false
+    outputs:
+      - name: "hotfix-summary.md"
+        type: "markdown"
+        required: true
+      - name: "defect-pattern.json"
+        type: "json"
+        required: false
+    estimated_duration_hours: 0.5
+    token_budget: 10000
+
+# =============================================================================
+# 阶段转换规则
+# =============================================================================
+transitions:
+  ANALYSE_ISSUE:
+    next: IMPLEMENT_FIX
+    can_skip_to: null
+    requires_gate_pass: true
+  IMPLEMENT_FIX:
+    next: VERIFY_FIX
+    can_skip_to: null
+    requires_gate_pass: true
+  VERIFY_FIX:
+    next: ARCHIVE
+    can_skip_to: null
+    requires_gate_pass: true
+    rollback_to: IMPLEMENT_FIX
+  ARCHIVE:
+    next: DONE
+    can_skip_to: null
+    requires_gate_pass: false

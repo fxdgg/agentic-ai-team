@@ -1,0 +1,105 @@
+{
+  "_description": "ARCHITECT_BACKEND 阶段的 state.json 示例片段，仅供参考，编排器运行时不加载此文件",
+
+  "architectBackendMode_values": {
+    "agent-teams": "Level 1: Parallel Agent 模式成功完成",
+    "task-pipeline": "Level 2: Task 串行流水线模式完成",
+    "fallback": "Level 3: 编排器直接执行模式完成",
+    "task": "兼容旧值：等价于 Level 3（断点恢复时按 Level 3 处理）"
+  },
+
+  "example_level1_step1_completed": {
+    "currentPhase": "ARCHITECT_BACKEND",
+    "architectBackendAgent": "backend-architect",
+    "architectBackendMode": "agent-teams",
+    "architectBackendCheckpoint": {
+      "step": "global_completed",
+      "completedArtifacts": [
+        "architecture/backend/architecture.md",
+        "architecture/backend/dependency-graph.md",
+        "architecture/backend/priority-list.md"
+      ],
+      "pendingDomains": ["{common-module}", "{user-center}", "{product-center}"],
+      "completedDomains": [],
+      "updatedAt": "2026-03-25T12:30:00+08:00"
+    },
+    "architectBackendTeam": {
+      "teamName": "arch-backend-20260325",
+      "members": [
+        { "name": "@global-architect", "role": "global", "domain": null, "status": "completed", "completedAt": "2026-03-25T12:30:00+08:00" },
+        { "name": "@domain-architect-common", "role": "domain", "domain": "{common-module}", "status": "pending", "completedAt": null },
+        { "name": "@domain-architect-user-center", "role": "domain", "domain": "{user-center}", "status": "pending", "completedAt": null },
+        { "name": "@domain-architect-product-center", "role": "domain", "domain": "{product-center}", "status": "pending", "completedAt": null }
+      ],
+      "createdAt": "2026-03-25T12:00:00+08:00",
+      "cleanedAt": null
+    }
+  },
+
+  "example_level1_domains_pending": {
+    "architectBackendCheckpoint": {
+      "step": "domains_pending",
+      "completedArtifacts": [
+        "architecture/backend/architecture.md",
+        "architecture/backend/dependency-graph.md",
+        "architecture/backend/priority-list.md",
+        "architecture/backend/{common-module}/tech-requirements.md",
+        "architecture/backend/{user-center}/tech-requirements.md"
+      ],
+      "pendingDomains": ["{product-center}"],
+      "completedDomains": ["{common-module}", "{user-center}"],
+      "updatedAt": "2026-03-25T13:00:00+08:00"
+    }
+  },
+
+  "example_level2_completed": {
+    "currentPhase": "ARCHITECT_BACKEND",
+    "architectBackendAgent": "backend-architect",
+    "architectBackendMode": "task-pipeline",
+    "architectBackendCheckpoint": {
+      "step": "domains_completed",
+      "completedArtifacts": [
+        "architecture/backend/architecture.md",
+        "architecture/backend/dependency-graph.md",
+        "architecture/backend/priority-list.md",
+        "architecture/backend/domain-registry.json",
+        "architecture/backend/{common-module}/tech-requirements.md",
+        "architecture/backend/{user-center}/tech-requirements.md",
+        "architecture/backend/{product-center}/tech-requirements.md"
+      ],
+      "pendingDomains": [],
+      "completedDomains": ["{common-module}", "{user-center}", "{product-center}"],
+      "updatedAt": "2026-03-25T14:00:00+08:00"
+    },
+    "architectBackendPipeline": {
+      "completedTasks": ["Task-A", "Task-B-common", "Task-B-user-center", "Task-B-product-center"],
+      "degradedFrom": "agent-teams",
+      "degradeReason": "成员 @global-architect 超时无响应",
+      "completedAt": "2026-03-25T14:00:00+08:00"
+    }
+  },
+
+  "example_level3_completed": {
+    "currentPhase": "ARCHITECT_BACKEND",
+    "architectBackendAgent": "backend-architect",
+    "architectBackendMode": "fallback",
+    "architectBackendCheckpoint": {
+      "step": "domains_completed",
+      "completedArtifacts": [
+        "architecture/backend/architecture.md",
+        "architecture/backend/dependency-graph.md",
+        "architecture/backend/priority-list.md",
+        "architecture/backend/{common-module}/tech-requirements.md"
+      ],
+      "pendingDomains": [],
+      "completedDomains": ["{common-module}"],
+      "updatedAt": "2026-03-25T15:00:00+08:00"
+    },
+    "architectBackendFallback": {
+      "degradedFrom": "task-pipeline",
+      "degradeReason": "Task-A 返回空结果",
+      "availableArtifacts": [],
+      "completedAt": "2026-03-25T15:00:00+08:00"
+    }
+  }
+}

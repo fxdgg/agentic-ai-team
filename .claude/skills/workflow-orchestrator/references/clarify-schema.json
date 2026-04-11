@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ClarifyQuestions",
+  "description": "澄清问题文件 Schema（*-clarify.json）",
+  "type": "object",
+  "required": ["questions"],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "description": "待澄清问题列表",
+      "items": {
+        "type": "object",
+        "required": ["id", "category", "priority", "question", "context", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "问题唯一标识，格式: Q + 三位数",
+            "pattern": "^Q\\d{3,}$",
+            "examples": ["Q001"]
+          },
+          "category": {
+            "type": "string",
+            "description": "问题分类",
+            "examples": ["功能边界", "业务规则", "性能要求", "安全要求", "兼容性", "数据迁移", "用户体验", "外部依赖", "合规要求", "技术选型", "接口设计", "安全架构", "集成对接"]
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["blocking", "important", "recommended"],
+            "description": "优先级: blocking=阻塞性(跳过→high风险), important=重要(跳过→medium风险), recommended=建议性(跳过→low风险)"
+          },
+          "question": {
+            "type": "string",
+            "description": "问题内容"
+          },
+          "context": {
+            "type": "string",
+            "description": "问题背景说明，帮助用户理解为什么要问这个问题"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "answered", "skipped"],
+            "description": "处理状态: pending=待处理, answered=已回答, skipped=已跳过"
+          },
+          "answer": {
+            "type": ["string", "null"],
+            "description": "用户的回答内容"
+          },
+          "answeredAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "回答时间"
+          },
+          "suggestedAnswer": {
+            "type": ["string", "null"],
+            "description": "Agent 基于分析推断的建议答案，供用户在澄清阶段参考。用户可选择采纳、修改或忽略。"
+          }
+        }
+      }
+    }
+  }
+}

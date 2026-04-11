@@ -1,0 +1,16 @@
+{
+  "version": "5.8.0",
+  "action": "create",
+  "figmaUrl": "https://www.figma.com/design/FILE_KEY/FILE_NAME?node-id=1087-1688",
+  "nodeId": "1087:1688",
+  "mode": "page",
+  "outputPath": "src/pages/ExamplePage/index.tsx",
+  "projectProfile": "./project-profile.json",
+  "reusePolicy": "strict",
+  "componentMapping": "project-first",
+  "tokenPolicy": "variable > project-token > alias > d2c-token > raw",
+  "responsivePolicy": "preserve-current-project",
+  "interactionPolicy": "infer-safe-only",
+  "assetPolicy": "deterministic",
+  "validationLevel": "strict"
+}

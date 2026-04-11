@@ -1,0 +1,64 @@
+{
+  "name": "figma-d2c",
+  "displayName": "Figma D2C",
+  "version": "5.8.0",
+  "description": "确定性 Figma Design-to-Code Skill：精确数值还原、坐标驱动布局、自适应响应式输出、逐节点数据回查、即时截图对比、视觉数据优先、标准化输入、项目画像锁定、组件映射、Token 对齐、Manifest 与回归闭环",
+  "triggers": [
+    "D2C",
+    "d2c",
+    "设计稿转代码",
+    "Figma 转码",
+    "figma to code",
+    "design to code",
+    "把这个设计稿转成代码",
+    "帮我还原这个设计稿",
+    "将figma转为代码",
+    "将figma转为react",
+    "将figma转为vue",
+    "更新设计稿",
+    "设计变更",
+    "同步最新设计",
+    "修改组件",
+    "UI 调整",
+    "下载图片",
+    "处理图片",
+    "图片资源",
+    "下载图标",
+    "SVG",
+    "svg",
+    "icon",
+    "图标",
+    "检查还原度",
+    "验证代码",
+    "回归验证",
+    "还原度报告",
+    "regression check",
+    "D2C REQUEST",
+    "标准 D2C 请求"
+  ],
+  "skillFile": "SKILL.md",
+  "references": [
+    "references/create-workflow.md",
+    "references/update-workflow.md",
+    "references/design-quality-precheck.md",
+    "references/reuse-check.md",
+    "references/code-standards.md",
+    "references/design-tokens.md",
+    "references/image-workflow.md",
+    "references/svg-icons.md",
+    "references/interaction-logic.md",
+    "references/error-handler.md",
+    "references/a11y-guidelines.md",
+    "references/mock-data.md",
+    "references/regression-check.md"
+  ],
+  "mcpTools": [
+    {
+      "server": "FramelinkFigmaMCP",
+      "tools": [
+        "get_figma_data",
+        "download_figma_images"
+      ]
+    }
+  ]
+}

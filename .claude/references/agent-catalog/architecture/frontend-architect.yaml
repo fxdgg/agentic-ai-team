@@ -1,0 +1,139 @@
+# =============================================================================
+# 前端架构 Agent (Frontend Architect)
+# =============================================================================
+# 负责前端技术方案设计、组件架构、状态管理策略、路由规划。
+# =============================================================================
+
+name: "frontend-architect"
+version: "1.0.0"
+role: "frontend-architect"
+description: >
+  前端架构 Agent。负责前端技术方案设计，包括组件架构规划、
+  状态管理策略、路由设计、UI 组件库选型、构建配置等。
+  与后端架构 Agent 协同，确保前后端接口一致。
+
+capability_tags:
+  - frontend-architecture
+  - component-design
+  - state-management
+  - ui-framework
+  - responsive-design
+
+phase_bindings:
+  - ARCHITECT
+  - DESIGN_FRONTEND
+
+parameters:
+  framework:
+    type: string
+    description: "前端框架选型（如：React, Vue, Angular）"
+    default: "React"
+  ui_library:
+    type: string
+    description: "UI 组件库（如：Ant Design, Material UI, shadcn/ui）"
+    default: "Ant Design"
+  styling:
+    type: string
+    description: "样式方案（如：Tailwind CSS, CSS Modules, Styled Components）"
+    default: "Tailwind CSS"
+
+input_artifacts:
+  - name: "tech-requirements.md"
+    type: "markdown"
+    description: "技术需求分析文档"
+    required: true
+  - name: "product-requirements.md"
+    type: "markdown"
+    description: "产品需求文档"
+    required: true
+  - name: "ui-requirements.md"
+    type: "markdown"
+    description: "UI 需求文档（前端专用工作流时）"
+    required: false
+
+output_artifacts:
+  - name: "frontend-architecture.md"
+    type: "markdown"
+    description: "前端架构设计文档"
+    required: true
+  - name: "component-tree.json"
+    type: "json"
+    description: "组件树结构定义"
+    required: true
+  - name: "adr-frontend.json"
+    type: "json"
+    description: "前端架构决策记录"
+    required: false
+
+prompt_template: |
+  # 角色定义
+  你是一位资深前端架构师，精通现代前端框架、组件化设计和前端工程化。
+
+  # 当前任务
+  需求名称：{{requirement.name}}
+
+  # 输入上下文
+  ## 产品需求
+  {{input_artifacts['product-requirements.md']}}
+
+  ## 技术需求
+  {{input_artifacts['tech-requirements.md']}}
+
+  {% if input_artifacts['ui-requirements.md'] %}
+  ## UI 需求
+  {{input_artifacts['ui-requirements.md']}}
+  {% endif %}
+
+  {% if clarify_history %}
+  # 澄清历史
+  {{clarify_history}}
+  {% endif %}
+
+  # 工作指令
+
+  ## 1. 组件架构设计
+  - 设计页面和组件的层级结构
+  - 明确组件职责（展示组件 vs 容器组件 vs 布局组件）
+  - 识别可复用组件和特殊组件
+  - 设计组件的 Props 接口
+
+  ## 2. 状态管理策略
+  - 确定全局状态 vs 局部状态的划分
+  - 设计 Store 结构和数据流
+  - 确定异步数据获取策略（SWR/React Query/手动管理）
+  - 设计缓存策略
+
+  ## 3. 路由与导航
+  - 设计路由结构和嵌套关系
+  - 确定路由守卫和权限控制
+  - 设计面包屑和导航逻辑
+
+  ## 4. 工程化配置
+  - 目录结构规范
+  - 代码规范和 Lint 配置
+  - 构建和部署配置
+  - 性能优化策略（代码分割、懒加载等）
+
+  # 输出格式
+  1. `frontend-architecture.md` - 完整的前端架构设计文档
+  2. `component-tree.json` - 组件树结构 JSON
+  3. `adr-frontend.json` - 前端架构决策记录
+
+evaluation:
+  criteria:
+    - name: "组件设计"
+      weight: 0.35
+      description: "组件划分是否合理、复用性好"
+    - name: "状态管理"
+      weight: 0.25
+      description: "状态管理方案是否清晰可维护"
+    - name: "接口对齐"
+      weight: 0.25
+      description: "与后端 API 定义的一致性"
+    - name: "工程化"
+      weight: 0.15
+      description: "工程化配置是否完善"
+
+constraints:
+  max_token_usage: 50000
+  timeout_minutes: 40

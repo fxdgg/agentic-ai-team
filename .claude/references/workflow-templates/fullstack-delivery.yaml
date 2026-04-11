@@ -1,0 +1,115 @@
+# ─── AI Team — 全栈交付工作流模板 ─────────────────────────────
+# 六阶段全栈交付流程：需求分析 → 技术分析 → 架构设计 → 实现 → 验证 → 归档
+# 每个阶段都支持三步模式（preview → execute → summary）
+
+name: "全栈交付工作流"
+version: "1.0"
+description: >
+  标准全栈交付流程：从产品需求分析到验证归档的完整链路。
+  支持三步模式、质量门禁、回退和编译修复。
+
+phases:
+  - id: ANALYSE_PRODUCT
+    name: 产品需求分析
+    agent_role: analysis
+    three_step_mode: true
+    clarify_enabled: true
+    outputs:
+      - user_stories
+      - acceptance_criteria
+      - priority_matrix
+    max_rollback: 2
+
+  - id: ANALYSE_TECH
+    name: 技术需求分析
+    agent_role: architecture
+    three_step_mode: true
+    clarify_enabled: false
+    depends_on:
+      - ANALYSE_PRODUCT
+    outputs:
+      - tech_requirements
+      - api_specification
+      - data_model
+    max_rollback: 2
+
+  - id: ARCHITECT
+    name: 架构设计
+    parallel_agents:
+      - architecture
+    three_step_mode: true
+    clarify_enabled: false
+    depends_on:
+      - ANALYSE_TECH
+    outputs:
+      - architecture_document
+      - component_diagram
+      - api_design
+    max_rollback: 2
+
+  - id: IMPLEMENT
+    name: 代码实现
+    parallel_agents:
+      - implementation
+    three_step_mode: true
+    dynamic_dispatch: false
+    depends_on:
+      - ARCHITECT
+    outputs:
+      - source_code
+      - unit_tests
+      - change_report
+    rollback_target: ARCHITECT
+    max_rollback: 3
+
+  - id: VERIFY
+    name: 编译验证
+    parallel_agents:
+      - verification
+    three_step_mode: true
+    depends_on:
+      - IMPLEMENT
+    outputs:
+      - build_report
+      - test_report
+      - quality_assessment
+    rollback_target: IMPLEMENT
+    max_rollback: 3
+
+  - id: ARCHIVE
+    name: 归档发布
+    agent_role: operations
+    three_step_mode: true
+    depends_on:
+      - VERIFY
+    outputs:
+      - changelog
+      - release_notes
+      - documentation
+    max_rollback: 1
+
+transitions:
+  ANALYSE_PRODUCT:
+    next: ANALYSE_TECH
+    can_skip_to: ARCHITECT  # 如果需求足够清晰，可跳过技术分析
+    rollback_to: null
+
+  ANALYSE_TECH:
+    next: ARCHITECT
+    rollback_to: ANALYSE_PRODUCT
+
+  ARCHITECT:
+    next: IMPLEMENT
+    rollback_to: ANALYSE_TECH
+
+  IMPLEMENT:
+    next: VERIFY
+    rollback_to: ARCHITECT
+
+  VERIFY:
+    next: ARCHIVE
+    rollback_to: IMPLEMENT  # 验证失败回退到实现阶段（编译修复模式）
+
+  ARCHIVE:
+    next: DONE
+    rollback_to: VERIFY

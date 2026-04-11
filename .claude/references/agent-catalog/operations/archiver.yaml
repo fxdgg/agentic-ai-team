@@ -1,0 +1,147 @@
+# =============================================================================
+# 归档 Agent (Archiver)
+# =============================================================================
+# 负责整理交付产物，生成交付总结报告，记录经验教训。
+# =============================================================================
+
+name: "archiver"
+version: "1.0.0"
+role: "archiver"
+description: >
+  归档 Agent。负责在需求交付完成后整理所有产物，生成交付总结报告，
+  记录经验教训和改进建议。为知识进化体系提供缺陷模式和最佳实践输入。
+
+capability_tags:
+  - archival
+  - documentation
+  - knowledge-management
+  - retrospective
+
+phase_bindings:
+  - ARCHIVE
+
+parameters:
+  archive_format:
+    type: string
+    description: "归档格式"
+    default: "markdown"
+  include_metrics:
+    type: boolean
+    description: "是否包含交付指标统计"
+    default: true
+
+input_artifacts:
+  - name: "all-phase-artifacts"
+    type: "directory"
+    description: "所有阶段的输出产物"
+    required: true
+  - name: "workflow-history"
+    type: "json"
+    description: "工作流执行历史（含回退记录）"
+    required: true
+
+output_artifacts:
+  - name: "delivery-summary.md"
+    type: "markdown"
+    description: "交付总结报告"
+    required: true
+  - name: "lessons-learned.json"
+    type: "json"
+    description: "经验教训记录"
+    required: false
+    schema:
+      type: object
+      properties:
+        defect_patterns:
+          type: array
+          description: "发现的缺陷模式"
+          items:
+            type: object
+            properties:
+              pattern: { type: string }
+              frequency: { type: integer }
+              root_cause: { type: string }
+              prevention: { type: string }
+        best_practices:
+          type: array
+          description: "总结的最佳实践"
+          items:
+            type: object
+            properties:
+              practice: { type: string }
+              context: { type: string }
+              evidence: { type: string }
+        improvement_suggestions:
+          type: array
+          description: "改进建议（输入进化系统）"
+          items:
+            type: object
+            properties:
+              target: { type: string }
+              suggestion: { type: string }
+              priority: { type: string }
+  - name: "defect-pattern.json"
+    type: "json"
+    description: "缺陷模式分析（热修复工作流专用）"
+    required: false
+
+prompt_template: |
+  # 角色定义
+  你是一位项目交付管理专家，擅长总结和沉淀工程经验。
+
+  # 当前任务
+  需求名称：{{requirement.name}}
+
+  # 输入上下文
+  ## 工作流执行历史
+  {{input_artifacts['workflow-history']}}
+
+  ## 各阶段产物
+  {{input_artifacts['all-phase-artifacts']}}
+
+  # 工作指令
+
+  ## 1. 交付总结
+  - 概述需求的交付过程
+  - 列出所有产出物清单
+  - 记录关键的技术决策（引用 ADR）
+  - 统计交付指标：
+    - 总耗时
+    - 各阶段耗时
+    - 回退次数及原因
+    - Token 消耗统计
+    - 参与的 Agent 列表
+
+  ## 2. 经验教训
+  - 分析回退和修复事件，识别缺陷模式
+  - 总结成功的实践和方法
+  - 识别流程中的瓶颈和低效环节
+
+  ## 3. 改进建议
+  - 针对识别的缺陷模式提出预防措施
+  - 建议规则或规范的改进（输入进化系统）
+  - 建议 Agent 配置或 Prompt 的优化
+
+  ## 4. 知识沉淀
+  - 将可复用的模式提取为最佳实践
+  - 更新项目文档（如需要）
+
+  # 输出格式
+  1. `delivery-summary.md` - 完整的交付总结报告
+  2. `lessons-learned.json` - 结构化的经验教训数据
+
+evaluation:
+  criteria:
+    - name: "总结完整性"
+      weight: 0.3
+      description: "是否全面覆盖交付过程的关键信息"
+    - name: "经验价值"
+      weight: 0.4
+      description: "总结的经验教训是否有实际参考价值"
+    - name: "改进建议"
+      weight: 0.3
+      description: "改进建议是否具体可执行"
+
+constraints:
+  max_token_usage: 20000
+  timeout_minutes: 15

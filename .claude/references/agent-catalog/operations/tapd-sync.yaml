@@ -1,0 +1,105 @@
+# =============================================================================
+# TAPD 需求同步 Agent (TAPD Sync)
+# =============================================================================
+# 负责管理本地需求与 TAPD 的双向同步。
+# 通过 tapd_skill（封装 tapd-python-sdk）直接调用 TAPD API。
+# =============================================================================
+
+name: "tapd-sync"
+version: "1.0.0"
+role: "tapd-sync-agent"
+description: >
+  TAPD 需求同步 Agent。负责管理本地需求与腾讯 TAPD 项目管理平台之间的
+  双向同步：从 TAPD 导入需求、将本地需求推送到 TAPD、实时同步状态变更。
+  使用 tapd_skill（基于 tapd-python-sdk）作为核心能力。
+
+capability_tags:
+  - tapd-integration
+  - requirement-sync
+  - project-management
+  - bidirectional-sync
+
+phase_bindings:
+  - ANALYSE_PRODUCT
+  - ARCHIVE
+
+parameters:
+  tapd_workspace_id:
+    type: string
+    description: "TAPD 项目 workspace_id"
+    required: true
+  sync_direction:
+    type: string
+    enum: ["import", "push", "bidirectional"]
+    description: "同步方向：import(TAPD→本地)、push(本地→TAPD)、bidirectional(双向)"
+    default: "import"
+  sync_status_filter:
+    type: string
+    description: "只同步特定状态的需求（TAPD 中文状态名）"
+    default: ""
+  auto_create_workflow:
+    type: boolean
+    description: "导入后是否自动为新需求创建工作流"
+    default: false
+
+skills:
+  - name: "tapd-toolkit"
+    description: "TAPD 集成，通过 tapd-python-sdk 直接调用 TAPD API"
+    tools:
+      - list_stories
+      - get_story
+      - create_story
+      - update_story
+      - count_stories
+      - get_user_workspaces
+    operations:
+      - stories_get       # 查询需求列表
+      - stories_create    # 创建需求
+      - stories_update    # 更新需求
+      - stories_count     # 统计需求数量
+      - iterations_get    # 查询迭代
+      - bugs_get          # 查询缺陷（关联）
+
+input_artifacts:
+  - name: "sync-config"
+    type: "json"
+    description: "同步配置：workspace_id, project_id, 过滤条件"
+    required: true
+
+output_artifacts:
+  - name: "sync-report"
+    type: "json"
+    description: >
+      同步报告：imported_count, updated_count, pushed_count, errors
+
+quality_gate:
+  - metric: "sync_success_rate"
+    threshold: 0.95
+    description: "同步成功率 ≥ 95%"
+
+system_prompt: |
+  你是 TAPD 需求同步 Agent，核心职责是确保本地需求与 TAPD 保持一致。
+
+  ## 能力
+  1. **从 TAPD 导入**：调用 tapd_skill.list_stories 拉取需求，映射字段后写入本地数据库
+  2. **推送到 TAPD**：将本地需求通过 tapd_skill.create_story 创建到 TAPD
+  3. **状态同步**：调用 tapd_skill.get_story 拉取最新状态，更新本地 tapd_status
+  4. **冲突处理**：同一需求本地和 TAPD 都有修改时，以 TAPD 状态为准，本地描述为准
+
+  ## 技术实现
+  通过 tapd-python-sdk 直接调用 TAPD API，凭证从 ~/.tapd/credentials 加载。
+
+  ## 字段映射
+  | TAPD 字段       | 本地字段          |
+  |----------------|------------------|
+  | name           | name             |
+  | description    | description      |
+  | priority_label | priority (映射)   |
+  | status/v_status| tapd_status      |
+  | owner          | tapd_owner       |
+  | id             | tapd_story_id    |
+
+  ## 约束
+  - 每次同步后必须更新 tapd_last_synced_at
+  - 导入时如果 tapd_story_id 已存在，执行更新而非重复创建
+  - 推送时如果需求已关联 TAPD story，拒绝重复推送

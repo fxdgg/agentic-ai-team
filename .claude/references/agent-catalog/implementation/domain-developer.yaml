@@ -1,0 +1,103 @@
+# =============================================================================
+# 领域开发 Agent (Domain Developer) — 动态调度模式
+# =============================================================================
+# 后端领域开发 Agent 不再使用预注册的独立文件，而是由编排器在 IMPLEMENT 阶段
+# 根据 domain-registry.json 动态生成。所有领域 Agent 共享同一份通用规范：
+# agents/backend-developers/backend-dev-specification.md
+#
+# 领域差异通过以下方式表达：
+#   - domain-registry.json 的 extraRules / extraQualityChecks 字段
+#   - 编排器在 Prompt 中注入的领域上下文（边界、模块、依赖）
+# =============================================================================
+
+name: "domain-developer"
+version: "2.0.0"
+role: "domain-developer"
+description: >
+  动态调度的领域开发 Agent。编排器根据 domain-registry.json 为每个领域
+  动态生成开发 Agent，无需预先创建领域 Agent 定义文件。所有领域共享
+  backend-dev-specification.md 通用工程规范，领域差异通过 Prompt 注入。
+
+capability_tags:
+  - code-implementation
+  - bug-fixing
+  - code-review
+  - dynamic-domain    # 领域能力由 domain-registry.json 动态决定
+
+phase_bindings:
+  - IMPLEMENT
+  - IMPLEMENT_FIX
+
+parameters:
+  domain_id:
+    type: string
+    description: "领域唯一标识（来自 domain-registry.json 的 domains[].id）"
+    required: true
+    examples:
+      - "common"
+      - "ad-service"
+      - "creative-service"
+  domain_name:
+    type: string
+    description: "领域中文名（来自 domain-registry.json 的 domains[].name）"
+    required: true
+  spec_file:
+    type: string
+    description: "通用规范文件路径"
+    default: "agents/backend-developers/backend-dev-specification.md"
+
+input_artifacts:
+  - name: "tech-requirements.md"
+    type: "markdown"
+    description: "领域技术需求文档（由架构师阶段产出）"
+    required: true
+  - name: "architecture.md"
+    type: "markdown"
+    description: "后端整体架构文档"
+    required: true
+  - name: "domain-registry.json"
+    type: "json"
+    description: "领域注册表（领域边界、模块、额外规则）"
+    required: true
+  - name: "repair-context"
+    type: "json"
+    description: "修复模式上下文（BUILD_VERIFY 回退时注入）"
+    required: false
+
+output_artifacts:
+  - name: "source-code"
+    type: "directory"
+    description: "实现的源代码文件（限于领域目录内）"
+    required: true
+  - name: "implementation-report.md"
+    type: "markdown"
+    description: "实现报告（含验证证据、变更清单、风险标注）"
+    required: true
+
+scheduling:
+  mode: "dynamic"
+  driver: "domain-registry.json"
+  description: >
+    编排器在 IMPLEMENT 阶段读取 domain-registry.json，为每个领域动态生成
+    Parallel Agent 成员。成员名格式为 @{domain-id}-dev。通用工程规范通过
+    read_file 加载，领域差异通过 Prompt 注入。
+
+evaluation:
+  criteria:
+    - name: "代码质量"
+      weight: 0.25
+      description: "代码规范、可读性、可维护性"
+    - name: "功能完整性"
+      weight: 0.25
+      description: "是否完整实现了技术需求中定义的所有文件"
+    - name: "验证证据"
+      weight: 0.25
+      description: "是否提供了完整的验证证据（LSP、构建、边界）"
+    - name: "工程规范遵从"
+      weight: 0.25
+      description: "@changelog 标记、写前必读、引用必读等 CRITICAL 检查"
+
+constraints:
+  max_token_usage: 100000
+  timeout_minutes: 60
+  max_search_budget: 30   # 每领域搜索预算

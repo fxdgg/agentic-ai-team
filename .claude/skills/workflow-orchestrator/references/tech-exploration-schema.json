@@ -1,0 +1,326 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TechExplorationResult",
+  "description": "ANALYSE_TECH 阶段 @tech-explorer 产出的结构化探索结论中间产物 Schema。此文件是 Parallel Agent 模式下成员间的通信契约——explorer 写入，designer 和 splitter 读取。",
+  "type": "object",
+  "required": ["metadata", "projectOverview", "requirementAnalysis", "globalReuseStats"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["requirementId", "requirementName", "exploredAt", "searchBudgetUsed", "searchBudgetTotal"],
+      "description": "探索元信息",
+      "properties": {
+        "requirementId": {
+          "type": "string",
+          "description": "需求 ID",
+          "examples": ["20260324-运营端商品发布编辑"]
+        },
+        "requirementName": {
+          "type": "string",
+          "description": "需求名称"
+        },
+        "exploredAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "探索完成时间（ISO 8601）"
+        },
+        "searchBudgetUsed": {
+          "type": "integer",
+          "description": "实际使用的搜索调用次数"
+        },
+        "searchBudgetTotal": {
+          "type": "integer",
+          "description": "搜索预算总量（默认 120）",
+          "default": 120
+        },
+        "searchToolUnavailable": {
+          "type": "boolean",
+          "description": "搜索工具是否不可用（true 时所有评级为 ⚪）",
+          "default": false
+        }
+      }
+    },
+    "projectOverview": {
+      "type": "object",
+      "required": ["modules", "techStack", "conventions"],
+      "description": "项目架构概览",
+      "properties": {
+        "modules": {
+          "type": "array",
+          "description": "微服务/前端项目模块列表",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "path", "description"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "模块名称",
+                "examples": ["{product-center}"]
+              },
+              "type": {
+                "type": "string",
+                "enum": ["backend-microservice", "frontend-web", "frontend-miniprogram", "common-lib"],
+                "description": "模块类型"
+              },
+              "path": {
+                "type": "string",
+                "description": "模块相对于项目根目录的路径",
+                "examples": ["microservice-group/{product-center}"]
+              },
+              "description": {
+                "type": "string",
+                "description": "模块职责描述"
+              },
+              "subModules": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "子模块列表（如 Maven 多模块）",
+                "examples": [["{product-center}-common", "{product-center}-admin", "{product-center}-service"]]
+              }
+            }
+          }
+        },
+        "techStack": {
+          "type": "object",
+          "description": "技术栈版本信息（key=技术名，value=版本和来源）",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "version": { "type": "string" },
+              "source": { "type": "string", "description": "来源文件路径" }
+            }
+          },
+          "examples": [{
+            "spring-boot": { "version": "3.2.x", "source": "microservice-group/pom.xml" },
+            "vue": { "version": "3.4.x", "source": "frontend-group/{web-project}/package.json" }
+          }]
+        },
+        "conventions": {
+          "type": "array",
+          "description": "项目约定列表（API 命名、响应格式、分层规则等）",
+          "items": {
+            "type": "object",
+            "required": ["type", "content", "evidence"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["api_naming", "response_format", "layering", "proxy_rule", "naming_convention", "other"],
+                "description": "约定类型"
+              },
+              "content": {
+                "type": "string",
+                "description": "约定内容描述"
+              },
+              "evidence": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/Evidence" },
+                "description": "支撑证据"
+              }
+            }
+          }
+        }
+      }
+    },
+    "requirementAnalysis": {
+      "type": "array",
+      "description": "逐需求点技术影响分析结果",
+      "items": {
+        "type": "object",
+        "required": ["requirementId", "title", "platforms", "reuseRating", "reuseEvidence", "impactModules"],
+        "properties": {
+          "requirementId": {
+            "type": "string",
+            "description": "需求点 ID（如 US-001）"
+          },
+          "title": {
+            "type": "string",
+            "description": "需求点标题"
+          },
+          "platforms": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["backend", "web", "miniprogram"] },
+            "description": "该需求点涉及的平台"
+          },
+          "reuseRating": {
+            "type": "string",
+            "enum": ["🟢", "🟡", "🟠", "🔴", "⚪"],
+            "description": "复用评级"
+          },
+          "reuseEvidence": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/Evidence" },
+            "description": "复用评级的支撑证据（≥2 条）"
+          },
+          "reuseDecision": {
+            "type": "string",
+            "description": "复用决策描述（如'直接引用现有 SpuAdminService'、'参考 CategoryController 模式新建'）"
+          },
+          "impactModules": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "影响的模块列表（模块级）",
+            "examples": [["{product-center}", "{web-project}"]]
+          },
+          "crossEndInteractions": {
+            "type": "array",
+            "description": "该需求点涉及的跨端交互",
+            "items": {
+              "type": "object",
+              "required": ["apiId", "method", "path", "initiator", "provider"],
+              "properties": {
+                "apiId": {
+                  "type": "string",
+                  "description": "接口编号（如 API-001），由 explorer 初始分配，designer 确认或调整"
+                },
+                "method": {
+                  "type": "string",
+                  "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+                  "description": "HTTP 方法"
+                },
+                "path": {
+                  "type": "string",
+                  "description": "API 路径（草稿，designer 确认后为基准）"
+                },
+                "initiator": {
+                  "type": "string",
+                  "enum": ["web", "miniprogram"],
+                  "description": "请求发起端"
+                },
+                "provider": {
+                  "type": "string",
+                  "enum": ["backend"],
+                  "description": "请求提供端"
+                },
+                "requestType": {
+                  "type": "object",
+                  "description": "请求类型草稿",
+                  "properties": {
+                    "name": { "type": "string", "description": "类型名称" },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "type": { "type": "string" },
+                          "description": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "responseType": {
+                  "type": "object",
+                  "description": "响应类型草稿",
+                  "properties": {
+                    "name": { "type": "string", "description": "类型名称" },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "type": { "type": "string" },
+                          "description": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": { "$ref": "#/definitions/Evidence" },
+                  "description": "接口设计的证据来源"
+                },
+                "interactionSequence": {
+                  "type": ["string", "null"],
+                  "description": "调用顺序依赖说明（如'需先调用 API-002 获取分类列表'）"
+                }
+              }
+            }
+          },
+          "techConstraints": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "技术约束列表"
+          },
+          "risks": {
+            "type": "array",
+            "description": "该需求点的风险项",
+            "items": {
+              "type": "object",
+              "required": ["description", "level"],
+              "properties": {
+                "description": { "type": "string" },
+                "level": { "type": "string", "enum": ["high", "medium", "low"] },
+                "dimension": { "type": "string", "description": "风险维度（技术债、兼容性、性能等）" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "globalReuseStats": {
+      "type": "object",
+      "required": ["green", "yellow", "orange", "red", "white"],
+      "description": "全局复用评级统计",
+      "properties": {
+        "green": { "type": "integer", "description": "🟢 完全复用数量" },
+        "yellow": { "type": "integer", "description": "🟡 稍作调整数量" },
+        "orange": { "type": "integer", "description": "🟠 部分复用数量" },
+        "red": { "type": "integer", "description": "🔴 无法复用数量" },
+        "white": { "type": "integer", "description": "⚪ 未评估数量" }
+      }
+    },
+    "platformChangeRequest": {
+      "type": ["object", "null"],
+      "description": "平台变更建议（如需要启用新平台），为 null 表示无变更建议",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["action", "reason", "evidence"],
+        "properties": {
+          "action": { "type": "string", "enum": ["enable", "disable"] },
+          "reason": { "type": "string" },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "blockingQuestions": {
+      "type": "array",
+      "description": "探索过程中发现的阻断级问题（需领导转达用户）",
+      "items": {
+        "type": "object",
+        "required": ["question", "context"],
+        "properties": {
+          "question": { "type": "string" },
+          "context": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Evidence": {
+      "type": "object",
+      "required": ["type", "content", "source"],
+      "description": "证据条目",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["code_reference", "config_reference", "dependency_analysis", "architecture_pattern", "api_convention", "best_practice"],
+          "description": "证据类型"
+        },
+        "content": {
+          "type": "string",
+          "description": "证据内容描述"
+        },
+        "source": {
+          "type": "string",
+          "description": "证据来源（文件路径:行号 或 文档链接）"
+        }
+      }
+    }
+  }
+}
