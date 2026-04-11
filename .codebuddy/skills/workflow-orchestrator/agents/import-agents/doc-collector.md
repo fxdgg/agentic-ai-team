@@ -15,6 +15,7 @@
 | 已解析的文档内容（.md/.txt 原文 + .pdf/.docx/.pptx 的提取文本） | `/flow-import` Step 2c 前置解析 | 可选 |
 | 用户口述的文字描述 | `/flow-import` Step 1.5 | 可选 |
 | 已拉取的 TAPD 需求数据 | `/flow-import` Step 2b 延迟检测拉取 | 可选 |
+| 已拉取的 iwiki 页面数据 | `/flow-import` Step 2b-iwiki 拉取 | 可选 |
 | 克隆的 Git 仓库本地路径 | `/flow-import` Step 2a Git 克隆 | 可选 |
 | 项目根目录路径 | 编排器注入 | 必须 |
 
@@ -35,6 +36,10 @@
    - 已拉取的 TAPD 需求数据（如有）
      → 作为 documentSources 条目，type: "tapd-story"
      → path: "tapd://{workspace_id}/stories/{story_id}"
+   - 已拉取的 iwiki 页面数据（如有）
+     → 作为 documentSources 条目，type: "iwiki-page"
+     → path: "iwiki://{spaceKey}/pages/{pageId}"
+     → 直接使用上游提取的 Markdown 文本内容
    - 克隆的 Git 仓库路径（如有）
      → 扫描仓库中的 README.md 和 docs/ 目录
    - 用户口述描述（如有）
@@ -80,7 +85,7 @@ partial    — 信息部分，有框架但缺细节
 missing    — 信息缺失，文档中未提及
 ```
 
-**Step 1.5 产物消费**：如果上游提供了已拉取的 TAPD 需求数据，在 Step 2 的 `businessDomain` 维度中引用需求内容的 `capabilitySummary` 作为业务领域的补充信息源。
+**Step 1.5 产物消费**：如果上游提供了已拉取的 TAPD 需求数据，在 Step 2 的 `businessDomain` 维度中引用需求内容的 `capabilitySummary` 作为业务领域的补充信息源。如果上游提供了已拉取的 iwiki 页面数据，按页面内容归类到对应的 7 个维度中（iwiki 文档通常覆盖 `projectBackground`、`techStack`、`moduleStructure`、`businessDomain` 等维度）。
 
 ### Step 3: 条件追问（可选）
 
@@ -113,7 +118,7 @@ missing    — 信息缺失，文档中未提及
   "documentSources": [
     {
       "path": "string（文档路径、'user-description' 或 'tapd://{workspace_id}/stories/{story_id}'）",
-      "type": "readme|design-doc|api-doc|user-desc|presentation|tapd-story|git-repo|other",
+      "type": "readme|design-doc|api-doc|user-desc|presentation|tapd-story|iwiki-page|git-repo|other",
       "lines": 0,
       "detail": null
     }

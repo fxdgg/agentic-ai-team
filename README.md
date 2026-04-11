@@ -105,9 +105,17 @@ team-knowledge.git
 # 4. 查看进度
 /flow-status
 
-# 5. 复盘改进
+# 5. 知识库维护
+/knowledge status                      # 查看知识库状态
+/knowledge lint                        # 健康检查
+/knowledge sync                        # 同步团队知识仓库
+
+# 6. 复盘改进
 /evolve                                # 分析改进建议
 /evolve-apply                          # 落地改进
+
+# 7. 更新工作流引擎
+/flow-upgrade                          # 版本对比 + 选择性更新
 ```
 
 ---
@@ -264,7 +272,7 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 对已有代码库，先跑一次 `/flow-import` 构建知识基线：
 
 ```
-@doc-collector → 多源资料收集（文档/TAPD/口述/代码扫描）
+@doc-collector → 多源资料收集（文档/TAPD/iwiki/口述/代码扫描）
   ↓
 @codebase-profiler → 代码画像（技术栈/模块/依赖/模式，60 次搜索预算）
   ↓
@@ -280,9 +288,11 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 | 命令 | 用途 |
 |------|------|
 | `/flow-run` | 启动交付工作流 |
-| `/flow-import` | 历史项目知识导入 |
+| `/flow-import` | 历史项目知识导入（支持 Git/TAPD/iwiki/本地文档/口述） |
+| `/flow-upgrade` | 工作流版本更新（版本对比 + 选择性更新） |
 | `/flow-status` | 查看工作流状态 |
 | `/team-init` | 初始化项目配置，连接团队知识仓库 |
+| `/knowledge` | 知识库维护（status/lint/sync/query/add/promote） |
 | `/evolve` | 分析改进建议 |
 | `/evolve-apply` | 落地改进 |
 | `/guard` | SKILL/Rule 变更守护检查 |
@@ -327,8 +337,11 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 ├── commands/                            # 用户命令
 │   ├── flow-run.md                      # 启动交付工作流
 │   ├── flow-import.md                   # 历史知识导入
+│   ├── flow-upgrade.md                  # 工作流版本更新
+│   ├── flow-status.md                   # 工作流状态查看
+│   ├── knowledge.md                     # 知识库维护
 │   ├── team-init.md                     # 初始化+连接知识仓库
-│   └── ...
+│   └── ...                              # evolve, guard 等
 │
 ├── rules/                               # 编码规则（java-backend, tcb, anydev）
 └── memory/                              # 组织记忆

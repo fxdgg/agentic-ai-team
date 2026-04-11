@@ -15,6 +15,7 @@
 | `docs/knowledge-import/_doc-collection.json` | @doc-collector 产出 | 可选（直接扫描模式下可能不存在） |
 | `docs/knowledge-import/codebase-profile.json` | @codebase-profiler 产出 | 必须 |
 | `docs/knowledge-import/tapd-stories/_story-index.json` | @doc-collector Step 1.5 产出 | 可选（仅当 TAPD 深度采集已执行时存在） |
+| `docs/knowledge-import/iwiki/*.md` | /flow-import Step 2b-iwiki 产出 | 可选（仅当 iwiki 拉取已执行时存在） |
 
 ---
 
@@ -110,7 +111,7 @@ importConfidence: 0.5
 
 #### 2c. 知识库初始条目
 
-对齐 `knowledge-evolution` SKILL.md §4.3 的知识条目模板：
+对齐 `knowledge-evolution` SKILL.md §4.3 的知识条目模板，每条知识条目必须包含完整的结构化 front-matter：
 
 ```
 生成以下类型的知识条目：
@@ -118,22 +119,64 @@ importConfidence: 0.5
 1. decision 条目（从 techStack 推导技术选型决策）：
    - 每个主要技术组件 → 一条 decision
    - ID 格式: DEC-IMP-{序号}-{标题}
-   - confidence: 0.5 (imported, not verified)
-   - source: { phase: "import", trigger: "import", confidence: 0.5 }
    - 存储路径: docs/knowledge-base/decisions/
 
-2. guideline 条目（从 conventions 推导，polarity=recommend）：
+2. guideline 条目（从 conventions 推导）：
    - 每个 conventions[] 条目 → 一条 guideline
+   - polarity: recommend（推荐做法）或 avoid（禁止做法），根据条目内容判定
    - ID 格式: GL-IMP-{序号}-{标题}
-   - confidence: 0.5
    - 存储路径: docs/knowledge-base/guidelines/
 
 3. pitfall 条目（从 doc-collection 中的已知问题/踩坑记录推导）：
    - 仅当文档信息充分时生成
    - ID 格式: PIT-IMP-{序号}-{标题}
-   - confidence: 0.5
    - 存储路径: docs/knowledge-base/pitfalls/
 ```
+
+**每条知识条目的 front-matter 格式**（严格对齐 knowledge-evolution §4.3）：
+
+```yaml
+---
+id: DEC-IMP-001-spring-boot-选型
+type: decision                            # 5 种类型: model | decision | guideline | pitfall | process
+polarity: null                            # 仅 type=guideline 时必填: recommend | avoid
+layer: project                            # 导入知识先落 Layer 3
+domain: null                              # 业务领域 ID（如有）
+title: "选择 Spring Boot 3.x 作为后端框架"
+one_line: "Spring Boot 3.x 适配团队技术栈和云原生部署需求"
+applicable_phases: [ANALYSE_TECH, ARCHITECT]  # 此知识在哪些阶段最有用
+created: "{ISO-8601}"
+updated: "{ISO-8601}"
+maturity: draft                           # 导入知识一律 draft
+source:
+  phase: "import"                         # 提取来源阶段
+  trigger: "import"                       # 触发原因
+  workflow: "import-{项目名}-{日期}"       # 所属工作流
+  confidence: 0.5                         # 导入置信度 ≤ 0.6
+  origin: "codebase-profile.techStack"    # 具体来源定位（便于溯源）
+evidence:
+  contributors:
+    - name: "{导入者}"
+      action: "create"
+      date: "{ISO-8601}"
+      project: "{项目名}"
+      workflow: "import-{项目名}-{日期}"
+  verified_in_projects: []
+  last_referenced: null
+  contradiction_flags: []
+source_references:
+  - path: "docs/knowledge-import/codebase-profile.json"
+    section: "projectOverview.techStack"
+    context: "从代码画像的技术栈分析中提取"
+tags: ["spring-boot", "java"]
+related: []
+---
+```
+
+**不同类型的 source.origin 和 source_references 参考**：
+- decision: `origin: "codebase-profile.techStack"` → 引用 codebase-profile.json 的技术栈段
+- guideline: `origin: "codebase-profile.conventions"` → 引用 conventions 段
+- pitfall: `origin: "doc-collection.{维度}"` → 引用 _doc-collection.json 对应维度
 
 **知识条目数量控制**：
 - decision: 最多 5 条（只选最关键的技术决策）
@@ -271,9 +314,10 @@ importConfidence: 0.5
 
 ### 必须做的（DO）
 - ✅ 所有导入知识的 confidence 设为 0.5-0.6，明确标记为 imported
-- ✅ 所有知识条目的 `source_workflows` 包含 `"imported-{项目名}"` 标记
+- ✅ 所有知识条目包含完整的 `source`（phase/trigger/workflow/confidence/origin）和 `evidence`（contributors）结构
+- ✅ 所有知识条目指定 `type`（5 种之一），guideline 类型必须指定 `polarity`
 - ✅ 与 archiver.md 的 SUMMARY 格式严格对齐
-- ✅ 与 knowledge-evolution 的知识条目模板严格对齐
+- ✅ 与 knowledge-evolution 的知识条目模板（§4.3）严格对齐
 - ✅ 交叉校验文档 vs 代码的一致性
 
 ### 禁止做的（DON'T）

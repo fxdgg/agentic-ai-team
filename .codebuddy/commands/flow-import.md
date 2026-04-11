@@ -31,6 +31,7 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 选项（multiSelect: true）:
   - "📂 Git 代码仓库 —— 提供 git 仓库地址，AI 自动克隆并分析"
   - "🔗 TAPD 需求链接 —— 粘贴 TAPD 需求/迭代链接，AI 自动拉取内容"
+  - "📖 iwiki 页面 —— 提供 iwiki 链接或空间 ID，AI 自动拉取文档内容"
   - "📄 本地文档 —— 通过 @ 引用文件（支持 .md/.txt/.pdf/.docx/.pptx）"
   - "💬 口述项目背景 —— 我会文字描述项目情况"
   - "🤖 直接扫描当前代码 —— 让 AI 自动分析当前项目结构（无额外输入）"
@@ -44,6 +45,7 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 |---------|---------|---------|
 | Git 代码仓库 | 请用户粘贴 git 仓库地址（HTTPS 或 SSH 均可，AI 自动转为 SSH） | `inputSources.gitRepos[]` |
 | TAPD 需求链接 | 请用户粘贴 TAPD 链接（支持单条需求、需求列表页、迭代页，可提供多条） | `inputSources.tapdLinks[]` |
+| iwiki 页面 | 请用户粘贴 iwiki 链接（单页面或目录页面，可提供多条） | `inputSources.iwikiLinks[]` |
 | 本地文档 | 请用户通过 @ 引用文件（可多个） | `inputSources.localDocs[]` |
 | 口述背景 | 请用户自由输入文字描述 | `inputSources.description` |
 | 直接扫描当前代码 | 无需额外输入 | `inputSources.scanOnly = true` |
@@ -194,6 +196,83 @@ TAPD MCP 提供 3 个核心工具：
      - 关联的迭代、模块等元数据（如有）
 ```
 
+#### 2b-iwiki. iwiki 文档拉取（仅当 `iwikiLinks` 非空时）
+
+> **默认使用 MCP 能力**：iwiki 文档拉取通过 iwiki MCP 服务完成，需先检查 MCP 配置是否就绪。
+
+##### 2b-iwiki-0. MCP 配置前置检查
+
+```
+检查步骤:
+  1. 读取 {workspace}/.codebuddy/mcp.json 文件
+  2. 检查 mcpServers 中是否存在 iwiki MCP 服务配置
+  3. 检查认证 Token 是否为真实值（非占位符）
+
+判断结果:
+  - 文件不存在 / 缺少 iwiki MCP 配置 / Token 为占位符:
+    → 调用 use_skill('mcp-setup-guide') 引导用户完成 iwiki MCP 配置
+    → 配置完成后继续 iwiki 拉取流程
+  - 配置正常:
+    → 继续执行 2b-iwiki-1 的链接解析流程
+```
+
+##### 2b-iwiki-1. 链接解析与拉取
+
+**支持两种链接形态**：
+
+| 链接形态 | 示例 | 处理方式 |
+|---------|------|---------|
+| **单页面链接** | `https://iwiki.woa.com/pages/viewpage.action?pageId=123456` | 直接拉取该页面内容 |
+| **空间/目录链接** | `https://iwiki.woa.com/display/SPACENAME/...` 或空间 ID | 递归拉取子页面（默认深度 2，最大深度 3） |
+
+```
+对每个 iwiki 链接:
+  1. 链接解析与分类:
+     a) 单页面链接（URL 含 pageId 参数或 /pages/viewpage.action）:
+        → 提取 pageId
+        → 通过 iwiki MCP 工具拉取页面内容
+        → 将 HTML/wiki 格式内容转换为 Markdown 纯文本
+     b) 空间/目录链接（URL 含 /display/{spaceKey}/... 或用户提供空间 ID）:
+        → 提取 spaceKey 或空间 ID
+        → 通过 iwiki MCP 工具获取空间/目录下的子页面列表
+        → 向用户展示页面树结构，确认拉取范围:
+          ```
+          📖 iwiki 空间: {spaceName}
+          找到 {N} 个页面（深度 2）:
+            ├─ 项目概述 (pageId: 111)
+            ├─ 技术方案/
+            │   ├─ 后端架构 (pageId: 222)
+            │   └─ 前端架构 (pageId: 333)
+            └─ 接口文档/
+                ├─ 用户模块 API (pageId: 444)
+                └─ 订单模块 API (pageId: 555)
+          全部拉取？ [是/选择性拉取/调整深度]
+          ```
+        → 用户确认后逐页拉取内容
+     c) 无法识别的链接格式:
+        → 提示用户: "无法解析此 iwiki 链接，请提供页面 ID 或标准 URL"
+
+  2. iwiki MCP 不可用处理（统一降级策略）:
+     - MCP 配置缺失:
+       → 调用 use_skill('mcp-setup-guide') 引导配置
+       → 配置完成后重试
+     - MCP 已配置但调用失败:
+       → 提示用户:
+         "iwiki MCP 调用失败，请选择: "
+         a) "重新配置 MCP"（触发 mcp-setup-guide）
+         b) "我直接粘贴页面内容"
+         c) "跳过 iwiki，继续其他导入"
+     - 单页面拉取失败 → 记录失败的页面 ID，继续处理其他页面，最终汇总报告
+
+  3. 拉取结果:
+     - 每个页面的内容转换为 Markdown 文本
+     - 存入 docs/knowledge-import/iwiki/ 目录:
+       - {pageId}.md（清洗后的 Markdown 内容）
+     - 记录到 inputSources.iwikiPages[]，每条包含:
+       - pageId, title, spaceKey, content（Markdown 文本）
+       - parentPageId（用于保留文档层级关系）
+```
+
 #### 2c. 本地文档解析（仅当 `localDocs` 非空时）
 
 ```
@@ -219,6 +298,12 @@ TAPD MCP 提供 3 个核心工具：
    - [#12345] 用户注册优化
    - [#12346] 商品搜索重构
    - [#12347] 支付流程改造
+✅ iwiki 页面: 5 个已拉取
+   - 项目概述 (pageId: 111)
+   - 后端架构 (pageId: 222)
+   - 前端架构 (pageId: 333)
+   - 用户模块 API (pageId: 444)
+   - 订单模块 API (pageId: 555)
 ✅ 本地文档: 4 个已解析
    - 项目设计文档.pdf (128 页)
    - API接口规范.docx (45 页)
@@ -244,6 +329,7 @@ TAPD MCP 提供 3 个核心工具：
 【输入来源汇总】：
   - gitRepos: {克隆后的本地路径列表，或空}
   - tapdStories: {拉取到的需求数据，或空}
+  - iwikiPages: {拉取到的 iwiki 页面数据，或空}
   - parsedDocs: {解析后的文档内容，含文件路径和类型}
   - userDescription: {用户口述的文字，或空}
   - scanOnly: {是否仅扫描当前代码}
@@ -347,10 +433,14 @@ TAPD MCP 提供 3 个核心工具：
      - 需求列表页：`https://tapd.woa.com/tapd_fe/{workspace_id}/story/list?categoryId={category_id}`
      - 迭代页面：`https://tapd.woa.com/tapd_fe/{workspace_id}/iterations/view/{iteration_id}`
      - 旧版链接：`https://www.tapd.cn/{workspace_id}/stories/view/{story_id}` 及 `https://www.tapd.cn/{workspace_id}/prong/stories/view/{story_id}`
+   - **iwiki 页面**：默认通过 iwiki MCP 服务拉取（需先检查 MCP 配置）。支持以下链接格式：
+     - 单页面：`https://iwiki.woa.com/pages/viewpage.action?pageId={pageId}`
+     - 空间/目录：`https://iwiki.woa.com/display/{spaceKey}/...` 或直接提供空间 ID
+     - 递归拉取子页面（默认深度 2，最大深度 3），拉取结果存入 `docs/knowledge-import/iwiki/`
    - **本地文档**：`.md`、`.txt`、`.pdf`（通过 pdf skill 解析）、`.docx`（通过 docx skill 解析）、`.pptx`（通过 pptx skill 解析）
    - **口述描述**：用户自由输入的文字
    - **当前代码扫描**：无需额外输入，直接分析当前项目
-6. **MCP 优先原则**：TAPD 需求拉取默认使用 MCP 能力（`tapd_mcp_http`），使用前必须检查 `{workspace}/.codebuddy/mcp.json` 配置是否就绪。MCP 未配置时调用 `use_skill('mcp-setup-guide')` 引导用户完成配置。`tapd-toolkit` skill 仅用于图片上传/附件操作等 MCP 不支持的本地文件操作场景
+6. **MCP 优先原则**：TAPD 需求拉取默认使用 MCP 能力（`tapd_mcp_http`），iwiki 文档拉取默认使用 iwiki MCP 能力。使用前必须检查 `{workspace}/.codebuddy/mcp.json` 配置是否就绪。MCP 未配置时调用 `use_skill('mcp-setup-guide')` 引导用户完成配置。`tapd-toolkit` skill 仅用于图片上传/附件操作等 MCP 不支持的本地文件操作场景
 7. **直接执行原则**：Git 克隆默认 SSH 协议直接执行；TAPD MCP 调用使用 `POST` 方法 + `Accept: application/json, text/event-stream` 头 + JSON-RPC 2.0 格式，不做冗余的协议试探
 8. **优雅降级**：任何外部能力不可用时（SSH 克隆失败、TAPD MCP 未配置或调用失败、PDF 解析异常），提供明确的替代方案（MCP 未配置→触发 mcp-setup-guide skill；MCP 调用失败→允许用户粘贴内容或跳过），不阻断整个导入流程
 
