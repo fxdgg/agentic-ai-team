@@ -11,7 +11,7 @@ ANALYSE_TECH 阶段支持两种调度模式，编排器**优先使用 Parallel A
 | 模式 | 触发条件 | 说明 |
 |------|---------|------|
 | **Parallel Agent 调度**（默认） | 始终优先使用 | 使用 Parallel Agent 四成员串行协作，独立上下文窗口隔离搜索结果膨胀 |
-| **Task 工具模式**（降级） | Agent 调用失败 | 回退到传统 Task 工具调用单体 `fullstack-analyst.md` |
+| **Agent 串行模式**（降级） | Agent 调用失败 | 回退到 Agent 工具调用单体 `fullstack-analyst.md` |
 
 > **设计意图**: Parallel Agent 的核心价值在 ANALYSE_TECH 阶段是**上下文隔离**而非并行执行。通过将代码搜索（上下文消耗最大的工作）隔离在独立窗口中，避免搜索结果膨胀导致上下文压缩，从而保障复杂规则（复用探索、证据链、接口契约、一致性校验）的执行精度。
 
@@ -91,7 +91,7 @@ ANALYSE_TECH 阶段支持两种调度模式，编排器**优先使用 Parallel A
 
 ### 2.1 团队创建
 
-编排器作为 **team-lead（团队领导）** 创建 Agent Team，使用**委派模式（Delegate Mode）**。
+编排器作为调度中心，通过 Agent 工具串行调度子 Agent。
 
 **创建指令模板**:
 
@@ -222,11 +222,11 @@ ANALYSE_TECH 阶段支持两种调度模式，编排器**优先使用 Parallel A
 
 ### 2.3 领导（编排器）的行为约束
 
-在 Parallel Agent 调度下，编排器作为 team-lead：
+在 Parallel Agent 调度下，编排器作为调度中心：
 
 | ✅ 必须做 | ❌ 禁止做 |
 |-----------|----------|
-| 创建团队并分配任务 | 直接执行任何分析/设计工作 |
+| 发起 Agent 调用并收集结果 | 直接执行任何分析/设计工作 |
 | 监控成员完成状态 | 在成员工作时中断它们 |
 | 接收成员的完成消息 | 替代成员完成未完成的任务 |
 | 汇总结果并更新 state.json | 向成员传递其他成员的完整对话 |
@@ -264,15 +264,15 @@ ANALYSE_TECH 阶段支持两种调度模式，编排器**优先使用 Parallel A
 6. 更新 state.json:
    - analyseTechMode 字段设为 "agent-teams"
    - analyseTechTeam 记录团队信息
-7. 关闭所有成员 → 清理团队
+7. 
 8. 恢复正常模式，进入"总结确认"步骤
 ```
 
 ---
 
-## 3. Task 工具降级模式
+## 3. Agent 串行降级模式
 
-当以下条件满足时，使用传统 Task 工具模式（调用单体 `agents/fullstack-analyst.md`）：
+当以下条件满足时，使用 Agent 工具调用单体 `agents/fullstack-analyst.md`）：
 
 | 降级条件 | 说明 |
 |---------|------|
@@ -354,7 +354,7 @@ Parallel Agent 调度下的断点恢复策略：
       - tech-review-report.md 存在 → @tech-reviewer 已完成
    b) 根据已完成的成员，创建新的 Agent Team 只包含未完成的成员
 3. 若 analyseTechMode = "task" 或字段不存在：
-   a) 使用传统 Task 工具模式恢复
+   a) 使用 Agent 工具串行模式恢复
 ```
 
 ---
@@ -364,14 +364,14 @@ Parallel Agent 调度下的断点恢复策略：
 本阶段遵循标准三步模式（预览 → 执行 → 总结确认）：
 
 **Step 1: 预览** — 展示即将执行的技术分析计划：
-- 调度模式（Parallel Agent / Task 工具降级）
+- 调度模式（Parallel Agent / Agent 串行降级）
 - Parallel Agent 调度下：团队名称、四个成员的职责、依赖关系
 - 启用的平台列表
 - 产品需求文档概要
 
 **Step 2: 执行** —
-- **Parallel Agent 调度**: 创建分析团队 → 分配任务（T1→T2→T3→T4 串行） → 监控完成 → 汇总结果 → 清理团队
-- **Task 工具降级模式**: 调用单体 fullstack-analyst Agent
+- **Parallel Agent 调度**: 串行调度: Agent(@tech-explorer) → Agent(@tech-designer) → Agent(@tech-splitter) → Agent(@tech-reviewer)
+- **Agent 串行降级模式**: 调用单体 fullstack-analyst Agent
 
 **Step 3: 总结确认** — 展示分析结果：
 - 质量门禁（qualityGate + qualityScore）

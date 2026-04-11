@@ -124,7 +124,7 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 
 ```
 1. 加载知识进化引擎:
-   → Skill('knowledge-evolution')
+   → Skill 工具（skill: "knowledge-evolution"）
 
 2. 执行 Lint 检查项（按 SKILL.md §6.3）:
    a) 索引不一致检测:

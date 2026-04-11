@@ -109,13 +109,13 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 
 ```
 检查步骤:
-  1. 读取 {workspace}/.claude/mcp.json 文件
+  1. 读取 项目 .claude/settings.json 或全局 ~/.claude/settings.json 的 mcpServers 配置 文件
   2. 检查 mcpServers 中是否存在 "tapd_mcp_http" 配置
   3. 检查 headers 中 X-Tapd-Access-Token 是否为真实 Token（非占位符 "YOUR_TAI_PAT_TOKEN"）
 
 判断结果:
   - 文件不存在 / 缺少 tapd_mcp_http / Token 为占位符:
-    → 调用 Skill('mcp-setup-guide') 引导用户完成 MCP 配置
+    → 调用 Skill 工具（skill: "mcp-setup-guide"） 引导用户完成 MCP 配置
     → 配置完成后继续 TAPD 拉取流程
   - 配置正常:
     → 继续执行 2b-1 的链接解析流程
@@ -154,7 +154,7 @@ TAPD MCP 提供 3 个核心工具：
 | **需求列表页链接** | `https://tapd.woa.com/tapd_fe/{workspace_id}/story/list?categoryId=...` | 先查询分类下所有需求，再逐条拉取 |
 
 ```
-前置: 调用 Skill('tapd-toolkit') 加载 TAPD 扩展技能（图片/附件操作需要）
+前置: 调用 Skill 工具（skill: "tapd-toolkit"） 加载 TAPD 扩展技能（图片/附件操作需要）
 
 对每个 TAPD 链接:
   1. 链接解析与分类:
@@ -180,8 +180,8 @@ TAPD MCP 提供 3 个核心工具：
         → 如仍无法匹配 → 将链接作为文本记录，提示用户补充
 
   2. TAPD 能力不可用处理（统一降级策略）:
-     - MCP 配置缺失（mcp.json 不存在或缺少 tapd_mcp_http）:
-       → 调用 Skill('mcp-setup-guide') 引导用户完成配置
+     - MCP 配置缺失（settings.json 中 mcpServers 未配置 tapd_mcp_http）:
+       → 调用 Skill 工具（skill: "mcp-setup-guide"） 引导用户完成配置
        → 配置完成后重试
      - MCP 已配置但工具调用失败（Token 无效、网络问题等）:
        → 提示用户:
@@ -204,13 +204,13 @@ TAPD MCP 提供 3 个核心工具：
 
 ```
 检查步骤:
-  1. 读取 {workspace}/.claude/mcp.json 文件
+  1. 读取 项目 .claude/settings.json 或全局 ~/.claude/settings.json 的 mcpServers 配置 文件
   2. 检查 mcpServers 中是否存在 iwiki MCP 服务配置
   3. 检查认证 Token 是否为真实值（非占位符）
 
 判断结果:
   - 文件不存在 / 缺少 iwiki MCP 配置 / Token 为占位符:
-    → 调用 Skill('mcp-setup-guide') 引导用户完成 iwiki MCP 配置
+    → 调用 Skill 工具（skill: "mcp-setup-guide"） 引导用户完成 iwiki MCP 配置
     → 配置完成后继续 iwiki 拉取流程
   - 配置正常:
     → 继续执行 2b-iwiki-1 的链接解析流程
@@ -254,7 +254,7 @@ TAPD MCP 提供 3 个核心工具：
 
   2. iwiki MCP 不可用处理（统一降级策略）:
      - MCP 配置缺失:
-       → 调用 Skill('mcp-setup-guide') 引导配置
+       → 调用 Skill 工具（skill: "mcp-setup-guide"） 引导配置
        → 配置完成后重试
      - MCP 已配置但调用失败:
        → 提示用户:
@@ -278,9 +278,9 @@ TAPD MCP 提供 3 个核心工具：
 ```
 按文件扩展名自动选择解析方式:
   - .md / .txt        → 直接 Read
-  - .pdf              → 调用 pdf skill（Skill('pdf')）解析提取文本
-  - .docx             → 调用 docx skill（Skill('docx')）解析提取文本
-  - .pptx             → 调用 pptx skill（Skill('pptx')）解析提取文本
+  - .pdf              → 调用 pdf skill（Skill 工具（skill: "pdf"））解析提取文本
+  - .docx             → 调用 docx skill（Skill 工具（skill: "docx"））解析提取文本
+  - .pptx             → 调用 pptx skill（Skill 工具（skill: "pptx"））解析提取文本
   - 其他扩展名         → 尝试 Read，失败则跳过并提示用户
 ```
 
@@ -319,7 +319,7 @@ TAPD MCP 提供 3 个核心工具：
 
 ### Step 3：启动导入工作流编排
 
-调用 `Skill('workflow-orchestrator')` 并传入特殊模式标识：
+调用 `Skill 工具（skill: "workflow-orchestrator"）` 并传入特殊模式标识：
 
 ```
 历史项目知识导入模式，请加载 phases/import-rules.md 并执行导入流程：
@@ -412,7 +412,7 @@ TAPD MCP 提供 3 个核心工具：
 用户：/flow-import
 → 用户选择 "TAPD 需求链接"
 → 粘贴 TAPD 链接
-→ AI 检查 MCP 配置 → 发现 mcp.json 不存在
+→ AI 检查 MCP 配置 → 发现 settings.json 中 mcpServers 未配置
 → 自动触发 mcp-setup-guide skill
 → 引导用户生成配置文件、申请 Token、回填 Token、验证连通性
 → 配置完成后继续 TAPD 需求拉取
@@ -440,7 +440,7 @@ TAPD MCP 提供 3 个核心工具：
    - **本地文档**：`.md`、`.txt`、`.pdf`（通过 pdf skill 解析）、`.docx`（通过 docx skill 解析）、`.pptx`（通过 pptx skill 解析）
    - **口述描述**：用户自由输入的文字
    - **当前代码扫描**：无需额外输入，直接分析当前项目
-6. **MCP 优先原则**：TAPD 需求拉取默认使用 MCP 能力（`tapd_mcp_http`），iwiki 文档拉取默认使用 iwiki MCP 能力。使用前必须检查 `{workspace}/.claude/mcp.json` 配置是否就绪。MCP 未配置时调用 `Skill('mcp-setup-guide')` 引导用户完成配置。`tapd-toolkit` skill 仅用于图片上传/附件操作等 MCP 不支持的本地文件操作场景
+6. **MCP 优先原则**：TAPD 需求拉取默认使用 MCP 能力（`tapd_mcp_http`），iwiki 文档拉取默认使用 iwiki MCP 能力。使用前必须检查 `项目 .claude/settings.json 或全局 ~/.claude/settings.json 的 mcpServers 配置` 配置是否就绪。MCP 未配置时调用 `Skill 工具（skill: "mcp-setup-guide"）` 引导用户完成配置。`tapd-toolkit` skill 仅用于图片上传/附件操作等 MCP 不支持的本地文件操作场景
 7. **直接执行原则**：Git 克隆默认 SSH 协议直接执行；TAPD MCP 调用使用 `POST` 方法 + `Accept: application/json, text/event-stream` 头 + JSON-RPC 2.0 格式，不做冗余的协议试探
 8. **优雅降级**：任何外部能力不可用时（SSH 克隆失败、TAPD MCP 未配置或调用失败、PDF 解析异常），提供明确的替代方案（MCP 未配置→触发 mcp-setup-guide skill；MCP 调用失败→允许用户粘贴内容或跳过），不阻断整个导入流程
 

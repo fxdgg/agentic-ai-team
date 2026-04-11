@@ -141,7 +141,7 @@
    c) 所有产物已存在 → 直接进入总结确认
 
 2. 执行 Task-A（如需）：
-   a) 使用 Task 工具，注入 §3 Task-A Prompt
+   a) 使用 Agent 工具，注入 §3 Task-A Prompt
    b) Task 返回后，检查全局产物是否成功写入
    c) 如果写入失败 → 降级到 Level 3
    d) 更新检查点 checkpoint.step = "global_completed"
@@ -152,7 +152,7 @@
    c) 确认后写入 domain-registry.json → 更新检查点为 "domains_confirmed"
 
 4. 串行执行领域 Task（Task-B ~ Task-N）：
-   a) 对每个领域，使用 Task 工具注入 §3 领域 Task Prompt
+   a) 对每个领域，使用 Agent 工具注入 §3 领域 Task Prompt
    b) 每个 Task 返回后，检查领域产物是否成功写入
    c) 如果写入失败 → 降级到 Level 3（已完成的领域产物保留）
    d) 每个领域完成后更新检查点

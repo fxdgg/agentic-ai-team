@@ -11,9 +11,9 @@ IMPLEMENT 阶段**锁定使用 Parallel Agent 调度**，即使仅 1 个 Agent �
 | 模式 | 触发条件 | 说明 |
 |------|---------|------|
 | **Parallel Agent 调度**（锁定） | 始终使用 | 使用 Parallel Agent 独立上下文窗口，即使仅 1 个 Agent 也创建单成员团队 |
-| **用户决策**（创建失败时） | Agent 调用失败 | 报错给用户决策，不自动降级到 Task 模式 |
+| **用户决策**（创建失败时） | Agent 调用失败 | 报错给用户决策，不自动降级到 Agent 串行模式 |
 
-> **设计意图**：借鉴 agentic-mall 的生产经验——IMPLEMENT 阶段即使仅 1 个 Agent，也使用 Parallel Agent 以保持编排器上下文纯粹。开发 Agent 的代码搜索和写入操作会产生大量上下文，隔离在独立窗口中可避免编排器上下文膨胀，确保后续 BUILD_VERIFY 阶段的状态读取精度。创建失败时报错由用户决策，而非自动降级到上下文共享的 Task 模式。
+> **设计意图**：借鉴 agentic-mall 的生产经验——IMPLEMENT 阶段即使仅 1 个 Agent，也使用 Parallel Agent 以保持编排器上下文纯粹。开发 Agent 的代码搜索和写入操作会产生大量上下文，隔离在独立窗口中可避免编排器上下文膨胀，确保后续 BUILD_VERIFY 阶段的状态读取精度。创建失败时报错由用户决策，而非自动降级到上下文共享的 Agent 串行模式。
 
 ---
 
@@ -78,7 +78,7 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 ### 3.1 团队创建
 
-编排器作为 **team-lead（团队领导）** 创建 Agent Team，使用**委派模式（Delegate Mode）**，即领导只负责协调和任务管理，不直接编写代码。
+编排器作为调度中心，通过 Agent 工具并行调度子 Agent。编排器只负责协调和任务管理，不直接编写代码。
 
 **创建指令模板**:
 
@@ -212,11 +212,11 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 ### 3.6 领导（编排器）的行为约束
 
-在 Parallel Agent 调度下，编排器作为 team-lead：
+在 Parallel Agent 调度下，编排器作为调度中心：
 
 | ✅ 必须做 | ❌ 禁止做 |
 |-----------|----------|
-| 创建团队并分配任务 | 直接编写任何源代码 |
+| 发起 Agent 调用并收集结果 | 直接编写任何源代码 |
 | 监控成员完成状态 | 在成员工作时中断它们 |
 | 接收成员的完成消息 | 替代成员完成未完成的任务 |
 | 汇总结果并更新 state.json | 向成员传递其他成员的完整对话 |
@@ -233,12 +233,12 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 2. 汇总所有成员的风险项
 3. 更新 state.json 中各平台的 status 为 "completed"
 4. 关闭所有成员：让所有成员关闭
-5. 清理团队资源：清理团队
+5. （Agent 工具为同步调用，无需清理）
 6. 在 state.json 的 implementMode 字段记录 "agent-teams"
 7. 恢复正常模式，准备进入 BUILD_VERIFY 阶段
 ```
 
-> **重要**: 始终通过领导来清理团队。必须先关闭所有活跃成员，再执行清理。
+> **重要**: Agent 工具为同步调用，每个 Agent 完成后自动释放，无需手动清理。
 
 ---
 
@@ -264,7 +264,7 @@ IMPLEMENT 阶段根据 `state.json` 中的 `platforms` 字段动态决定调用�
 
 | 需修复的独立 Agent 数量 | 调度模式 |
 |------------------------|---------|
-| 1 个 Agent | Task 工具模式（降级） |
+| 1 个 Agent | Agent 串行模式（降级） |
 | ≥2 个 Agent | Parallel Agent 调度 |
 
 ### 5.2 共通规则（两种模式均适用）
@@ -347,7 +347,7 @@ D2C 嵌入模式调度（替代常规前端 Agent）：
    - projectConfig.webProject 已设置
 
 2. 加载 figma-d2c Skill：
-   - 使用 Skill('figma-d2c') 加载 D2C Skill
+   - 使用 Skill 工具（skill: "figma-d2c"） 加载 D2C Skill
    - 传入嵌入模式上下文：
      {
        mode: "d2c-embedded",
@@ -387,7 +387,7 @@ D2C 嵌入模式调度（替代常规前端 Agent）：
 | 场景 | 调度策略 |
 |------|---------|
 | D2C 嵌入 + 后端多领域 | Parallel Agent 调度：D2C 作为 `@d2c-frontend` 成员加入团队，与后端领域 Agent 并行 |
-| D2C 嵌入 + 仅前端 | Task 工具模式（降级）：仅 1 个 Agent（D2C），直接用 Task 调用 |
+| D2C 嵌入 + 仅前端 | Agent 串行模式（降级）：仅 1 个 Agent（D2C），直接用 Task 调用 |
 | D2C 嵌入 + 后端单领域 | Parallel Agent 调度：2 个 Agent（@d2c-frontend + @{domain}-dev） |
 
 **D2C 作为 Parallel Agent 成员时的 Prompt 模板**：
@@ -471,7 +471,7 @@ Parallel Agent 调度下的断点恢复有特殊限制（Parallel Agent 不支�
    b) 对未完成的领域，创建新的 Agent Team 继续执行
    c) 新团队只包含未完成领域的成员
 3. 若 implementMode = "task" 或字段不存在：
-   a) 使用传统 Task 工具模式恢复
+   a) 使用 Agent 工具串行模式恢复
 ```
 
 ### 7.3 成员间公共模块冲突处理

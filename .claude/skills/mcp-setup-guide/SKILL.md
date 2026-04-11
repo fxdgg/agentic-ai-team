@@ -20,7 +20,7 @@ description: MCP 服务配置引导。当用户需要配置 MCP 服务（如 TAP
 读取全局 MCP 配置文件，判断当前状态：
 
 ```
-配置文件路径: ~/.claude/mcp.json（即 $HOME/.claude/mcp.json）
+配置文件路径: ~/.claude/settings.json（mcpServers 字段）
 
 检查项:
   1. 文件是否存在
@@ -37,7 +37,7 @@ description: MCP 服务配置引导。当用户需要配置 MCP 服务（如 TAP
 
 ### Step 2：生成全局 MCP 配置文件
 
-在全局 `~/.claude/` 目录下创建或更新 `mcp.json`，使用占位符替代真实 Token：
+在全局 ~/.claude/settings.json 中配置 mcpServers，使用占位符替代真实 Token：
 
 ```json
 {
@@ -83,7 +83,7 @@ description: MCP 服务配置引导。当用户需要配置 MCP 服务（如 TAP
 生成完成后告知用户：
 
 ```
-✅ 全局 MCP 配置文件已生成: ~/.claude/mcp.json
+✅ 全局 MCP 配置已更新: ~/.claude/settings.json
 
 目前 Token 使用的是占位符，接下来需要申请你的个人 Token 并回填。
 ```
@@ -121,7 +121,7 @@ open "https://tai.it.woa.com/user/pat"
 当用户提供 iWiki Token 后（格式通常为 `tai_pat_xxx.xxx`），将全局配置文件中的 iWiki 占位符替换为真实 Token：
 
 ```
-将 ~/.claude/mcp.json 中 iWiki 服务的 YOUR_TAI_PAT_TOKEN 替换为用户提供的实际 Token
+将 ~/.claude/settings.json 中 mcpServers 的 iWiki 服务的 YOUR_TAI_PAT_TOKEN 替换为用户提供的实际 Token
   - iWiki 的 Authorization 值: "Bearer {token}"
 ```
 
@@ -154,7 +154,7 @@ open "https://tapd.woa.com/platform/myhome?not_direct=1&from=mcp#tab=tab-mytoken
 当用户提供 TAPD Token 后，将全局配置文件中的 TAPD 占位符替换为真实 Token：
 
 ```
-将 ~/.claude/mcp.json 中 TAPD 服务的 YOUR_TAPD_ACCESS_TOKEN 替换为用户提供的实际 Token
+将 ~/.claude/settings.json 中 mcpServers 的 TAPD 服务的 YOUR_TAPD_ACCESS_TOKEN 替换为用户提供的实际 Token
   - TAPD 的 X-Tapd-Access-Token 值: "Bearer {token}"
 ```
 
@@ -190,7 +190,7 @@ open "https://www.figma.com/settings"
 当用户提供 Figma Token 后（格式通常为 `figd_xxxx`），将全局配置文件中的 Figma 占位符替换为真实 Token：
 
 ```
-将 ~/.claude/mcp.json 中 FramelinkFigmaMCP 服务 args 中的 YOUR_FIGMA_PERSONAL_ACCESS_TOKEN 替换为用户提供的实际 Token
+将 ~/.claude/settings.json 中 mcpServers 的 FramelinkFigmaMCP 服务 args 中的 YOUR_FIGMA_PERSONAL_ACCESS_TOKEN 替换为用户提供的实际 Token
   - 替换 args 中 "--figma-api-key=YOUR_FIGMA_PERSONAL_ACCESS_TOKEN" 为 "--figma-api-key={token}"
   - 注意：Figma Token 不需要 Bearer 前缀，直接拼接在 --figma-api-key= 后面
 ```
@@ -201,7 +201,7 @@ open "https://www.figma.com/settings"
 🚨 CRITICAL 替换约束：
 1. **必须逐个顺序替换**：对同一文件的多处修改，必须依次执行 replace_in_file（等前一个完成后再执行下一个），
    **严禁并行调用多个 replace_in_file 操作同一文件**，否则可能因竞态条件导致部分替换丢失
-2. **替换后必须验证**：所有替换完成后，必须重新 Read 读取 ~/.claude/mcp.json，
+2. **替换后必须验证**：所有替换完成后，必须重新 Read 读取 ~/.claude/settings.json，
    检查文件中是否仍存在 "YOUR_TAI_PAT_TOKEN"、"YOUR_TAPD_ACCESS_TOKEN" 或 "YOUR_FIGMA_PERSONAL_ACCESS_TOKEN" 占位符。如仍存在，需再次替换直到全部消除
 3. **三处都必须替换**：
    - iWiki 的 Authorization 值: "Bearer {iWiki TAI PAT Token}"
@@ -278,7 +278,7 @@ curl -s -X POST "https://prod.mcp.it.woa.com/app_iwiki_mcp/mcp3" \
 
 ## 注意事项
 
-1. 所有 MCP 配置直接在**全局配置文件**（`~/.claude/mcp.json`）中维护，不在项目内创建 `mcp.json`
+1. 所有 MCP 配置直接在**全局配置文件**（`~/.claude/settings.json`）中维护，不在项目内创建 `mcp.json`
 2. 修改全局配置时，必须**合并而非覆盖**，保留已有的其他服务配置不受影响
 3. 三个 MCP 服务使用**不同的** Token，需要分别申请：
    - iWiki 使用 **TAI PAT Token**（在 https://tai.it.woa.com/user/pat 申请，格式 `tai_pat_xxx.xxx`）

@@ -46,7 +46,7 @@ description: 查看当前工作流状态。快速展示所有需求的进度、�
   #1 [{需求ID}] {需求名称}
      📌 当前阶段: {currentPhase} ({N}/13)
      📊 进度: ██████████░░░░░░ {百分比}%
-     🤖 调度模式: {Parallel Agent / Task 工具}
+     🤖 调度模式: {Parallel Agent / Agent 串行}
      🔒 检查点: {检查点状态}（仅 ARCHITECT_BACKEND 阶段显示）
      🕐 最后更新: {updatedAt}
      ⚠️ 风险: {open 风险数} 项

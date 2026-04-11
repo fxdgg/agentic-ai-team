@@ -34,7 +34,7 @@
 
 > **核心设计**：文档收集阶段统一采用"分批并行 + 合并"架构，无论文档数量多少。每个文档来源组（TAPD/iwiki/本地文档/口述）各自作为一个独立 batch，由独立的 @doc-collector Agent 在独立上下文中处理。这消除了单 Agent 上下文膨胀的问题，也让架构保持统一——1 个文档就是 1 个 batch、1 个 Agent。
 
-**分批策略**（编排器在 Step 3 创建团队前执行）：
+**分批策略**（编排器在 Step 3 发起 Agent 调度前执行）：
 ```
 1. 按来源类型分组，每组为一个 batch:
    - batch-tapd:   tapdStories[]（如非空）
@@ -65,7 +65,7 @@
 ### 2.1 优先模式：Parallel Agent 调度（分批并行 + 合并）
 
 ```
-编排器创建团队 →
+编排器发起 Agent 调度 →
   Phase 1 — 文档收集（并行）:
     T1-batch-1(@doc-collector) ──┐
     T1-batch-2(@doc-collector) ──┼─→ 各自产出 _batch-{id}.json（并行执行）
@@ -80,7 +80,7 @@
   Phase 4 — 知识基线:
     T3(@knowledge-builder) → 消费前两步产物, 产出知识基线 + SUMMARY + 知识库条目
          ↓
-清理团队
+（Agent 工具完成后自动释放）
 ```
 
 > **单 batch 场景**：当 batchPlan 只有 1 个 batch 时，该 batch Agent 直接产出 `_doc-collection.json`（而非 `_batch-{id}.json`），跳过 merger 阶段。
@@ -169,7 +169,7 @@ Agent 规范文件路径: {Agent .md 文件的绝对路径}
 
 ### 2.2 降级模式：Task 串行
 
-当 Agent 调用失败时，降级为 Task 工具串行调用：
+当 Agent 调用失败时，降级为 Agent 工具串行调用：
 
 ```
 Task 1: 调用 @doc-collector（如果有用户文档输入）

@@ -75,7 +75,7 @@ VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Parallel 
 
 | 方式 | 条件 | 说明 |
 |------|------|------|
-| **Task 调度**（默认） | 始终优先 | 使用 Task 工具调用 visual-reviewer Agent |
+| **Agent 调度**（默认） | 始终优先 | 使用 Agent 工具调用 visual-reviewer Agent |
 | **编排器直接执行**（兜底） | Task 失败时 | 编排器自身参考 Agent 规范执行视觉验收 |
 
 ### 2.2 Task Prompt 模板
@@ -264,7 +264,7 @@ VISUAL_REVIEW 发现还原度不足
 
 ### Step 2: 执行
 
-- 使用 Task 工具调用 visual-reviewer Agent
+- 使用 Agent 工具调用 visual-reviewer Agent
 - 实时监控执行进度
 
 ### Step 3: 总结确认

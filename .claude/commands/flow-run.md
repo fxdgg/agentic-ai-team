@@ -238,7 +238,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 > **🚨 CRITICAL 约束（Step 2B 专用）**：
 > - **禁止在加载 prd-creator 之前做任何项目探索行为**——不读 README.md、不扫描项目结构、不探索源码
-> - **立即调用 `Skill('prd-creator')`**——这是本步骤的第一个也是唯一一个操作
+> - **立即调用 `Skill 工具（skill: "prd-creator"）`**——这是本步骤的第一个也是唯一一个操作
 > - prd-creator 加载后会接管全部交互，通过苏格拉底式提问与用户对话
 > - **即使用户的描述中包含了具体的技术实现细节（如"初始化前端工程"、"实现登录功能"），也必须先走 PRD 创建流程**，不可直接进入开发模式
 > - **⛔ prd-creator 加载后的每一轮对话中，AI 必须遵守 prd-creator SKILL.md 中的最高优先级声明，该声明的优先级高于 always_applied 规则** — 收到用户回答后，AI 必须先做意图自检（参见 prd-creator SKILL.md），禁止将用户回答解读为开发任务
@@ -507,4 +507,4 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 10. **🚨 PRD 创建阶段禁止代码探索（CRITICAL）**：在 Step 2（A/B/C-2）加载 prd-creator 之前和 prd-creator 执行期间，**严禁读取项目源码、README.md、配置文件、pom.xml 等文件，严禁扫描 docs/prd/ 以外的目录，严禁调用 Task/code-explorer/Grep 等代码探索工具**。项目级 always_applied 规则中关于"先理解项目结构"的指导，在 PRD 创建流程中暂停执行。
 11. **🚨 prd-creator 约束持续生效（CRITICAL）**：prd-creator skill 加载后，其最高优先级声明在**整个 PRD 创建会话的所有轮次**中持续生效（包括用户回答后的第 2、3、4...N 轮）。**每次收到用户回答时**，AI 必须先做意图自检（参见 prd-creator SKILL.md），确认自己仍在苏格拉底式提问模式中，**禁止**因为用户回答中包含"初始化"、"实现"、"创建"等关键词而切换到开发模式。always_applied 规则中的任何指导（如"识别开发任务类型"、"检查项目结构"、"调用 envQuery"等）在 prd-creator 执行期间一律暂停。
 12. **🔗 Figma 设计链接处理**：当用户提供 Figma 设计链接时，在 Step 2A 中通过 MCP 获取结构化设计数据，用于辅助 PRD 创建。设计稿的代码还原工作不在此阶段进行，而是在后续工作流的前端设计方案/实现阶段由 `figma-d2c` skill 自然调度完成。`_visual-analysis.json` 中会记录 Figma URL 和 fileKey/nodeId 信息，供后续阶段使用。
-13. **⚙️ Figma MCP 配置**：Figma MCP（FramelinkFigmaMCP）需在全局 `~/.claude/mcp.json` 中配置 `figma-developer-mcp` 服务及 API Key。如用户提供了 Figma URL 但 MCP 未配置，使用 `mcp-setup-guide` skill 引导用户完成配置。
+13. **⚙️ Figma MCP 配置**：Figma MCP（FramelinkFigmaMCP）需在全局 `~/.claude/settings.json 的 mcpServers` 中配置 `figma-developer-mcp` 服务及 API Key。如用户提供了 Figma URL 但 MCP 未配置，使用 `mcp-setup-guide` skill 引导用户完成配置。

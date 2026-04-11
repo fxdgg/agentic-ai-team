@@ -169,7 +169,7 @@ Agent 接收完整的路径信息并执行
 
 ## 编排器集成指南
 
-编排器在调用 Task 工具执行 Agent 时，应该：
+编排器在调用 Agent 工具执行 Agent 时，应该：
 
 ### Step 1: 解析 Agent 路径
 ```python
@@ -205,7 +205,7 @@ agent_prompt = f"""
 """
 ```
 
-### Step 4: 调用 Task 工具
+### Step 4: 调用 Agent 工具
 ```python
 task_result = task_tool(
     subagent_type='general-purpose',

@@ -159,12 +159,12 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 
 ### 2.1 团队创建
 
-编排器作为 **team-lead（团队领导）** 创建 Agent Team，使用**委派模式（Delegate Mode）**。
+编排器作为调度中心，通过 Agent 工具串行/并行调度子 Agent。每个子 Agent 拥有独立上下文，通过文件系统传递中间产物。
 
 **创建指令模板**:
 
 ```
-创建一个名为 analyse-product-{需求ID} 的产品需求分析团队，使用委派模式。
+
 
 团队任务：基于 PRD 文档进行产品需求分析，产出结构化的产品需求分析报告。
 团队采用四成员协作模式（全新需求调度 3 个，迭代需求调度 4 个），通过文件系统传递中间产物。
@@ -181,12 +181,12 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 
 ### 2.2 成员生成规则
 
-为各成员生成独立的 Prompt。成员 Prompt 必须包含充分的上下文（因为成员**不会继承领导的对话历史**）：
+为每个子 Agent 构造独立的 Prompt。Prompt 必须包含充分的上下文（因为子 Agent **不会继承编排器的对话历史**）：
 
 #### 成员 1: @product-collector（始终调度）
 
 ```
-生成一个需求信息收集员成员（@product-collector），Prompt 如下：
+调用 Agent 工具，调度 @product-collector，Prompt 如下：
 
 "你是一位资深需求信息收集专家，负责 PRD 文档的初始读取、迭代类型判定和信息评估。
 
@@ -202,13 +202,13 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
 项目根目录：{项目绝对路径}
 
-完成后，请向领导发送消息汇报完成状态（格式见 Agent 规范 §8）。"
+完成后，将产物写入指定路径并返回结果摘要（格式见 Agent 规范 §8）。"
 ```
 
 #### 成员 2: @baseline-differ（仅迭代需求调度）
 
 ```
-生成一个基线对比专家成员（@baseline-differ），Prompt 如下：
+调用 Agent 工具，调度 @baseline-differ，Prompt 如下：
 
 "你是一位资深需求变更分析专家，负责前一版产物的基线提取和增量对比。
 
@@ -226,7 +226,7 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 需求 ID：{state.json 中的 id}
 当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
 
-完成后，请向领导发送消息汇报完成状态（格式见 Agent 规范 §9）。"
+完成后，将产物写入指定路径并返回结果摘要（格式见 Agent 规范 §9）。"
 ```
 
 > **调度时机**: 领导在收到 @product-collector 完成消息后，检查 `_product-collection.json` 中的 `iterationType`。如为 `incremental` 且 `iterationDetection.userConfirmed` 为 `true`，则调度本成员。如为 `new`，跳过本成员直接调度 @product-extractor。
@@ -234,7 +234,7 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 #### 成员 2.5: @visual-analyst（仅含视觉附件时调度）
 
 ```
-生成一个视觉分析专家成员（@visual-analyst），Prompt 如下：
+调用 Agent 工具，调度 @visual-analyst，Prompt 如下：
 
 "你是一位资深视觉分析专家，负责对 PRD 中的图片附件（设计稿、原型图、截图等）进行结构化视觉分析。
 
@@ -262,7 +262,7 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 - 图片分析结果必须结构化，不做主观评价
 - 不确定的推断必须在 uncertainties 中标注，不做无根据的臆测
 
-完成后，请向领导发送消息汇报完成状态，包含分析的图片数量和关键发现摘要。"
+完成后，将产物写入指定路径并返回结果摘要，包含分析的图片数量和关键发现摘要。"
 ```
 
 > **调度时机**: 领导在收到 @product-collector 完成消息后，检查 `_product-collection.json` 中是否存在 `visualAttachments` 字段且非空数组。如果存在视觉附件，则调度本成员（与 @baseline-differ 并行）。如果无视觉附件，跳过本成员。
@@ -270,7 +270,7 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 #### 成员 3: @product-extractor（始终调度）
 
 ```
-生成一个需求提取专家成员（@product-extractor），Prompt 如下：
+调用 Agent 工具，调度 @product-extractor，Prompt 如下：
 
 "你是一位资深需求结构化提取专家，负责将需求信息转化为标准化分析数据。
 
@@ -291,13 +291,13 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
 迭代类型：{iterationType}
 
-完成后，请向领导发送消息汇报完成状态（格式见 Agent 规范 §9）。"
+完成后，将产物写入指定路径并返回结果摘要（格式见 Agent 规范 §9）。"
 ```
 
 #### 成员 4: @quality-assessor（始终调度）
 
 ```
-生成一个质量风险评估师成员（@quality-assessor），Prompt 如下：
+调用 Agent 工具，调度 @quality-assessor，Prompt 如下：
 
 "你是一位资深质量与风险评估专家，负责质量评分、风险评估和最终报告整合。
 
@@ -318,46 +318,46 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 当前工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
 迭代类型：{iterationType}
 
-完成后，请向领导发送消息汇报完成状态（格式见 Agent 规范 §11）。"
+完成后，将产物写入指定路径并返回结果摘要（格式见 Agent 规范 §11）。"
 ```
 
 > **关键**: 所有 Prompt 中的路径必须为**绝对路径**（通过 `scripts/resolve_agent_paths.py` 解析）。
 
 ### 2.3 领导（编排器）的行为约束
 
-在 Parallel Agent 调度下，编排器作为 team-lead：
+在 Parallel Agent 调度下，编排器作为调度中心：
 
 | ✅ 必须做 | ❌ 禁止做 |
 |-----------|----------|
-| 创建团队并分配任务 | 直接执行任何分析/评估工作 |
+| 发起 Agent 调用并收集结果 | 直接执行任何分析/评估工作 |
 | 监控成员完成状态 | 在成员工作时中断它们 |
 | 接收成员的完成消息 | 替代成员完成未完成的任务 |
 | 根据 collector 的迭代判定结果决定是否调度 differ | 向成员传递其他成员的完整对话 |
 | 汇总结果并更新 state.json | 忽略成员的错误/风险汇报 |
 | 处理 @product-collector 上报的追问需求 | 跳过迭代类型确认直接判定 |
-| 监控超时并执行自动降级（§2.7） | 在超时降级前不发催促消息 |
+| 检测失败并执行自动降级（§2.7） | 失败时直接降级 |
 
 ### 2.4 动态调度流程（领导视角）
 
 ```
 领导执行流程：
 
-1. 创建团队 → 生成 @product-collector 成员 → 启动超时计时器（§2.7）→ 等待完成
+1. 调用 Agent 工具调度 @product-collector → 等待同步返回
 2. 接收 @product-collector 完成消息 → 读取 _product-collection.json
 3. 检查 iterationType 和 visualAttachments，确定调度组合:
    a) 如果 iterationType = "incremental" 且 userConfirmed = true:
-      → 生成 @baseline-differ 成员 → 启动超时计时器 → 等待完成
+      → 调用 Agent 工具调度 @baseline-differ → 等待同步返回
    b) 如果 iterationType = "new":
       → 跳过 @baseline-differ
    c) 如果 visualAttachments 非空:
-      → 生成 @visual-analyst 成员 → 启动超时计时器
+      → 调用 Agent 工具调度 @visual-analyst → 等待同步返回
       → 与 @baseline-differ（如已调度）并行等待
    d) 如果 visualAttachments 为空或不存在:
       → 跳过 @visual-analyst
    e) 等待所有已调度的并行成员（@baseline-differ / @visual-analyst）完成
-4. 生成 @product-extractor 成员 → 启动超时计时器 → 等待完成
+4. 调用 Agent 工具调度 @product-extractor → 等待同步返回
 5. 接收 @product-extractor 完成消息
-6. 生成 @quality-assessor 成员 → 启动超时计时器 → 等待完成
+6. 调用 Agent 工具调度 @quality-assessor → 等待同步返回
 7. 接收 @quality-assessor 完成消息 → 进入团队完成流程（§2.6）
 ```
 
@@ -389,59 +389,41 @@ ANALYSE_PRODUCT 阶段支持**三级降级调度**，编排器按优先级逐级
 5. 更新 state.json:
    - analyseProductMode 字段设为 "agent-teams"
    - analyseProductTeam 记录团队信息
-6. 关闭所有成员 → 清理团队
+6. 
 7. 恢复正常模式，进入"总结确认"步骤
 ```
 
-### 2.7 超时检测与自动降级（Level 1 → Level 2）
+### 2.7 失败检测与自动降级（Level 1 → Level 2）
 
-Parallel Agent 异步消息机制存在不可靠性风险。编排器必须实施超时检测，防止无限等待：
+Agent 工具为同步调用，无需超时计时器。降级触发条件：
 
-#### 超时策略
+1. **Agent 调用返回错误**：子 Agent 执行失败或返回空结果
+2. **产物验证失败**：Agent 返回成功但指定路径的产物文件不存在或内容为空
 
-```
-超时检测流程（对每个成员执行）：
+#### 降级决策
 
-1. 成员创建后启动计时器
-2. 等待 120 秒（2 分钟）后检查：
-   a) 如果成员已发送完成消息 → 正常继续
-   b) 如果成员未响应 → 发送催促消息：
-      "请汇报当前进度。如果已完成，请发送完成消息。"
-3. 催促后再等待 60 秒（1 分钟）：
-   a) 如果收到响应 → 继续等待完成
-   b) 如果仍无响应 → 判定为超时
-4. 超时处理：
-   a) 向该成员发送 shutdown_request
-   b) 检查该成员应产出的中间产物文件是否已存在于文件系统
-   c) 如果中间产物已存在 → 跳过该成员，继续调度下一成员
-   d) 如果中间产物不存在 → 触发降级
-```
-
-#### 降级触发条件
-
-| 触发条件 | 降级目标 |
-|---------|---------|
-| 团队创建失败（team_create 报错） | Level 2 |
-| 第一个成员（@product-collector）超时且无中间产物 | Level 2 |
-| 任一后续成员超时且无中间产物 | Level 2（从该成员对应的 Task 步骤开始） |
+| 场景 | 处理 |
+|------|------|
+| 第一个 Agent（@product-collector）失败且无中间产物 | 降级到 Level 2 |
+| 后续 Agent 失败但前序产物已存在 | 从该 Agent 对应的 Level 2 步骤开始 |
+| 后续 Agent 失败且前序产物也不存在 | 降级到 Level 2 从头开始 |
 
 #### 降级执行
 
 ```
 降级执行流程：
 
-1. 记录降级原因到控制台日志
-2. 尝试清理已创建的团队（team_delete），忽略清理失败
-3. 检查已存在的中间产物文件，确定 Level 2 的起始步骤
-4. 更新 state.json: analyseProductMode = "task-pipeline"
-5. 跳转到 §3（Level 2 Task 串行流水线），从断点继续
+1. 记录失败信息到 state.json
+2. 检查已存在的中间产物文件，确定 Level 2 的起始步骤
+3. 更新 state.json: analyseProductMode = "task-pipeline"
+4. 跳转到 §3（Level 2 Task 串行流水线），从断点继续
 ```
 
 ---
 
 ## 3. Level 2: Task 串行流水线
 
-当 Level 1 失败或超时后，编排器使用同步 Task 工具调用，将分析拆分为 2-3 个串行 Task。每个 Task 复用 `agents/product-analysts/` 下的子 Agent 规范，通过中间产物文件传递上下文。
+当 Level 1 失败或超时后，编排器使用 Agent 工具串行调用，将分析拆分为 2-3 个串行 Task。每个 Task 复用 `agents/product-analysts/` 下的子 Agent 规范，通过中间产物文件传递上下文。
 
 ### 3.1 核心设计原则
 
@@ -656,24 +638,24 @@ Task 流水线：
    d) _product-collection.json 存在且非迭代 / _baseline-summary.json 已存在 → 从最终 Task 开始
 
 2. 执行 Task-A（如需）：
-   a) 使用 Task 工具，注入 §3.3 Task-A Prompt
+   a) 使用 Agent 工具，注入 §3.3 Task-A Prompt
    b) Task 返回后，检查 _product-collection.json 是否成功写入
    c) 如果写入失败 → 降级到 Level 3
    d) 读取 _product-collection.json 中的 iterationType 和 visualAttachments 判断后续流程
 
 2.5. 执行 Task-A2（仅含视觉附件时，如需）：
-   a) 使用 Task 工具，注入 §3.3 Task-A2 Prompt
+   a) 使用 Agent 工具，注入 §3.3 Task-A2 Prompt
    b) Task 返回后，检查 _visual-analysis.json 是否成功写入
    c) 如果写入失败 → 跳过视觉分析，继续后续流程（非阻断）
 
 3. 执行 Task-B（仅迭代需求，如需）：
    a) 从 _product-collection.json 中提取 baseline 路径信息
-   b) 使用 Task 工具，注入 §3.3 Task-B Prompt（替换路径占位符）
+   b) 使用 Agent 工具，注入 §3.3 Task-B Prompt（替换路径占位符）
    c) Task 返回后，检查 _baseline-summary.json 是否成功写入
    d) 如果写入失败 → 降级到 Level 3
 
 4. 执行最终 Task（Task-B 或 Task-C）：
-   a) 使用 Task 工具，注入 §3.3 合并 Task Prompt
+   a) 使用 Agent 工具，注入 §3.3 合并 Task Prompt
    b) Task 返回后，检查最终产物：
       - analysis/_extraction-result.json 是否存在
       - analysis/product-requirements.md 是否存在
@@ -832,7 +814,7 @@ Task 流水线：
 | @baseline-differ 失败 | 同上；如果 `_product-collection.json` 存在，可直接创建新 @baseline-differ 重试 |
 | @product-extractor 失败 | 同上；如果前置中间产物存在，可直接创建新 @product-extractor 重试 |
 | @quality-assessor 失败 | 同上；如果 `_extraction-result.json` 存在，可直接创建新 @quality-assessor 重试 |
-| 成员长时间无响应 | 执行 §2.7 超时检测流程，必要时降级到 Level 2 |
+| Agent 调用失败或产物不存在 | 执行 §2.7 失败检测流程，降级到 Level 2 |
 
 ### 6.2 断点恢复
 
@@ -848,7 +830,7 @@ Task 流水线：
       - _baseline-summary.json 存在 → @baseline-differ 已完成（迭代需求）
       - _extraction-result.json 存在 → @product-extractor 已完成
       - product-requirements.md 存在 → @quality-assessor 已完成
-   b) 根据已完成的成员，创建新的 Agent Team 只包含未完成的成员
+   b) 根据已完成的成员，仅对未完成的步骤重新发起 Agent 调用
    c) 特殊情况：若 _product-collection.json 中 iterationType = "incremental"
       但 _baseline-summary.json 不存在 → 需要调度 @baseline-differ
 
@@ -883,7 +865,7 @@ Task 流水线：
 - 需求描述概要
 
 **Step 2: 执行** —
-- **Level 1 (Parallel Agent)**: 创建分析团队 → 分配任务（T1→判定→T2 条件→T3→T4） → 监控完成 → 超时检测 → 汇总结果 → 清理团队
+- **Level 1 (Parallel Agent)**: 串行调度 Agent（T1→判定→T2 条件→T3→T4）→ 收集结果
 - **Level 2 (Task 流水线)**: 串行调用 Task-A → [Task-B] → Task-B/C，检查中间产物
 - **Level 3 (编排器直接执行)**: 编排器自身读取输入并生成产物
 

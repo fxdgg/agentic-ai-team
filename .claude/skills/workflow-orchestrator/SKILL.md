@@ -75,7 +75,7 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 每个非 INIT 阶段执行流程：**预览（Preview）→ 执行（Execute）→ 总结确认（Summary）**
 
 - **预览**: 展示即将执行的操作概要，等待用户确认
-- **执行**: 调用子 Agent（通过 Task 工具），实时显示进度
+- **执行**: 调用子 Agent（通过 Agent 工具），实时显示进度
 - **总结确认**: 展示产出物清单和关键决策，用户选择进入下一阶段或回退
 
 ### 2.4.1 阶段间知识仓库刷新（Level 2 时效性）
@@ -151,7 +151,7 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
    - 预估涉及领域数：{N} 个（基于 PRD 中识别的模块/服务关键词）
    - 预估平台影响：{backend/web/miniprogram}（基于 PRD 中的平台描述）
    - 上下文复杂度预估：{低/中/高}
-     低 = 单领域 + 单平台 → 建议 Task 模式
+     低 = 单领域 + 单平台 → 建议 Agent 串行调度
      中 = 2-3 领域 or 多平台 → 建议 Parallel Agent 调度
      高 = 4+ 领域 + 多平台 → 强烈建议 Parallel Agent 调度
    ```
@@ -329,16 +329,16 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 
 ### 3.1 子 Agent 调用规范
 
-> **🚨 CRITICAL — Task 工具（code-explorer subagent）的权限限制**:
+> **🚨 CRITICAL — Agent 工具的使用说明**:
 > 系统内置的 `code-explorer` subagent **只有只读权限**（仅支持 `search_file`、`search_content`、`Read`、`Grep`、`Glob`），**没有 `Write` / `replace_in_file` 等写入能力**。
-> **严禁通过 Task 工具调度需要写入文件的子 Agent**——这会导致产物无法写入，只能返回内容摘要。
-> Task 工具仅可用于**只读探索任务**（如代码搜索、文件读取、项目结构分析）。
+> **Agent 工具（非 Explore 模式）具有完整读写权限。仅在纯搜索/分析任务时使用 Explore 模式（subagent_type: "Explore"）。
+> Explore 模式仅用于只读探索任务（如代码搜索、文件读取、项目结构分析），使用 Read、Grep、Glob 工具。
 
 子 Agent 有两种调用方式，取决于当前阶段使用的调度模式：
 
-#### 方式 A：Task 工具调用（非 Parallel Agent 阶段 / 降级模式）
+#### 方式 A：Agent 工具调用（非 Parallel Agent 阶段 / 降级模式）
 
-通过 Task 工具调用子 Agent 时，注入以下上下文：
+通过 Agent 工具调用子 Agent 时，注入以下上下文：
 
 1. 读取对应的 `agents/*.md` 文件作为 system prompt
 2. 注入当前需求的 `state.json` 中的关键信息
@@ -346,19 +346,19 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 4. 指定输出目录路径
 5. 【ARCHITECT_BACKEND 阶段专用】额外注入总纲 `analysis/tech-requirements.md` 作为接口契约基准
 
-**完成信号机制**: 子 Agent 完成后直接返回最终消息。编排器通过 Task 工具的返回值判断完成。
+**完成信号机制**: 子 Agent 完成后直接返回最终消息。编排器通过 Agent 工具的返回值判断完成。
 
 #### 方式 B：Parallel Agent 成员（ANALYSE_PRODUCT / ANALYSE_TECH / ARCHITECT_BACKEND / IMPLEMENT / BUILD_VERIFY 阶段 Parallel Agent 调度）
 
 通过 Parallel Agent 创建独立成员，每个成员拥有独立上下文窗口：
 
-1. 编排器（team-lead）为每个领域创建成员，Prompt 中包含完整的工作指令
+1. 编排器为每个领域发起独立 Agent 调用，Prompt 中包含完整的工作指令
 2. 成员 Prompt 中注入 Agent `.md` 文件路径（绝对路径），成员自行读取
 3. 注入当前需求的关键信息（需求 ID、工作流路径）
 4. 注入前序阶段产物路径和输出目录路径
-5. 成员完成后向领导发送结构化完成消息
+5. 子 Agent 完成后直接返回结果给编排器
 
-**完成信号机制**: 成员通过消息系统向领导发送完成通知，领导通过团队状态栏监控进度。
+**完成信号机制**: Agent 工具为同步调用，返回即完成。编排器直接从返回值中获取结果。
 
 > 详细的 Parallel Agent 调度规则见：
 > - ANALYSE_PRODUCT 阶段：`phases/analyse-product-rules.md`
@@ -387,7 +387,7 @@ python3 scripts/resolve_agent_paths.py \
 | 产物路径 | 使用短路径，需编排器注入 |
 | 源码产物例外 | 直接使用项目根目录相对路径，不需替换 |
 
-> **Parallel Agent 特别注意**: 成员不会继承领导的对话历史，因此 Prompt 中的所有路径**必须是绝对路径**。
+> **Agent 工具注意**: 子 Agent 不会继承编排器的对话历史，因此 Prompt 中的所有路径**必须是绝对路径**。
 
 ---
 
@@ -851,7 +851,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
   1. Read("state.json")                             ← 方案 4：读取唯一状态源
   2. Read("phases/analyse-product-rules.md")        ← 方案 2：按需加载阶段规则
   3. 默认使用 Parallel Agent 调度（L1），创建失败时降级为 Task 串行管道（L2），管道失败再降级为 orchestrator 直接执行（L3）
-  4. L1 Parallel Agent 调度：创建团队 → T1(@product-collector) → [条件]T2(@baseline-differ) → T3(@product-extractor) → T4(@quality-assessor) → 清理团队
+  4. L1 Parallel Agent 调度：串行调度: Agent(@product-collector) → [条件]Agent(@baseline-differ) → Agent(@product-extractor) → Agent(@quality-assessor)
      L2 Task 管道模式：Task1(collector+differ) → Task2(extractor+assessor)；增量需求时 Task1 → Task2 → Task3
      L3 直接执行模式：编排器加载 product-analyst.md 直接执行（单体 Agent 降级）
 
@@ -859,8 +859,8 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
   1. Read("state.json")                         ← 方案 4：读取唯一状态源
   2. Read("phases/analyse-tech-rules.md")       ← 方案 2：按需加载阶段规则
   3. 默认使用 Parallel Agent 调度（创建失败时降级为 Task 模式）
-  4. Parallel Agent 调度：创建团队 → T1(@tech-explorer) → T2(@tech-designer) → T3(@tech-splitter) → T4(@tech-reviewer) → 清理团队
-     Task 模式：调用单体 fullstack-analyst Agent
+  4. Parallel Agent 调度：串行调度: Agent(@tech-explorer) → Agent(@tech-designer) → Agent(@tech-splitter) → Agent(@tech-reviewer)
+     Agent 串行调度：调用单体 fullstack-analyst Agent
 
 编排器进入 ARCHITECT_BACKEND 阶段：
   1. Read("state.json")                              ← 方案 4：读取唯一状态源
@@ -876,9 +876,9 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
   1. Read("state.json")                    ← 方案 4：读取唯一状态源
   2. Read("phases/implement-rules.md")     ← 方案 2：按需加载阶段规则
   3. 根据 state.json 中 platforms 和 rollbackLog 做调度决策
-  4. 判断调度模式（Parallel Agent / Task 工具降级）
-  5. Parallel Agent 调度：创建团队 → 分配任务 → 监控完成 → 清理团队
-     Task 模式：按 P0→P4 串行调用 Task 工具
+  4. 判断调度模式（Parallel Agent / Agent 串行降级）
+  5. Parallel Agent 调度：按平台并行发起 Agent 调用 → 收集结果
+     Agent 串行调度：按 P0→P4 串行调用 Agent 工具
 ```
 
 ---
