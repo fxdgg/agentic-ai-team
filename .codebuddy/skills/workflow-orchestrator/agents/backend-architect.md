@@ -551,8 +551,8 @@ flowchart TD
 architecture.md 末尾新增：
 ```markdown
 ## 知识引用
-- [TK-PAT-001] 事件驱动vs同步RPC选型 — 参考了历史ADR选择事件驱动
-- [BK-ECOM-E001] 订单实体定义 — 参考了已有数据模型
+- [TK-PAT-001] 事件驱动vs同步RPC选型 (type=decision) — 参考了历史架构决策
+- [BK-AD-M001] 广告计划实体定义 (type=model) — 参考了已有数据模型
 ```
 
 ---

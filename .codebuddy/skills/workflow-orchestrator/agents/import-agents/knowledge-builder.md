@@ -115,30 +115,30 @@ importConfidence: 0.5
 ```
 生成以下类型的知识条目：
 
-1. ADR 条目（从 techStack 推导技术选型决策）：
-   - 每个主要技术组件 → 一条 ADR
-   - ID 格式: ADR-IMP-{序号}-{标题}
+1. decision 条目（从 techStack 推导技术选型决策）：
+   - 每个主要技术组件 → 一条 decision
+   - ID 格式: DEC-IMP-{序号}-{标题}
    - confidence: 0.5 (imported, not verified)
-   - source_workflows: ["imported-{项目名}"]
-   - 存储路径: docs/knowledge-base/adr/
+   - source: { phase: "import", trigger: "import", confidence: 0.5 }
+   - 存储路径: docs/knowledge-base/decisions/
 
-2. Best Practice 条目（从 conventions 推导）：
-   - 每个 conventions[] 条目 → 一条 BP
-   - ID 格式: BP-IMP-{序号}-{标题}
+2. guideline 条目（从 conventions 推导，polarity=recommend）：
+   - 每个 conventions[] 条目 → 一条 guideline
+   - ID 格式: GL-IMP-{序号}-{标题}
    - confidence: 0.5
-   - 存储路径: docs/knowledge-base/best-practices/
+   - 存储路径: docs/knowledge-base/guidelines/
 
-3. FAQ 条目（从 doc-collection 中的 apiConventions + teamConventions 推导）：
+3. pitfall 条目（从 doc-collection 中的已知问题/踩坑记录推导）：
    - 仅当文档信息充分时生成
-   - ID 格式: FAQ-IMP-{序号}-{标题}
+   - ID 格式: PIT-IMP-{序号}-{标题}
    - confidence: 0.5
-   - 存储路径: docs/knowledge-base/faq/
+   - 存储路径: docs/knowledge-base/pitfalls/
 ```
 
 **知识条目数量控制**：
-- ADR: 最多 5 条（只选最关键的技术决策）
-- BP: 最多 5 条（只选最明确的实践）
-- FAQ: 最多 3 条（只选最常见的问题）
+- decision: 最多 5 条（只选最关键的技术决策）
+- guideline: 最多 5 条（只选最明确的实践）
+- pitfall: 最多 3 条（只选最常见的问题）
 
 #### 2d. 项目记忆条目
 
@@ -164,7 +164,7 @@ importConfidence: 0.5
 1. 确保 docs/knowledge-import/ 目录存在
 2. 写入 docs/knowledge-import/knowledge-baseline.json
 3. 写入 docs/knowledge-import/SUMMARY.md
-4. 确保 docs/knowledge-base/ 目录结构存在（adr/, best-practices/, faq/）
+4. 确保 docs/knowledge-base/ 目录结构存在（decisions/, guidelines/, pitfalls/）
 5. 写入各知识条目文件
 6. 创建或更新 docs/knowledge-base/index.json（知识库索引）
 7. 追加项目记忆到 .codebuddy/memory/{当天日期}.md
@@ -246,19 +246,17 @@ importConfidence: 0.5
   "stats": {
     "totalEntries": 0,
     "byType": {
-      "adr": 0,
-      "best-practice": 0,
-      "anti-pattern": 0,
-      "faq": 0,
-      "risk-pattern": 0
+      "decision": 0,
+      "guideline": 0,
+      "pitfall": 0
     }
   },
   "entries": [
     {
-      "id": "ADR-IMP-001",
-      "type": "adr",
+      "id": "DEC-IMP-001",
+      "type": "decision",
       "title": "string",
-      "path": "docs/knowledge-base/adr/ADR-IMP-001-xxx.md",
+      "path": "docs/knowledge-base/decisions/DEC-IMP-001-xxx.md",
       "confidence": 0.5,
       "tags": ["string"],
       "createdAt": "ISO-8601"

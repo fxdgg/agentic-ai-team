@@ -149,8 +149,18 @@ evidence:
 
 **知识条目 ID 前缀规则**：
 - Layer 1 技术知识：`TK-{领域}-{序号}`（如 TK-SB-001, TK-JAVA-002）
-- Layer 2 业务知识：`BK-{domain}-{类型}{序号}`（如 BK-ECOM-E001, BK-ECOM-BR001）
-- Layer 3 项目知识：沿用原 `{TYPE}-{序号}` 格式（如 ADR-001, BP-001）
+- Layer 2 业务知识：`BK-{domain}-{类型缩写}{序号}`（如 BK-AD-M001, BK-AD-G001）
+- Layer 3 项目知识：`{类型缩写}-{序号}` 格式（如 DEC-001, GL-001, PIT-001）
+
+**类型缩写表**：
+
+| 类型 | 缩写 | ID 示例（Layer 3） | ID 示例（Layer 2） |
+|------|------|-------------------|-------------------|
+| model | MOD | MOD-001 | BK-AD-M001 |
+| decision | DEC | DEC-001 | BK-AD-D001 |
+| guideline | GL | GL-001 | BK-AD-G001 |
+| pitfall | PIT | PIT-001 | BK-AD-T001 |
+| process | PRC | PRC-001 | BK-AD-P001 |
 
 ---
 
@@ -158,14 +168,34 @@ evidence:
 
 ### 3.1 知识类型定义
 
-| 类型 ID | 名称 | 来源 | 成熟度 | 示例 |
+> **分类原则**：按「知识描述的是什么」分类（客观、稳定、MECE），而非按「从哪个阶段产出」分类。来源信息记录在 `source` 元数据字段中，用于溯源分析（如某阶段频繁产出 pitfall，说明该阶段 Agent 需优化）。
+
+| 类型 ID | 名称 | 定义 | 子字段 | 示例 |
 |---------|------|------|--------|------|
-| `adr` | 架构决策记录 | ARCHITECT_* 阶段产物 | draft → verified → proven | "为什么选择事件驱动而非 RPC 同步" |
-| `best-practice` | 最佳实践 | IMPLEMENT + BUILD_VERIFY 成功模式 | draft → verified → proven | "公共模块变更后的兼容性检查清单" |
-| `anti-pattern` | 反模式警告 | BUILD_VERIFY 回退 + 修复记录 | draft → verified → proven | "循环依赖导致编译失败的常见场景" |
-| `faq` | 常见问题 | CLARIFY_* 阶段回填内容 | draft → verified → proven | "跨租户数据隔离的标准问答" |
-| `template-evolution` | 模板进化 | 多次工作流对比 | draft → verified → proven | "domain-tech-requirements 模板新增字段" |
-| `risk-pattern` | 风险模式 | risks.json 统计分析 | draft → verified → proven | "涉及支付模块时必检查的风险清单" |
+| `model` | 领域模型 | 实体定义、数据结构、关系图、概念模型 | — | "广告计划包含预算/出价/投放时段三个核心字段" |
+| `decision` | 决策记录 | 技术选型、架构决策、方案取舍及理由 | — | "选择事件驱动而非 RPC 同步，因为广告状态变更需要解耦" |
+| `guideline` | 行为准则 | 推荐做法或禁止做法 | `polarity: recommend \| avoid` | recommend: "公共模块变更后的兼容性检查清单" / avoid: "禁止在 Controller 直接返回 Entity" |
+| `pitfall` | 已知陷阱 | 已知风险、故障模式、排查步骤、踩坑记录 | — | "广告预算扣减在高并发下会超扣，需用 Redis+Lua 保证原子性" |
+| `process` | 流程定义 | 业务流程、状态机、操作步骤、用户旅程 | — | "广告审核流程：提交→机审→人审→上线，人审超时自动拒绝" |
+
+**与旧类型的映射关系**（迁移参考）：
+- `adr` → `decision`
+- `best-practice` → `guideline` (polarity=recommend)
+- `anti-pattern` → `guideline` (polarity=avoid) 或 `pitfall`（规范性的归 guideline，叙事性的归 pitfall）
+- `faq` → 按内容拆散（排查步骤→pitfall，规则说明→guideline，概念解释→model）
+- `risk-pattern` → `pitfall`
+- `template-evolution` → 移出知识体系，作为系统元数据记录在 log.md 中
+
+**与存储目录的对应关系**：
+
+| 类型 | tech-wiki/ 子目录 | biz-wiki/{domain}/ 子目录 |
+|------|-------------------|--------------------------|
+| model | frameworks/, languages/ | entities/, relations/ |
+| decision | patterns/ | （按领域存放） |
+| guideline (recommend) | patterns/, conventions/ | rules/ |
+| guideline (avoid) | anti-patterns/ | rules/ |
+| pitfall | anti-patterns/ | pitfalls/ |
+| process | devops/ | flows/ |
 
 **三级成熟度定义**：
 - `draft`: 导入或新提取，仅有单一来源
@@ -313,23 +343,23 @@ Agent 通过此索引定位相关历史需求，然后按需读取 SUMMARY.md �
 ```markdown
 # Knowledge Evolution Log
 
-## [2026-04-09] ingest | [Steven] | 门店履约视图归档 | +1 ADR, +2 BP | #a3f8c2
-- 新增 ADR-005: 地图组件选型（腾讯地图 GL JS SDK）
-- 新增 BP-012: fitBounds 在 flexbox 布局中的替代方案
-- 更新 BP-003: 公共模块变更检查清单（新增地图依赖检查项）
+## [2026-04-09] ingest | [Steven] | 门店履约视图归档 | +1 decision, +2 guideline | #a3f8c2
+- 新增 DEC-005: 地图组件选型（腾讯地图 GL JS SDK）
+- 新增 GL-012: fitBounds 在 flexbox 布局中的替代方案 (polarity=recommend)
+- 更新 GL-003: 公共模块变更检查清单（新增地图依赖检查项）
 
-## [2026-04-08] ingest | [Alice] | 商详页UI重构归档 | +1 BP, +1 TE | #b4e9d1
-- 新增 BP-011: CSS 变量双轨方案（品牌色 CSS 变量 + 文字色 SCSS 变量）
-- 新增 TE-002: 小程序纯前端需求交付模板 v2
+## [2026-04-08] ingest | [Alice] | 商详页UI重构归档 | +1 guideline, +1 process | #b4e9d1
+- 新增 GL-011: CSS 变量双轨方案（品牌色 CSS 变量 + 文字色 SCSS 变量）(polarity=recommend)
+- 新增 PRC-002: 小程序纯前端需求交付流程 v2
 
 ## [2026-04-08] lint | [system] | 定期健康检查 | -2 archived
-- 归档 FAQ-003: 已 6 个月未引用
-- 归档 IMP-BP-002: 导入知识未通过验证
+- 归档 PIT-003: 已 6 个月未引用
+- 归档 GL-IMP-002: 导入知识未通过验证
 
 ## [2026-04-09] promote | [Steven] | 技术知识提升 | +2 TK, +1 BK | #a3f8c2
-- 提升 BP-012 → TK-MAP-001 (Layer 1 tech-wiki)
-- 提升 ADR-005 → TK-MAP-002 (Layer 1 tech-wiki)
-- 提升 BP-008 → BK-ECOM-BR001 (Layer 2 biz-wiki/ecommerce)
+- 提升 GL-012 → TK-MAP-001 (Layer 1 tech-wiki)
+- 提升 DEC-005 → TK-MAP-002 (Layer 1 tech-wiki)
+- 提升 GL-008 → BK-AD-G001 (Layer 2 biz-wiki/ad)
 
 ## [2026-04-12] verify | [Alice] | 跨项目验证 | maturity↑ 2 | #c5f0e2
 - TK-SB-003 "分页查询延迟关联优化" (verified→proven, 2 projects)
@@ -350,11 +380,12 @@ Agent 通过此索引定位相关历史需求，然后按需读取 SUMMARY.md �
 
 | 触发时机 | 提取内容 | 输出知识类型 |
 |---------|---------|-------------|
-| 工作流进入 ARCHIVE 阶段 | 全流程回顾分析 | adr, best-practice, risk-pattern |
-| CLARIFY_* 阶段完成 | 澄清问答对提取 | faq |
-| BUILD_VERIFY 回退 ≥2 次 | 失败模式分析 | anti-pattern |
-| IMPLEMENT 阶段完成 | 代码模式提取 | best-practice |
-| 同类需求完成 ≥3 个 | 跨需求模式对比 | template-evolution, best-practice |
+| 工作流进入 ARCHIVE 阶段 | 全流程回顾分析 | decision, guideline, pitfall |
+| CLARIFY_* 阶段完成 | 澄清问答对提取 | guideline, model, pitfall（按内容判断） |
+| BUILD_VERIFY 回退 ≥2 次 | 失败模式分析 | pitfall, guideline(avoid) |
+| IMPLEMENT 阶段完成 | 代码模式提取 | guideline(recommend) |
+| 同类需求完成 ≥3 个 | 跨需求模式对比 | guideline(recommend), model |
+| ANALYSE_PRODUCT 阶段 | 业务分析产物 | model, process |
 
 ### 4.2 提取流程
 
@@ -396,6 +427,8 @@ Agent 通过此索引定位相关历史需求，然后按需读取 SUMMARY.md �
 ```markdown
 ---
 id: {ID}
+type: model | decision | guideline | pitfall | process
+polarity: recommend | avoid              # 仅 type=guideline 时必填
 layer: tech | biz | project
 domain: {domain-id 或 null}
 title: {标题}
@@ -404,6 +437,11 @@ applicable_phases: [ANALYSE_TECH, IMPLEMENT]   # 适用的工作流阶段
 created: {ISO-8601}
 updated: {ISO-8601}
 maturity: draft | verified | proven
+source:                                        # 知识来源（溯源分析用）
+  phase: "{提取自哪个阶段}"                      # ARCHITECT / IMPLEMENT / BUILD_VERIFY / CLARIFY / ARCHIVE / import
+  trigger: "{触发原因}"                          # rollback / success / clarify / import / cross-workflow
+  workflow: "{需求ID}"
+  confidence: 0.7
 evidence:
   contributors:
     - name: "{贡献者姓名}"
@@ -442,6 +480,8 @@ related: ["{关联ID}"]
 ```
 
 **新增字段说明**：
+- `type` + `polarity`：知识类型按内容维度分类（model/decision/guideline/pitfall/process），guideline 通过 polarity 区分推荐做法(recommend)和禁止做法(avoid)
+- `source`：知识来源的元数据，记录从哪个阶段、什么触发条件提取。用于溯源分析（如某阶段频繁产出 pitfall，说明该阶段 Agent 需优化），不作为分类依据
 - `one_line`：一句话摘要，用于 catalog.md 清单中的展示（≤100 字），让 Agent 不读完整条目也能判断相关性
 - `applicable_phases`：知识在哪些工作流阶段最有用。Agent 读 catalog.md 时按当前阶段过滤
 - `source_references`：指向原始归档产物（架构文档、SUMMARY.md 等）。Agent 需要更多细节时可沿引用深入读取，避免知识摘要丢失推导过程
@@ -452,16 +492,16 @@ related: ["{关联ID}"]
 
 #### 4.4.1 验证与提升
 
-将工作流中实际使用的技术决策与导入的 ADR 条目对比：
+将工作流中实际使用的技术决策与导入的 decision 条目对比：
 
 ```
 对比流程:
 1. 从 ARCHITECT_BACKEND 产物中提取实际技术决策
-2. 搜索 docs/knowledge-base/adr/ 下 ID 含 "IMP" 的条目
+2. 搜索 docs/knowledge-base/ 下 type=decision 且 ID 含 "IMP" 的条目
 3. 逐条对比:
    - 一致 → maturity 从 draft 提升到 verified（追加 verified_in_workflows）
    - 部分一致 → maturity 保持 draft，追加工作流验证注释到 evidence
-   - 不一致 → 创建新 ADR 记录变更理由，旧条目 maturity 降级为 draft 并添加 contradiction_flags
+   - 不一致 → 创建新 decision 记录变更理由，旧条目 maturity 降级为 draft 并添加 contradiction_flags
 ```
 
 #### 4.4.2 补充与丰富
@@ -470,9 +510,9 @@ related: ["{关联ID}"]
 
 ```
 补充规则:
-- 新发现的约定 → 追加 Best Practice（maturity: draft，有完整工作流证据链）
-- 新发现的反模式 → 创建 Anti-Pattern（maturity: draft）
-- 导入时 missing 的维度在工作流中被覆盖 → 更新 knowledge-baseline.json 对应维度
+- 新发现的约定 → 追加 guideline (polarity=recommend)（maturity: draft，有完整工作流证据链）
+- 新发现的反模式 → 创建 pitfall 或 guideline (polarity=avoid)（maturity: draft）
+- 导入时 missing 的维度在工作流中被覆盖 → 更新知识仓库中对应维度的条目
 ```
 
 #### 4.4.3 去标记
@@ -581,15 +621,15 @@ Step 4: 读原始产物（深入，可选）
 
 > catalog.md 不计入配额（太轻量），只有完整条目和归档产物计入。
 
-| 阶段 | Agent | 完整条目配额 | 归档产物配额 | 查询重点 |
-|------|-------|------------|------------|---------|
-| ANALYSE_PRODUCT | @product-collector | 5 | 3 | 业务规则、实体关系、历史需求 |
-| ANALYSE_PRODUCT | @product-extractor | 5 | 2 | 同域业务规则参考 |
-| ANALYSE_TECH | @tech-explorer | 8 | 5 | ADR、技术模式、反模式、历史架构 |
-| ANALYSE_TECH | @tech-designer | 5 | 3 | 架构模式、框架经验 |
-| ARCHITECT | @backend-architect 等 | 8 | 5 | ADR、实体关系、历史架构 |
-| IMPLEMENT | 各开发 Agent | 5 | 2 | 最佳实践、反模式、编码规范 |
-| BUILD_VERIFY | 各验证 Agent | 3 | 0 | 反模式、已知编译问题 |
+| 阶段 | Agent | 完整条目配额 | 归档产物配额 | 查询的存储层 | 重点知识类型 |
+|------|-------|------------|------------|------------|------------|
+| ANALYSE_PRODUCT | @product-collector | 5 | 3 | Layer 2 (biz-wiki) + 归档索引 | model, process, pitfall |
+| ANALYSE_PRODUCT | @product-extractor | 5 | 2 | Layer 2 (biz-wiki) | guideline, model |
+| ANALYSE_TECH | @tech-explorer | 8 | 5 | Layer 1 (tech-wiki) + 归档索引 | decision, guideline(avoid), pitfall |
+| ANALYSE_TECH | @tech-designer | 5 | 3 | Layer 1 (tech-wiki) | decision, guideline(recommend) |
+| ARCHITECT | @backend-architect 等 | 8 | 5 | Layer 1 patterns + Layer 2 relations | decision, model |
+| IMPLEMENT | 各开发 Agent | 5 | 2 | Layer 1 + Layer 0-T | guideline, pitfall |
+| BUILD_VERIFY | 各验证 Agent | 3 | 0 | Layer 1 anti-patterns | pitfall, guideline(avoid) |
 
 ### 5.4 查询触发时机（按需，非启动时一次性）
 
@@ -637,8 +677,8 @@ Agent 查询知识后，在其输出产物中记录引用：
 ```json
 {
   "knowledgeReferences": [
-    { "id": "TK-SB-003", "title": "分页查询延迟关联优化", "usedIn": "复用评级 Step 2" },
-    { "id": "BK-ECOM-BR004", "title": "商品分类树查询规则", "usedIn": "业务规则参考" }
+    { "id": "TK-SB-003", "title": "分页查询延迟关联优化", "type": "guideline", "usedIn": "复用评级 Step 2" },
+    { "id": "BK-AD-G004", "title": "广告预算扣减并发控制规则", "type": "guideline", "usedIn": "业务规则参考" }
   ]
 }
 ```
@@ -674,7 +714,7 @@ archived（归档，移出活跃索引）
 1. 纯新增（不同条目）→ 自动合并，两条都保留
 2. 同一条目追加证据 → 自动合并，evidence.contributors 数组合并去重
 3. 同一条目内容矛盾 → 写入 {knowledge-repo}/contributions/conflicts/，通知 maintainer 裁决
-4. 涉及架构决策 (ADR) → 不自动覆盖，创建新 ADR 记录旧决策的变更理由
+4. 涉及架构决策 (type=decision) → 不自动覆盖，创建新 decision 条目记录旧决策的变更理由
 5. 冲突条目的 maturity 自动降级为 draft，直到矛盾解决
 6. 所有冲突和解决记录追加到 log.md（不可变追加日志）
 ```
@@ -796,8 +836,9 @@ Step 5: 回流判定 — 若回答质量高且具有复用价值，自动存为�
 - 查询问题具有通用性（非一次性特定问题）
 
 回流的知识条目：
-- 类型为 `faq`（最常见）或 `best-practice`
+- 类型根据内容判定：排查类→`pitfall`，规范类→`guideline`，概念类→`model`，流程类→`process`
 - 初始 maturity 为 verified（有多条来源支撑）
+- source.trigger 为 `query-backfill`
 - evidence.source_projects 继承引用条目的来源
 - evidence.verified_in_workflows 继承引用条目的工作流记录
 - 在 log.md 中记录操作类型为 `query-backfill`
@@ -820,7 +861,7 @@ Step 5: 回流判定 — 若回答质量高且具有复用价值，自动存为�
 → 扫描最近 DONE 状态的工作流，提取知识条目，执行提升判定，生成回顾报告
 
 用户: 这个模块之前有什么已知的坑吗？
-→ 多层搜索 knowledge-base 中与该模块相关的 anti-pattern 和 risk-pattern（Layer 3 + Layer 2 + Layer 1，从团队知识仓库查询）
+→ 多层搜索 knowledge-base 中与该模块相关的 pitfall 和 guideline(avoid) 条目（Layer 3 + Layer 2 + Layer 1，从团队知识仓库查询）
 
 用户: 查看知识库状态
 → 展示知识库统计: 条目数量、三层分布、成熟度分布、最近更新
@@ -838,7 +879,7 @@ Step 5: 回流判定 — 若回答质量高且具有复用价值，自动存为�
 | workflow-orchestrator | ARCHIVE 阶段触发知识提取 + 提升判定；Agent 启动时注入多层知识推荐 | 双向 |
 | team-hub | 知识库健康度（含三层统计）作为团队看板指标 | → team-hub |
 | capability-router | 知识推荐辅助路由决策（基于历史成功率调整 Skill 权重） | → capability-router |
-| quality-guardian | 质量问题转化为 anti-pattern 知识条目（可提升到 Layer 1） | quality-guardian → |
+| quality-guardian | 质量问题转化为 pitfall 知识条目（可提升到 Layer 1） | quality-guardian → |
 
 ---
 

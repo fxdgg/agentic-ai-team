@@ -320,7 +320,7 @@ _product-collection.json 新增字段：
 ```json
 {
   "knowledgeReferences": [
-    { "id": "BK-ECOM-BR001", "title": "库存扣减先锁后扣", "usedIn": "业务规则参考" }
+    { "id": "BK-AD-G001", "title": "广告预算扣减并发控制规则", "type": "guideline", "usedIn": "业务规则参考" }
   ]
 }
 ```

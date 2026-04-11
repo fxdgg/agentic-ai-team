@@ -132,7 +132,7 @@ description: "质量守卫。当用户提到代码质量、质量报告、质量
 - 首次通过: 100分
 - 1 次回退: 70分
 - 2 次回退: 40分
-- 3+ 次回退: 20分（触发 anti-pattern 警告）
+- 3+ 次回退: 20分（触发 pitfall 知识提取）
 ```
 
 ---
@@ -356,7 +356,7 @@ docs/quality-metrics/
 |-----------|---------|------|
 | workflow-orchestrator | 在总结确认步骤中嵌入质量评估；回退时自动生成分析报告 | 双向 |
 | team-hub | 质量指标作为团队看板的一个维度展示 | → team-hub |
-| knowledge-evolution | 重复出现的质量问题转化为 anti-pattern 知识条目 | → knowledge-evolution |
+| knowledge-evolution | 重复出现的质量问题转化为 pitfall 知识条目 | → knowledge-evolution |
 | capability-router | 质量监控数据辅助路由决策（质量差的阶段可能需要更专业的处理） | → capability-router |
 
 ---

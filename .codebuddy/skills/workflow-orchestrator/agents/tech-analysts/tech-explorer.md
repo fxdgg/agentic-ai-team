@@ -349,8 +349,8 @@ tech-exploration-result.json 新增字段：
 ```json
 {
   "knowledgeReferences": [
-    { "id": "TK-SB-003", "title": "分页查询延迟关联优化", "usedIn": "需求点3复用评级" },
-    { "id": "TK-PAT-001", "title": "事件驱动vs同步RPC选型", "usedIn": "需求点5架构参考" }
+    { "id": "TK-SB-003", "title": "分页查询延迟关联优化", "type": "guideline", "usedIn": "需求点3复用评级" },
+    { "id": "TK-PAT-001", "title": "事件驱动vs同步RPC选型", "type": "decision", "usedIn": "需求点5架构参考" }
   ]
 }
 ```

@@ -151,7 +151,36 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
 
 ## 知识体系
 
-> 这是整个系统最重要的设计。
+> 这是整个系统最重要的设计。Skill、Agent、工具链会随模型迭代更新，但**领域知识是永恒的**。
+
+### 核心概念
+
+知识体系由三个正交维度组成：
+
+| 维度 | 问题 | 定义 |
+|------|------|------|
+| **存储层（在哪）** | 知识存在哪里？ | Layer 0-P/0-T/1/2/3 — 从个人到团队到项目 |
+| **知识类型（是什么）** | 知识描述的是什么？ | model / decision / guideline / pitfall / process — 按内容维度分类 |
+| **成熟度（多可信）** | 知识经过多少验证？ | draft → verified → proven（仅知识条目有，规范/偏好没有） |
+
+#### 存储层 × 知识类型 × 成熟度的关系
+
+```
+Layer 0-P  个人偏好（~/.ai-team/preferences/）         ← 没有类型和成熟度，是配置
+Layer 0-T  团队约定（{知识仓库}/team-conventions/）     ← 没有类型和成熟度，是规范
+
+Layer 3    项目知识（{项目}/docs/knowledge-base/）      ← 知识条目的初始着陆层
+              │  所有 5 种类型都可能存在，maturity 为 draft
+              │
+              ├──→ 提升判定 Q1: 是否项目特有？ → 是：留在 Layer 3
+              ├──→ 提升判定 Q2: 是否通用技术？ → 是：提升到 Layer 1
+              └──→ 提升判定 Q3: 是否通用业务？ → 是：提升到 Layer 2
+
+Layer 1    技术知识（{知识仓库}/tech-wiki/）            ← decision、guideline、pitfall、model
+Layer 2    业务知识（{知识仓库}/biz-wiki/{domain}/）    ← model、process、guideline、pitfall
+              ↑ 提升到 Layer 1/2 的条目 maturity 为 draft
+              ↑ 被其他工作流引用后自动升为 verified → proven
+```
 
 ### 知识如何流动
 
@@ -161,8 +190,8 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
       ▼                              ▼
  冷启动导入                     INIT: git pull 知识仓库 + 注入查询入口
  3 Agent 管道                        │
- → knowledge-baseline.json          │  ← Agent 在各阶段按需查询知识库
- → codebase-profile.json            │
+ → 知识写入团队仓库                 │  ← Agent 在各阶段按需查询（三级索引）
+ → 代码画像写入仓库                 │
                                      ▼
                                ARCHIVE: 知识提取 + 提升判定
                                      │
@@ -174,54 +203,51 @@ INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FR
                                               下一个人的 /flow-run 自动受益
 ```
 
-### 按需查询，不是 Top-N 推送
+### 五种知识类型
 
-Agent 不被动接收固定数量的知识推荐，而是通过**三层渐进式索引**主动按需查阅：
+> **分类原则**：按「知识描述的是什么」分类（客观、稳定、MECE），来源阶段记录在 `source` 元数据中用于溯源分析。
 
-```
-Layer A: knowledge-catalog.md（~50 行）→ 知识库全貌，哪些分类各多少条
-Layer B: catalog.md（~100-300 行）     → 每条知识一行摘要，按适用阶段过滤
-Layer C: 完整条目（~50-200 行）        → 按需读取，可沿 source_references 追溯原始产物
-```
-
-各阶段有独立的查询预算（catalog 不计入配额）：
-
-| 阶段 | Agent | 完整条目 | 归档产物 | 重点 |
-|------|-------|---------|---------|------|
-| ANALYSE_PRODUCT | @product-collector | 5 | 3 | 业务规则、历史需求 |
-| ANALYSE_TECH | @tech-explorer | 8 | 5 | ADR、反模式、历史架构 |
-| ARCHITECT | @backend-architect | 8 | 5 | ADR、实体关系 |
-| IMPLEMENT | 各开发 Agent | 5 | 2 | 最佳实践、反模式 |
-| BUILD_VERIFY | 各验证 Agent | 3 | 0 | 反模式、编译问题 |
-
-### 知识存储分层
-
-| 层级 | 位置 | 共享 | 内容 |
-|------|------|------|------|
-| Layer 0-P | `~/.ai-team/preferences/` | 不共享 | 个人编码风格偏好 |
-| Layer 0-T | `{知识仓库}/team-conventions/` | 团队 Git | 团队编码规范、Review 标准 |
-| Layer 1 | `{知识仓库}/tech-wiki/` | 团队 Git | 技术知识（按语言/框架/模式/反模式） |
-| Layer 2 | `{知识仓库}/biz-wiki/{domain}/` | 团队 Git | 业务知识（实体/规则/流程/踩坑） |
-| Layer 3 | `{项目}/docs/knowledge-base/` | 项目仓库 | 项目特有知识 |
-
-### 六种知识类型
-
-| 类型 | 来源 | 示例 |
-|------|------|------|
-| `ADR` | ARCHITECT 阶段 | "选择 Redis 而非 Memcached 的原因" |
-| `best-practice` | IMPLEMENT + BUILD_VERIFY | "React 状态管理推荐模式" |
-| `anti-pattern` | BUILD_VERIFY 回退 ≥2 次 | "循环依赖导致编译失败" |
-| `FAQ` | CLARIFY 阶段 | "接口返回 403 排查步骤" |
-| `risk-pattern` | risks.json 分析 | "涉及支付模块时必检查项" |
-| `template-evolution` | 同类需求 ≥3 个 | "CRUD 需求标准模板 v3" |
+| 类型 | 定义 | 子字段 | 典型存储层 | 示例 |
+|------|------|--------|-----------|------|
+| `model` | 实体定义、数据结构、关系图 | — | Layer 2 entities/relations | "广告计划包含预算/出价/投放时段三个核心字段" |
+| `decision` | 技术选型、架构决策、方案取舍及理由 | — | Layer 1 patterns | "选择事件驱动而非 RPC 同步，因为广告状态变更需要解耦" |
+| `guideline` | 推荐做法或禁止做法 | `polarity: recommend \| avoid` | Layer 1 / Layer 0-T | recommend: "公共模块变更后的兼容性检查清单" |
+| `pitfall` | 已知风险、故障模式、排查步骤 | — | Layer 1 anti-patterns / Layer 2 pitfalls | "广告预算扣减在高并发下会超扣" |
+| `process` | 业务流程、状态机、操作步骤 | — | Layer 2 flows | "广告审核：提交→机审→人审→上线" |
 
 ### 三级成熟度
 
 ```
-draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（≥2 项目 + ≥2 贡献者验证）
+draft（新提取，单一来源）→ verified（在 1 个工作流中被成功引用）→ proven（在 ≥2 个不同项目中被验证）
 ```
 
-每条知识带 `evidence.contributors[]` 追踪贡献者、`source_references` 追溯原始产物、`applicable_phases` 标注适用阶段。借鉴区块链思想：工作流成功执行 = 工作量证明，`log.md` 追加式不可变。
+**自动衰减**：proven 12 个月未引用 → 降级为 verified；verified 6 个月未引用 → 降级为 draft；draft 持续未引用 → Lint 标记后归档。
+
+> 成熟度仅适用于知识条目（Layer 1/2/3），不适用于个人偏好（Layer 0-P）和团队约定（Layer 0-T）。
+
+### 按需查询：三级索引
+
+Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式索引**主动按需查阅：
+
+| 级别 | 文件 | 大小 | 作用 |
+|------|------|------|------|
+| **全景目录** | `{知识仓库}/knowledge-catalog.md` | ~50 行 | 知识库有哪些分类、各多少条，按阶段推荐查阅路径 |
+| **分类清单** | 各目录下的 `catalog.md` | ~100-300 行 | 每条知识一行摘要（ID + 标题 + 成熟度 + 适用阶段），可快速过滤 |
+| **完整条目** | 具体的 TK-*.md / BK-*.md | ~50-200 行 | 完整知识内容，可沿 `source_references` 追溯原始产物 |
+
+### 各阶段查询什么
+
+各阶段有独立的查询预算（分类清单不计入配额，只有完整条目和归档产物计入）：
+
+| 阶段 | Agent | 完整条目 | 归档产物 | 查询的存储层 | 重点知识类型 |
+|------|-------|---------|---------|------------|------------|
+| ANALYSE_PRODUCT | @product-collector | 5 | 3 | Layer 2 (biz-wiki) + 归档索引 | model, process, pitfall |
+| ANALYSE_PRODUCT | @product-extractor | 5 | 2 | Layer 2 (biz-wiki) | guideline, model |
+| ANALYSE_TECH | @tech-explorer | 8 | 5 | Layer 1 (tech-wiki) + 归档索引 | decision, guideline(avoid), pitfall |
+| ANALYSE_TECH | @tech-designer | 5 | 3 | Layer 1 (tech-wiki) | decision, guideline(recommend) |
+| ARCHITECT | @backend-architect 等 | 8 | 5 | Layer 1 patterns + Layer 2 relations | decision, model |
+| IMPLEMENT | 各开发 Agent | 5 | 2 | Layer 1 + Layer 0-T | guideline, pitfall |
+| BUILD_VERIFY | 各验证 Agent | 3 | 0 | Layer 1 anti-patterns | pitfall, guideline(avoid) |
 
 ### 团队协作
 
@@ -245,7 +271,7 @@ draft（新提取，单一来源）→ verified（≥1 人验证）→ proven（
 @knowledge-builder → 知识标准化（4 维基线 + ≤13 条知识条目 + 归档总结）
 ```
 
-产出 `knowledge-baseline.json`（四维度：用户故事/业务规则/数据实体/UI 模式），后续工作流的 ANALYSE 阶段自动消费。
+产出直接写入团队知识仓库（`knowledge-baseline.json` 四维度：用户故事/业务规则/数据实体/UI 模式），所有条目初始 maturity 为 draft，后续工作流的 ANALYSE 阶段自动消费。
 
 ---
 

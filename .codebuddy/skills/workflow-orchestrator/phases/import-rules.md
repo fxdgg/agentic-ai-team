@@ -132,12 +132,12 @@ docs/knowledge-import/                    # 导入专用目录
 
 docs/knowledge-base/                      # 知识库（与 knowledge-evolution 共享）
 ├── index.json                           # @knowledge-builder 创建/更新
-├── adr/
-│   └── ADR-IMP-*.md                    # @knowledge-builder 产出
-├── best-practices/
-│   └── BP-IMP-*.md                     # @knowledge-builder 产出
-└── faq/
-    └── FAQ-IMP-*.md                    # @knowledge-builder 产出
+├── decisions/
+│   └── DEC-IMP-*.md                    # @knowledge-builder 产出
+├── guidelines/
+│   └── GL-IMP-*.md                     # @knowledge-builder 产出
+└── pitfalls/
+    └── PIT-IMP-*.md                    # @knowledge-builder 产出
 
 .codebuddy/memory/{date}.md              # @knowledge-builder 追加
 ```
