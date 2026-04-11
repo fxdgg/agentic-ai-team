@@ -1,0 +1,60 @@
+{
+  "version": "5.8.0",
+  "profileName": "default",
+  "profileMode": "auto-detect",
+  "techStack": {
+    "framework": "",
+    "language": "",
+    "styling": "",
+    "componentLibrary": "",
+    "iconLibrary": "",
+    "buildTool": ""
+  },
+  "paths": {
+    "pagesDir": "src/pages",
+    "componentsDir": "src/components",
+    "servicesDir": "src/services",
+    "hooksDir": "src/hooks",
+    "imagesDir": "src/assets/images",
+    "iconsDir": "src/assets/icons",
+    "typesDir": "src/types",
+    "manifestDir": ".d2c-temp/manifests",
+    "reuseScanDirs": [
+      "src/components"
+    ]
+  },
+  "naming": {
+    "pageEntry": "index.tsx",
+    "componentCase": "PascalCase",
+    "serviceSuffix": "Service",
+    "hookPrefix": "use",
+    "mockFileSuffix": "Data"
+  },
+  "policies": {
+    "reusePolicy": "strict",
+    "componentMapping": "project-first",
+    "tokenPolicy": "variable > project-token > alias > d2c-token > raw",
+    "responsivePolicy": "preserve-current-project",
+    "interactionPolicy": "infer-safe-only",
+    "assetPolicy": "deterministic",
+    "validationLevel": "strict",
+    "requireServiceHook": true,
+    "allowAbsolutePositionOnlyForOverlap": true
+  },
+  "deterministicOutput": {
+    "nodeSort": ["y", "x", "id"],
+    "importOrder": [
+      "framework",
+      "component-library",
+      "icon-library",
+      "service-hook",
+      "types",
+      "internal",
+      "assets"
+    ],
+    "classOrder": "layout > spacing > size > visual > typography > interaction",
+    "assetNamePattern": "<page>-<nodeId>-<purpose>",
+    "manifest": true,
+    "idempotencyCheck": true
+  }
+}
