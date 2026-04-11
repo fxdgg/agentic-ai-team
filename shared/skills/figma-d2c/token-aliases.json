@@ -1,7 +1,0 @@
-{
-  "version": "5.8.0",
-  "usageNote": "此文件定义 Figma Variables 到项目 Token 的映射关系。当 Figma 设计稿中使用了 Variables 时，优先匹配此表中的别名；未匹配时使用 Figma 精确值。请根据项目实际的 Design Token 体系填充。",
-  "colorAliases": [],
-  "spacingAliases": [],
-  "radiusAliases": []
-}
