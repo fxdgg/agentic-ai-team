@@ -272,7 +272,6 @@ evidence:
 |------|--------|------|
 | 项目知识库 | {N} | docs/knowledge-base/index.md |
 | 归档工作流 | {N} | docs/workflows/archived/index.md |
-| 项目记忆 | {N} | .claude/memory/ |
 ```
 
 #### Layer B — 分类清单（catalog.md）
@@ -614,7 +613,6 @@ Step 4: 读原始产物（深入，可选）
 | **团队约定** | `{knowledgeRepoLocalPath}/team-conventions/` | 编码规范、Review 标准 | ~50-100 行 |
 | **项目知识库** | `docs/knowledge-base/index.md` | 项目内知识条目清单 | ~50 行 |
 | **归档工作流索引** | `docs/workflows/archived/index.md` | 历史需求按功能域分类 | ~200 行 |
-| **项目记忆** | `.claude/memory/` | 历史经验和踩坑记录 | 按日期文件 |
 | **个人偏好** | `~/.ai-team/preferences/coding-style.md` | 个人编码风格 | ~50 行 |
 
 ### 5.3 各阶段查询预算

@@ -233,7 +233,7 @@ docs/knowledge-base/                      # 知识库（与 knowledge-evolution 
 └── pitfalls/
     └── PIT-IMP-*.md                    # @knowledge-builder 产出
 
-.codebuddy/memory/{date}.md              # @knowledge-builder 追加
+docs/knowledge-base/pitfalls/              # @knowledge-builder 追加
 ```
 
 ---

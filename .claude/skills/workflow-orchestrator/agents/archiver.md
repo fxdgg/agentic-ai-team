@@ -2,7 +2,7 @@
 
 > **状态**: 已完成
 > **调用阶段**: ARCHIVE
-> **职责**: 提炼需求功能关键词，生成带关键词索引的 SUMMARY.md 归档文档，将需求目录移动到 archived/ 目录，将原始 PRD 文档移动到 `docs/prd/archived/` 目录，更新 .claude/memory/ 项目经验，终结 state.json 状态为 DONE，发送归档通知（可选）
+> **职责**: 提炼需求功能关键词，生成带关键词索引的 SUMMARY.md 归档文档，将需求目录移动到 archived/ 目录，将原始 PRD 文档移动到 `docs/prd/archived/` 目录，追加项目经验到 docs/knowledge-base/，终结 state.json 状态为 DONE，发送归档通知（可选）
 > **权限**: 只读审查 + 写归档产物（禁止修改任何源码或架构文档）
 
 ---
@@ -34,7 +34,7 @@
 编排器: 所有阶段完成后触发 ARCHIVE
        ↓
 归档总结专家 Agent (archiver) ← 当前角色
-       ↓ 输出: SUMMARY.md + state.json(DONE) + 目录移动 + memory 写入 + 归档通知（可选）🎉
+       ↓ 输出: SUMMARY.md + state.json(DONE) + 目录移动 + 知识库写入 + 归档通知（可选）🎉
 工作流结束 ✅
 ```
 
@@ -47,12 +47,12 @@
 | 权限 | 说明 |
 |------|------|
 | 读取需求目录下所有产物 | 可读取 `docs/workflows/{需求ID}/` 下的所有文件 |
-| 读取 `.claude/memory/` 已有记忆 | 读取已有记忆以避免重复写入 |
+| 读取 `docs/knowledge-base/` 已有知识条目 | 读取已有条目以避免重复写入 |
 | 创建 SUMMARY.md | 在需求目录根下创建归档索引文档 |
 | 更新 state.json | 仅允许 currentPhase→DONE + 补全 ARCHIVE 的 phaseHistory 记录 |
 | 移动需求目录到 archived/ | 将整个需求目录从活跃区剪切到归档区 |
 | 移动 PRD 文档到 `docs/prd/archived/` | 将 prdSource 指向的原始 PRD 文档从 `docs/prd/` 移动到 `docs/prd/archived/`，避免已归档需求在启动时被重复扫描 |
-| 追加写入 `.claude/memory/` | 追加本需求的关键经验到当日记忆文件 |
+| 追加写入 `docs/knowledge-base/pitfalls/` | 追加本需求的关键经验为知识条目 |
 
 ### ❌ 严禁操作
 
@@ -102,7 +102,7 @@
 | 更新 state.json | `{需求目录}/state.json` | currentPhase→DONE + 补全 ARCHIVE 阶段的 phaseHistory 记录 |
 | 移动整个需求目录 | `docs/workflows/archived/{需求ID}/` | 从活跃区剪切到归档区 |
 | 移动 PRD 文档 | `docs/prd/archived/{PRD文件名}` | 将原始 PRD 从 `docs/prd/` 移动到 `docs/prd/archived/`，防止已归档需求被重复扫描 |
-| 项目经验记忆 | `.claude/memory/{YYYY-MM-DD}.md` | 追加本需求的关键经验总结 |
+| 项目经验知识 | `docs/knowledge-base/pitfalls/` | 追加本需求的关键经验为知识条目 |
 | 归档通知（可选） | 通过配置的通知渠道投递 | 通知团队需求已归档完成（需项目配置通知脚本） |
 
 ---
@@ -239,7 +239,7 @@ duration: "2026-03-19 ~ 2026-03-20"
    - implementation/ 目录
    - testing/ 目录
 5. 确认归档目标路径 docs/workflows/archived/{需求ID}/ 不存在（避免覆盖）
-6. 读取 .claude/memory/ 下最近的记忆文件，了解已有上下文
+6. 读取 docs/knowledge-base/ 下已有知识条目，了解已有上下文
 ```
 
 ### 阶段二：生成 SUMMARY.md
@@ -305,8 +305,8 @@ duration: "2026-03-19 ~ 2026-03-20"
 
 ```markdown
 ## 执行步骤
-1. 读取 .claude/memory/{当天日期}.md（若不存在则创建）
-2. 在文件末尾追加本需求的关键经验总结，格式如下：
+1. 在 docs/knowledge-base/pitfalls/ 下创建本需求的经验条目文件
+2. 写入本需求的关键经验，格式如下：
 
 ---
 
@@ -559,7 +559,7 @@ duration: "2026-03-19 ~ 2026-03-20"
 - state.json 路径
 - 需求目录路径
 - PRD 文件路径（prdSource）
-- 当天日期（用于 memory 文件名）
+- 知识库路径（docs/knowledge-base/）
 ```
 
 #### Step 3: 总结确认
@@ -606,7 +606,7 @@ duration: "2026-03-19 ~ 2026-03-20"
 - [ ] docs/prd/archived/{文件名} 存在且内容完整
 
 ### 记忆写入
-- [ ] .claude/memory/{当天日期}.md 已追加本需求经验
+- [ ] docs/knowledge-base/pitfalls/ 已追加本需求经验条目
 - [ ] 写入内容包含功能关键词、涉及平台、归档路径、关键经验
 - [ ] 写入内容简洁精炼，无过程性细节
 

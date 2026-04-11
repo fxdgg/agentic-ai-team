@@ -185,10 +185,10 @@ related: []
 
 #### 2d. 项目记忆条目
 
-对齐 `.codebuddy/memory/` 格式：
+写入 `docs/knowledge-base/` 知识条目：
 
 ```markdown
-追加到 .codebuddy/memory/{YYYY-MM-DD}.md:
+写入 docs/knowledge-base/pitfalls/ 目录:
 
 ### 📥 历史项目导入: {项目名}
 
@@ -210,7 +210,7 @@ related: []
 4. 确保 docs/knowledge-base/ 目录结构存在（decisions/, guidelines/, pitfalls/）
 5. 写入各知识条目文件
 6. 创建或更新 docs/knowledge-base/index.json（知识库索引）
-7. 追加项目记忆到 .codebuddy/memory/{当天日期}.md
+7. 追加项目经验到 docs/knowledge-base/pitfalls/
 ```
 
 ---
@@ -336,7 +336,7 @@ related: []
 - [ ] SUMMARY.md 已写入 docs/knowledge-import/
 - [ ] 知识条目已写入 docs/knowledge-base/ 对应子目录
 - [ ] index.json 已创建或更新
-- [ ] 项目记忆已追加到 .codebuddy/memory/
+- [ ] 项目经验已追加到 docs/knowledge-base/pitfalls/
 - [ ] 所有 imported 标记正确（confidence ≤ 0.6）
 - [ ] 交叉校验结果已记录到 knowledge-baseline.json
 - [ ] 已向领导发送完成消息

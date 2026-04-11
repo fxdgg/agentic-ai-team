@@ -64,7 +64,6 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
    - skills/{skill-name}/      → 每个 Skill 为一个模块
    - commands/                  → 命令集为一个模块
    - rules/{rule-name}/        → 每个 Rule 为一个模块
-   - memory/                    → 跳过（不更新，保留用户本地记忆）
 
 3. 对每个模块，标注变更状态:
    - 新增: 远程有、本地无
@@ -75,7 +74,6 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 4. 统计变更文件数量
 
 5. 特殊处理:
-   - memory/ 目录始终跳过（组织记忆是项目特有的）
    - .ai-team-version 不计入对比（更新后自动重写）
    - 两个平台的变更合并展示，按模块去重（同一模块在两个平台都有变更只展示一条）
 ```
@@ -189,7 +187,6 @@ description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版�
 
 ## 注意事项
 
-1. **memory/ 目录保护**：更新永远不会覆盖 `.claude/memory/` 和 `.codebuddy/memory/` 目录，组织记忆是项目特有的
 2. **本地自定义保护**：用户自行添加的 Skill/Command/Rule 文件不会被删除
 3. **版本追踪**：`.ai-team-version` 文件记录安装和更新信息，便于后续增量对比
 4. **SSH 优先**：克隆使用 SSH 协议（与 `/flow-import` 的 Git 克隆策略一致）
