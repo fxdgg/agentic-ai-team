@@ -53,7 +53,7 @@ id: evolve-{YYYYMMDD}-{序号}
 title: {改进标题}
 status: pending
 created: {YYYY-MM-DD}
-author: {提交人姓名，通过 git config user.name 获取}
+author: {提交人姓名，优先从 ~/.ai-team/preferences/profile.yaml 的 name 字段读取，降级为 git config user.name}
 bug_source: {Bug 来源描述}
 affected_agents:
   - {agent文件名1}
@@ -118,7 +118,7 @@ applied_by:
    - 修复了哪些文件？（可通过 `git diff` 或用户描述获取）
    - 这个 Bug 是在哪个需求/工作流中引入的？（可选）
    - 是开发阶段引入还是架构设计遗漏？
-   - **提交人**：通过 `git config user.name` 获取当前用户姓名，填入 `author` 字段。**注意：`author` 是触发 `/evolve` 的人的姓名，不是 bug_source 或触发方式。**
+   - **提交人**：优先从 `~/.ai-team/preferences/profile.yaml` 的 `name` 字段读取（由 `/team-init` 配置），如果不存在则降级为 `git config user.name`。填入 `author` 字段。**注意：`author` 是触发 `/evolve` 的人的姓名，不是 bug_source 或触发方式。**
 
 3. **输出**：整理为结构化的 Bug 回顾，包含现象、影响范围、修复内容摘要。
 
