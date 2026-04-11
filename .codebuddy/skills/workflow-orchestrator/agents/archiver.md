@@ -360,7 +360,7 @@ duration: "2026-03-19 ~ 2026-03-20"
    - `{需求ID}` — state.json 的 requirementId
    - `{keywords}` — SUMMARY.md front-matter 中提炼的功能关键词
    - `{platforms}` — state.json 的 platforms 数组
-   - `{提交人}` — 优先使用 `state.json` 的 `knowledgeContext.contributorName`（来自 `~/.ai-team/preferences/profile.yaml`，由 `/team-init` 配置）；如果为 null 则降级为 `git config user.name`
+   - `{提交人}` — 从 `state.json` 的 `knowledgeContext.contributorName` 获取（来自 `~/.ai-team/preferences/profile.yaml`，由 `/team-init` 配置）；如果为 null 则提示用户执行 `/team-init` 完成个人信息配置，不使用 `git config user.name` 等其他来源（避免命名不一致）
 
 3. **通过配置的通知脚本发送**
 
