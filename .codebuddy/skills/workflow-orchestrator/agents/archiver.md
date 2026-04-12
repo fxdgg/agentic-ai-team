@@ -348,8 +348,8 @@ duration: "2026-03-19 ~ 2026-03-20"
 
 1. **检查通知配置**：
    - 按以下路径搜索通知技能：
-     a. `.claude/skills/send-flow-message/` — 企微消息推送
-     b. `.claude/skills/` 下任何包含 `send` 或 `notify` 的技能目录
+     a. `.codebuddy/skills/send-flow-message/` — 企微消息推送
+     b. `.codebuddy/skills/` 下任何包含 `send` 或 `notify` 的技能目录
      c. 项目根目录下的 `scripts/notify*` 或 `tools/notify*`
    - 如果找到任一通知技能，读取其 SKILL.md 了解调用方式
    - 若未找到任何通知脚本/技能，跳过此步骤并在总结中说明

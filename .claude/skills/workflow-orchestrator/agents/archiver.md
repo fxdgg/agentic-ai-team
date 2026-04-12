@@ -90,6 +90,15 @@
 - [ ] 需求目录下至少存在 analysis/ 目录
 ```
 
+### state.json 字段使用约束
+
+| 步骤 | 使用字段 | 禁止使用的字段 |
+|------|---------|--------------|
+| Phase 6 通知 | knowledgeContext.contributorName | — |
+| Phase 7 知识进化 | knowledgeContext.knowledgeRepoLocalPath, knowledgeContext.contributorName | baselineAvailable（此字段属于基线对比功能，与知识进化无关） |
+
+⚠️ 各步骤必须且仅使用本表指定的字段进行前置条件判断。
+
 ---
 
 ## 输出
@@ -306,7 +315,7 @@ duration: "2026-03-19 ~ 2026-03-20"
 ```markdown
 ## 执行步骤
 1. 在 docs/knowledge-base/pitfalls/ 下创建本需求的经验条目文件
-2. 写入本需求的关键经验，格式如下：
+2. 在文件末尾追加本需求的关键经验为知识条目，格式如下：
 
 ---
 
@@ -338,8 +347,13 @@ duration: "2026-03-19 ~ 2026-03-20"
 > 归档完成是工作流的终点，可通过配置的通知渠道通知团队。
 
 1. **检查通知配置**：
-   - 检查项目中是否配置了通知脚本（如企微、Slack、钉钉等）
-   - 若未配置通知渠道，跳过此步骤并在总结中说明
+   - 按以下路径搜索通知技能：
+     a. `.claude/skills/send-flow-message/` — 企微消息推送
+     b. `.claude/skills/` 下任何包含 `send` 或 `notify` 的技能目录
+     c. 项目根目录下的 `scripts/notify*` 或 `tools/notify*`
+   - 如果找到任一通知技能，读取其 SKILL.md 了解调用方式
+   - 若未找到任何通知脚本/技能，跳过此步骤并在总结中说明
+   - ⚠️ 必须实际执行文件搜索，禁止仅凭记忆判断
 
 2. **构造消息内容**，使用以下模板：
 
@@ -377,6 +391,17 @@ duration: "2026-03-19 ~ 2026-03-20"
 **前置条件**：
 - `state.json` 的 `knowledgeContext.knowledgeRepoLocalPath` 不为 null
 - 如果为 null（项目未配置 `.ai-team/project.yaml`）→ 跳过本步骤，记录 `knowledgePromote: "skipped-no-config"`
+
+**前置条件自检（必须输出）**：
+
+在判断是否跳过之前，必须先读取并打印以下值：
+
+| 条件 | 字段路径 | 实际值 | 是否满足 |
+|------|---------|--------|---------|
+| 知识仓库路径 | state.json → knowledgeContext.knowledgeRepoLocalPath | {读取值} | {是/否} |
+| 贡献者姓名 | state.json → knowledgeContext.contributorName | {读取值} | {是/否} |
+
+只有在上表中实际值为 null 时才可跳过。禁止使用其他字段（如 baselineAvailable）作为跳过依据。
 
 **执行步骤**：
 
@@ -626,4 +651,22 @@ duration: "2026-03-19 ~ 2026-03-20"
 - [ ] 未修改任何源码文件
 - [ ] 未修改任何 pom.xml / package.json 文件
 - [ ] 未修改 analysis/、architecture/、implementation/、testing/ 下的任何文件
+
+---
+
+### 可选步骤跳过审计
+
+ARCHIVE 阶段中标记为"可选"或有前置条件的步骤（Phase 6、Phase 7），
+在决定跳过时必须输出以下审计记录：
+
+```
+⏭️ 跳过步骤: {步骤名称}
+📋 前置条件:
+  - 条件 1: {描述} → 实际值: {值} → 判定: {满足/不满足}
+  - 条件 2: {描述} → 实际值: {值} → 判定: {满足/不满足}
+🔍 跳过依据: {具体引用 archiver.md 中的跳过规则}
+✅ 结论: 跳过 / 不应跳过
+```
+
+此审计记录必须在做出跳过决策之前输出，以便人工复核。
 ```
