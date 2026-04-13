@@ -318,9 +318,7 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 ---
 ```
 
-> **统一知识仓库模式**：@knowledge-builder 知识产出写入 `{knowledgeRepoLocalPath}/` 对应目录（maturity: draft），通过 Git 分支工作流。
-
----
+> **统一知识仓库模式**：@knowledge-builder 知识产出写入 `{knowledgeRepoLocalPath}/` 对应目录（maturity: draft），通过 Git 分支工作流。写入后同步维护三级索引：更新 `catalog.md`（Layer B）、重新生成 `knowledge-catalog.md`（Layer A）、同步 `index.json`（详见 knowledge-builder.md Step 4）。
 
 ## Step 4：导入完成后的衔接
 

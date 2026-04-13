@@ -208,9 +208,46 @@ related: []
 2. 写入 docs/knowledge-import/knowledge-baseline.json
 3. 写入 docs/knowledge-import/SUMMARY.md
 4. 确保 docs/knowledge-base/ 目录结构存在（decisions/, guidelines/, pitfalls/）
-5. 写入各知识条目文件
-6. 创建或更新 docs/knowledge-base/index.json（知识库索引）
+5. 写入各知识条目文件到 docs/knowledge-base/ 对应子目录
+6. 创建或更新 docs/knowledge-base/index.json（项目知识库索引）
 7. 追加项目经验到 docs/knowledge-base/pitfalls/
+```
+
+### Step 4: 团队知识仓库写入与三级索引维护
+
+> **前置条件**：从 state.json 或 .ai-team/project.yaml 获取 `knowledgeRepoLocalPath`。
+> 如果为 null（项目未配置团队知识仓库）→ 跳过本步骤。
+
+```
+1. 团队知识仓库写入（统一知识仓库模式）：
+   a) 业务知识（用户故事/业务规则/数据实体）→ 写入 {knowledgeRepoLocalPath}/biz-wiki/{domain}/
+   b) UI 模式 → 写入 {knowledgeRepoLocalPath}/tech-wiki/ui-patterns/
+   c) 编码约定 → 写入 {knowledgeRepoLocalPath}/tech-wiki/conventions/
+   d) 技术决策(ADR) → 写入 {knowledgeRepoLocalPath}/tech-wiki/ 对应目录
+   e) 项目画像 → 写入 {knowledgeRepoLocalPath}/project-profiles/{project}.yaml
+   f) 所有写入通过 Git 分支工作流（同 archiver 阶段七的 Git 操作流程）
+   g) 所有条目 maturity: draft
+
+2. 更新三层渐进式索引（与 archiver.md 阶段七第12步保持一致）：
+
+   a) **更新 catalog.md 清单**：对本次新增的知识条目，在对应 catalog.md 中追加行：
+      - {knowledgeRepoLocalPath}/tech-wiki/catalog.md（如有技术知识写入）
+      - {knowledgeRepoLocalPath}/biz-wiki/{domain}/catalog.md（如有业务知识写入）
+      - 每行格式：| {ID} | {title} | {maturity} | {tags} | {applicable_phases} |
+
+   b) **重新生成 knowledge-catalog.md 全景目录**：
+      - 读取各 catalog.md 的条目数统计
+      - 更新 {knowledgeRepoLocalPath}/knowledge-catalog.md
+      - 控制在 50 行以内
+
+   c) **更新 index.json**（程序化索引与 catalog.md 同步）：
+      - 新增条目追加到 {knowledgeRepoLocalPath}/tech-wiki/index.json 的 entries 数组
+      - 新增条目追加到 {knowledgeRepoLocalPath}/biz-wiki/index.json 的 entries 数组
+      - 更新 stats 统计
+      - 所有新条目必须包含 applicable_phases 和 one_line 字段
+
+   d) **追加 log.md**：
+      - 格式：## [{日期}] ingest | [{贡献者}] | {项目名} 知识导入 | +{N} 条知识 | #{session_hash}
 ```
 
 ---
@@ -339,5 +376,9 @@ related: []
 - [ ] 项目经验已追加到 docs/knowledge-base/pitfalls/
 - [ ] 所有 imported 标记正确（confidence ≤ 0.6）
 - [ ] 交叉校验结果已记录到 knowledge-baseline.json
+- [ ] 团队知识仓库 catalog.md 已更新（如有团队仓库写入）
+- [ ] knowledge-catalog.md 全景目录已重新生成（如有团队仓库写入）
+- [ ] 团队知识仓库 index.json 已同步更新（如有团队仓库写入）
+- [ ] log.md 已追加导入记录（如有团队仓库写入）
 - [ ] 已向领导发送完成消息
 ```
