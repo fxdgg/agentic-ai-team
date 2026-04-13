@@ -153,6 +153,7 @@ docs/workflows/evolve-log/
    ## ✏️ 修改预览
 
    **目标文件**：.claude/skills/workflow-orchestrator/agents/web-developer.md
+   **同步文件**：.codebuddy/skills/workflow-orchestrator/agents/web-developer.md
    **改进来源**：evolve-20260322-001
 
    ### 修改内容：
@@ -167,7 +168,9 @@ docs/workflows/evolve-log/
    确认执行此修改？(y/n)
    ```
 
-3. **执行修改**：Owner 确认后，使用 `replace_in_file` 工具执行修改
+3. **执行修改**：Owner 确认后，使用 `replace_in_file` 工具执行修改。**必须同时修改 `.claude/` 和 `.codebuddy/` 下的对应文件**，保持双平台同步。
+
+   > ⚠️ 如果某个文件只存在于一个平台目录下（如平台特有的工具调用差异），则只修改存在的那份。对于 Agent 行为规范（`agents/*.md`）和编码规则（`rules/*.md`），两个平台的内容完全一致，必须同步修改。
 
 4. **更新改进记录状态**：通过 `git mv` 将文件从 `pending/` 移到 `applied/`，同时更新 frontmatter 中的状态字段作为冗余记录
 
@@ -205,6 +208,7 @@ docs/workflows/evolve-log/
 
 ### 被修改的流水线文件
 - `.claude/skills/workflow-orchestrator/agents/web-developer.md`
+- `.codebuddy/skills/workflow-orchestrator/agents/web-developer.md`（同步）
   - [+] 新增路由注册检查规则
 
 ### 剩余待处理
@@ -251,7 +255,7 @@ docs/workflows/evolve-log/
 ## 行为约束
 
 1. **守卫模式全程生效**：每个文件修改必须先展示预览，等 Owner 确认后再执行
-2. **只改流水线定义文件**：修改范围限定在 `.claude/skills/workflow-orchestrator/` 下的 Agent 和 Rule 文件
+2. **双平台同步修改**：修改范围覆盖 `.claude/skills/workflow-orchestrator/` 和 `.codebuddy/skills/workflow-orchestrator/` 下的 Agent 和 Rule 文件，每次落地必须同时更新两个平台目录
 3. **精确修改**：使用 `replace_in_file` 做定向修改，不整体重写文件
 4. **状态同步**：每条记录处理完毕立即通过 `git mv` 移到对应子目录，同时更新 frontmatter 中的 status 作为冗余记录
 5. **回滚友好**：所有修改都应是可追溯的（git diff 可见），方便 Owner 必要时手动回退
