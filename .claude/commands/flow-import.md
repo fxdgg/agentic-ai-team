@@ -16,7 +16,8 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 
 **核心原则**：
 - 导入流程不创建 PRD，不进入常规工作流阶段，仅构建知识基线
-- **拉取即落盘**：每拉取一条外部数据（TAPD/iwiki），立即写入文件，对话上下文仅保留一行摘要
+- **子 Agent 隔离拉取**：TAPD/iwiki 等 MCP 拉取操作**必须通过 Agent 工具派发子 Agent 执行**，MCP 的 tool_result 响应（每条 5-20KB）留在子 Agent 的独立上下文窗口中，主对话仅接收完成汇报，彻底避免上下文积累
+- **拉取即落盘**：子 Agent 每拉取一条数据，立即写入文件系统
 - **引用不内联**：下游步骤通过索引文件路径消费数据，不在 prompt 中内联文档正文
 - **状态持久化**：通过 `import-state.json` 持久化进度，支持断点恢复
 
@@ -133,31 +134,53 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 
 **前置**：检查 MCP 配置（`tapd_mcp_http`），未配置则触发 `mcp-setup-guide` skill。
 
-**⚠️ 拉取即落盘模式**：
+**⚠️ 子 Agent 隔离拉取模式**：
+
+> **关键设计**：MCP 的 tool_result 响应体积很大（每条需求 5-20KB），即使主对话只输出一行摘要，tool_result 仍会累积在主对话上下文中。因此**必须通过 Agent 工具派发子 Agent 执行 MCP 拉取**，让 tool_result 留在子 Agent 的独立上下文窗口中，主对话仅接收子 Agent 的完成汇报。
 
 ```
 1. 确保 docs/knowledge-import/tapd-stories/ 目录存在
 2. 初始化 _story-index.json: { "stories": [], "totalCount": 0, "fetchedAt": "" }
 3. 链接解析 → 获取需求 ID 列表（支持: 单条需求/列表页/迭代页链接）
+   - 链接解析本身只是 URL 字符串处理，在主对话中完成即可
 4. 更新 import-state.json: tapd.total = ID列表长度, tapd.status = "in_progress"
-5. 对每条需求，逐条执行:
-   a) 通过 TAPD MCP 拉取需求详情
-   b) **立即写入文件**:
+
+5. **分批派发子 Agent 拉取**:
+   a) 将 ID 列表按 ≤10 条/批 分组（如 33 条 → 4 批: 10+10+10+3）
+   b) 对每批，通过 Agent 工具（subagent_type: "general-purpose"）启动一个子 Agent:
+
+   子 Agent Prompt 模板:
+   ---
+   你是 TAPD 需求拉取专员（批次 {batchIndex}/{totalBatches}）。
+   
+   任务: 通过 TAPD MCP 逐条拉取以下需求，每条拉取后立即写入文件。
+   
+   MCP 服务: tapd_mcp_http
+   工作目录: {绝对路径}/docs/knowledge-import/tapd-stories/
+   索引文件: {绝对路径}/docs/knowledge-import/tapd-stories/_story-index.json
+   状态文件: {绝对路径}/docs/knowledge-import/import-state.json
+   TAPD workspace_id: {workspace_id}
+   
+   本批次需求 ID 列表: [{id1}, {id2}, ..., {idN}]
+   
+   对每条需求执行:
+   1. 通过 TAPD MCP 拉取需求详情（参考 MCP 调用协议）
+   2. 立即写入文件:
       - tapd-stories/{story_id}.json  ← 原始 MCP 返回数据
       - tapd-stories/{story_id}.md   ← 清洗后 Markdown（≤3000 字，超出截断并标注 [TRUNCATED]）
-   c) **追加索引** _story-index.json:
-      {
-        "storyId": "xxx",
-        "title": "需求标题",
-        "status": "open",
-        "priority": "high",
-        "filePath": "tapd-stories/{story_id}.md",
-        "rawPath": "tapd-stories/{story_id}.json",
-        "charCount": 2500
-      }
-   d) **更新进度** import-state.json: tapd.done++
-   e) 对话上下文仅输出: "[✅ #{story_id}] {title} → 已保存"
-   f) 拉取失败 → import-state.json: tapd.failed++, tapd.failedIds[] 追加, 继续下一条
+   3. 读取当前 _story-index.json，追加索引条目:
+      { "storyId": "xxx", "title": "需求标题", "status": "open", "priority": "high",
+        "filePath": "tapd-stories/{story_id}.md", "rawPath": "tapd-stories/{story_id}.json", "charCount": N }
+      然后写回 _story-index.json
+   4. 读取 import-state.json，将 tapd.done++ 后写回
+   5. 拉取失败的需求: 记录到 import-state.json 的 tapd.failedIds[]，tapd.failed++，继续下一条
+   
+   完成后汇报: 成功数、失败数、失败的 ID 列表（如有）
+   ---
+
+   c) 多批子 Agent **并行启动**（在同一条消息中发起多个 Agent 工具调用）
+   d) 等待所有子 Agent 返回，主对话汇总结果:
+      "[✅ TAPD] {done}/{total} 条需求已拉取（{failed} 条失败）"
 
 6. 全部完成后: tapd.status → "done", 刷新 _story-index.json 的 totalCount 和 fetchedAt
 
@@ -165,27 +188,55 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
   - MCP 未配置 → 触发 mcp-setup-guide skill
   - MCP 调用失败 → 提示: "重新配置 Token" / "我直接粘贴内容" / "跳过 TAPD"
   - 粘贴内容 → 写入 tapd-stories/pasted-{N}.md，追加索引
+  - 子 Agent 全部失败 → 降级为主对话逐条拉取（仅当需求数 ≤5 时）
 ```
 
 ### 2b-iwiki. iwiki 文档拉取（仅当 iwiki 非空时）
 
 > MCP 配置检查同 TAPD（检查 iwiki MCP 服务）。
 
-**⚠️ 拉取即落盘模式**：
+**⚠️ 子 Agent 隔离拉取模式**（原理同 TAPD，MCP tool_result 隔离在子 Agent 上下文中）：
 
 ```
 1. 确保 docs/knowledge-import/iwiki/ 目录存在
 2. 初始化 _page-index.json: { "pages": [], "totalCount": 0, "fetchedAt": "" }
 3. 链接解析 → 获取页面 ID 列表（单页面/空间目录递归）
    - 空间/目录链接: 向用户展示页面树，确认拉取范围
+   - 链接解析在主对话中完成
 4. 更新 import-state.json: iwiki.total, iwiki.status = "in_progress"
-5. 对每个页面，逐条执行:
-   a) 通过 iwiki MCP 拉取页面内容
-   b) 转换为 Markdown，**立即写入** iwiki/{pageId}.md
-   c) **追加索引** _page-index.json:
+
+5. **分批派发子 Agent 拉取**:
+   a) 将页面 ID 列表按 ≤10 条/批 分组
+   b) 对每批，通过 Agent 工具启动子 Agent:
+
+   子 Agent Prompt 模板:
+   ---
+   你是 iwiki 页面拉取专员（批次 {batchIndex}/{totalBatches}）。
+   
+   任务: 通过 iwiki MCP 逐条拉取以下页面，每条拉取后立即写入文件。
+   
+   MCP 服务: iwiki MCP
+   工作目录: {绝对路径}/docs/knowledge-import/iwiki/
+   索引文件: {绝对路径}/docs/knowledge-import/iwiki/_page-index.json
+   状态文件: {绝对路径}/docs/knowledge-import/import-state.json
+   
+   本批次页面 ID 列表: [{id1}, {id2}, ..., {idN}]
+   
+   对每个页面执行:
+   1. 通过 iwiki MCP 拉取页面内容
+   2. 转换为 Markdown，立即写入 iwiki/{pageId}.md
+   3. 读取并追加 _page-index.json:
       { "pageId": "xxx", "title": "页面标题", "spaceKey": "...", "filePath": "iwiki/{pageId}.md", "charCount": N }
-   d) 更新 import-state.json: iwiki.done++
-   e) 对话上下文仅输出: "[✅ page#{pageId}] {title} → 已保存"
+   4. 更新 import-state.json: iwiki.done++
+   5. 失败的页面: 记录到 import-state.json 的 iwiki.failedIds[], iwiki.failed++
+   
+   完成后汇报: 成功数、失败数
+   ---
+
+   c) 多批子 Agent 并行启动
+   d) 等待所有子 Agent 返回，主对话汇总:
+      "[✅ iwiki] {done}/{total} 个页面已拉取（{failed} 个失败）"
+
 6. 全部完成后: iwiki.status → "done"
 ```
 
@@ -298,6 +349,7 @@ description: 历史项目知识导入。收集项目文档和代码信息，构�
 5. **MCP 优先原则**：TAPD/iwiki 拉取通过 MCP 能力完成，未配置时触发 `mcp-setup-guide` skill
 6. **直接执行原则**：Git 克隆使用 SSH 协议直接执行，不做冗余协议试探
 7. **优雅降级**：外部能力不可用时提供替代方案，不阻断整个流程
+8. **子 Agent 隔离原则**：所有 MCP 拉取操作（TAPD/iwiki）**禁止在主对话中直接执行**。MCP 的 tool_result 会累积在对话上下文中，即使输出只有一行摘要。必须通过 Agent 工具派发子 Agent，让 tool_result 留在子 Agent 的独立上下文窗口中。仅当文档数 ≤5 时可降级为主对话直接拉取。
 8. **支持的 TAPD 链接格式**：
    - 单条需求：`https://tapd.woa.com/tapd_fe/{workspace_id}/stories/view/{story_id}`
    - 需求列表页：`https://tapd.woa.com/tapd_fe/{workspace_id}/story/list?categoryId={category_id}`
