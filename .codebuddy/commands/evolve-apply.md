@@ -227,7 +227,7 @@ docs/workflows/evolve-log/
    📂 {agent-1中文名}、{agent-2中文名}...
    🌿 分支：{branch}
 
-   ▶ 请及时执行 /flow:sync 命令更新本地流水线
+   ▶ 请及时执行 /flow-upgrade 命令更新本地流水线
    ```
 
    **字段说明**：
