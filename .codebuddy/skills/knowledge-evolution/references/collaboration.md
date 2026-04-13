@@ -1,0 +1,72 @@
+# 团队协作机制
+
+> 本文件从 SKILL.md 拆分而来，被 /knowledge sync 和团队知识贡献流程按需加载。
+
+---
+
+## 2.6 团队协作机制
+
+### 2.6.1 贡献模式 — "贡献暂存 + 异步合并"
+
+借鉴区块链三个核心思想，但使用 Git 作为实现载体：
+
+| 区块链思想 | ai-team 实现 | 机制 |
+|-----------|-------------|------|
+| 不可篡改的追加日志 | log.md 只追加不修改 | 每条变更记录贡献者、时间、会话哈希 |
+| 贡献可溯源 | evidence.contributors[] | 类似 Git blame，粒度为知识条目级 |
+| 共识机制 | maturity 多人验证提升 | draft→verified: 1人验证; verified→proven: ≥2人+≥2项目 |
+
+### 2.6.2 冲突解决流程
+
+当多名团队成员同时执行 ARCHIVE 并推送知识时，按以下策略自动处理：
+
+| 冲突类型 | 描述 | 处理方式 |
+|---------|------|---------|
+| **纯新增** (additive) | 两人加了不同的知识条目 | 自动合并，两条都保留 |
+| **证据追加** (evidence_append) | 两人验证了同一条知识 | 自动合并，evidence 数组合并去重 |
+| **成熟度提升** (maturity_upgrade) | 一人触发了 draft→verified | 自动合并 |
+| **内容矛盾** (content_conflict) | 同一条目内容相反 | 写入 contributions/conflicts/，通知 maintainer 裁决 |
+| **成熟度冲突** (maturity_conflict) | 一人升级一人降级 | 保留较低成熟度 + 标记 contradiction |
+
+### 2.6.3 团队角色
+
+| 角色 | 权限 | 适用人群 |
+|------|------|---------|
+| `maintainer` | 解决 content_conflict、审批 proven 提升、管理成员 | 团队负责人 |
+| `contributor` | 通过工作流自动贡献（create/verify/flag_contradiction） | 正式成员 |
+| `reader` | 只消费知识（查询/注入），不贡献 | 新成员试用期 |
+
+### 2.6.4 知识条目团队化 front-matter
+
+```yaml
+evidence:
+  contributors:                            # 所有贡献者（区块链签名链）
+    - name: "Steven"
+      action: "create"
+      date: "2026-04-09"
+      project: "cloud-mall"
+      workflow: "20260409-商品分类优化"
+    - name: "Alice"
+      action: "verify"
+      date: "2026-04-12"
+      project: "vibe-mall"
+      workflow: "20260412-商品列表优化"
+  verified_in_projects: ["cloud-mall", "vibe-mall"]
+  last_referenced: "2026-04-12"
+  contradiction_flags: []
+```
+
+**知识条目 ID 前缀规则**：
+- Layer 1 技术知识：`TK-{领域}-{序号}`（如 TK-SB-001, TK-JAVA-002）
+- Layer 2 业务知识：`BK-{domain}-{类型缩写}{序号}`（如 BK-AD-M001, BK-AD-G001）
+- Layer 3 项目知识：`{类型缩写}-{序号}` 格式（如 DEC-001, GL-001, PIT-001）
+
+**类型缩写表**：
+
+| 类型 | 缩写 | ID 示例（Layer 3） | ID 示例（Layer 2） |
+|------|------|-------------------|-------------------|
+| model | MOD | MOD-001 | BK-AD-M001 |
+| decision | DEC | DEC-001 | BK-AD-D001 |
+| guideline | GL | GL-001 | BK-AD-G001 |
+| pitfall | PIT | PIT-001 | BK-AD-T001 |
+| process | PRC | PRC-001 | BK-AD-P001 |

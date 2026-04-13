@@ -11,20 +11,24 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 
 **触发方式**：`/knowledge {子命令}` 或 `/knowledge`（显示子命令列表）
 
-**核心原则**：所有写入操作严格遵循 knowledge-evolution 的结构规范（type/polarity/source/evidence），确保知识库数据质量。
+**核心原则**：
+- 所有写入操作严格遵循 knowledge-evolution 的结构规范（type/polarity/source/evidence），确保知识库数据质量
+- **⚠️ 按需加载**：每个子命令仅加载对应的参考文件，不加载完整的 knowledge-evolution SKILL。参考文件路径为 `skills/knowledge-evolution/references/` 下的模块化文件
 
 ---
 
 ## 子命令总览
 
-| 子命令 | 用途 | 读/写 |
-|--------|------|-------|
-| `status` | 展示知识库健康状态 | 只读 |
-| `lint` | 执行知识库健康检查 | 读+写（自动修复） |
-| `sync` | 同步本地与团队知识仓库 | 读+写（Git） |
-| `query {关键词}` | 查询知识库 | 只读（可触发回流写入） |
-| `add` | 手动添加知识条目 | 写入 |
-| `promote` | 手动触发知识提升判定 | 读+写 |
+| 子命令 | 用途 | 读/写 | 按需加载的参考文件 |
+|--------|------|-------|-------------------|
+| `status` | 展示知识库健康状态 | 只读 | `references/architecture.md` |
+| `lint` | 执行知识库健康检查 | 读+写（自动修复） | `references/evolution.md` |
+| `sync` | 同步本地与团队知识仓库 | 读+写（Git） | `references/collaboration.md` |
+| `query {关键词}` | 查询知识库 | 只读（可触发回流写入） | `references/evolution.md` + `references/consumption.md` |
+| `add` | 手动添加知识条目 | 写入 | `references/extraction.md` |
+| `promote` | 手动触发知识提升判定 | 读+写 | `references/extraction.md` |
+
+> **路径前缀**: 参考文件的完整路径为 `{项目根目录}/.claude/skills/knowledge-evolution/references/{文件名}`。执行子命令前，先 Read 对应的参考文件获取详细规则。
 
 ---
 
@@ -33,7 +37,7 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 当用户仅输入 `/knowledge` 不带子命令时，展示子命令列表：
 
 ```
-使用 ask_followup_question 工具:
+使用 AskUserQuestion 工具:
 
 标题: 📚 知识库维护
 问题: 请选择要执行的操作：
@@ -123,10 +127,10 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 ### 执行流程
 
 ```
-1. 加载知识进化引擎:
-   → use_skill('knowledge-evolution')
+1. 加载 Lint 规则:
+   → Read 参考文件: skills/knowledge-evolution/references/evolution.md §6.3
 
-2. 执行 Lint 检查项（按 SKILL.md §6.3）:
+2. 执行 Lint 检查项（按 §6.3 规则）:
    a) 索引不一致检测:
       - 对比 tech-wiki/index.json 与实际文件
       - 对比 biz-wiki/{domain}/index.json 与实际文件
@@ -269,7 +273,7 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 
 ```
 Step 1: 选择知识类型
-  使用 ask_followup_question:
+  使用 AskUserQuestion:
   标题: ➕ 添加知识条目
   问题: 请选择知识类型：
   选项:
@@ -379,7 +383,7 @@ Step 6: 展示结果
      PIT-002: 本项目数据库连接池配置（含项目特定配置值）
 
 4. 用户确认:
-   使用 ask_followup_question（multiSelect: true）:
+   使用 AskUserQuestion（multiSelect: true）:
    - 列出所有候选提升条目供勾选
    - 默认全选
    - 用户可取消不想提升的条目
