@@ -16,13 +16,15 @@
 
 **不修改 `phase-transitions.json`**。导入工作流有自己的状态管理，不占用常规阶段。
 
+**关键设计：索引驱动**。所有文档内容已在 `/flow-import` Step 2 中拉取并落盘到 `docs/knowledge-import/` 子目录。编排器和 Agent 通过索引文件获取文档路径，按需读取文件内容，**不在 prompt 中内联文档正文**。
+
 ---
 
 ## 1. Agent 注册表
 
 | Agent 文件 | 角色 | 说明 |
 |------------|------|------|
-| `agents/import-agents/doc-collector.md` | 项目文档收集与结构化专家 | 收集用户文档、README，按 7 维度分类压缩。分批并行时每个 batch 实例独立执行 |
+| `agents/import-agents/doc-collector.md` | 项目文档收集与结构化专家 | 通过索引文件定位文档，按需读取，按 7 维度分类压缩。分批并行时每个 batch 实例独立执行 |
 | `agents/import-agents/codebase-profiler.md` | 代码库架构分析与画像专家 | 全景扫描 + 深度画像（业务模块/数据模型/依赖关系） |
 | `agents/import-agents/knowledge-builder.md` | 知识标准化与基线构建专家 | 转化为标准归档格式，对齐 archiver + knowledge-evolution |
 
@@ -30,42 +32,56 @@
 
 ## 2. 调度模式
 
-### 2.0 统一分批并行架构
+### 2.0 索引驱动的分批并行架构
 
-> **核心设计**：文档收集阶段统一采用"分批并行 + 合并"架构，无论文档数量多少。每个文档来源组（TAPD/iwiki/本地文档/口述）各自作为一个独立 batch，由独立的 @doc-collector Agent 在独立上下文中处理。这消除了单 Agent 上下文膨胀的问题，也让架构保持统一——1 个文档就是 1 个 batch、1 个 Agent。
+> **核心设计**：编排器通过读取索引文件（`_story-index.json`/`_page-index.json`/`_doc-index.json`）获取文档 ID 列表和文件路径，生成 batchPlan 并持久化。每个 batch Agent 接收索引路径 + 分配的 ID 列表，自行通过 Read 工具读取文件内容。
 
-**分批策略**（编排器在 Step 3 发起 Agent 调度前执行）：
+**索引文件位置**（由 `/flow-import` Step 2 生成）：
+
+| 来源 | 索引文件 | 文档目录 |
+|------|---------|---------|
+| TAPD | `docs/knowledge-import/tapd-stories/_story-index.json` | `tapd-stories/` |
+| iwiki | `docs/knowledge-import/iwiki/_page-index.json` | `iwiki/` |
+| 本地文档 | `docs/knowledge-import/local-docs/_doc-index.json` | `local-docs/` |
+| 口述 | 无索引，直接引用 `description.md` | — |
+| Git 仓库 | 无索引，使用 `import-state.json` 中的 `clonedPaths` | — |
+
+**分批策略**（编排器在发起 Agent 调度前执行）：
+
 ```
-1. 按来源类型分组，每组为一个 batch:
-   - batch-tapd:   tapdStories[]（如非空）
-   - batch-iwiki:  iwikiPages[]（如非空）
-   - batch-docs:   parsedDocs[]（如非空）
-   - batch-desc:   userDescription（如非空，与最小文档组合并，或独立成组）
-   - batch-git:    Git 仓库 README/docs（如有克隆仓库，独立成组）
+1. 读取各索引文件获取文档列表:
+   - _story-index.json → stories[] 中的 storyId 列表
+   - _page-index.json → pages[] 中的 pageId 列表
+   - _doc-index.json → docs[] 中的 fileName 列表
+   - description.md → 检查是否存在
+   - import-state.json → gitRepos.clonedPaths
 
-2. 大组继续拆分（按来源类型设定不同的 batch 上限）:
-   - TAPD 需求: 每 batch ≤ 200 条（TAPD 需求通常为结构化短文本，单条信息量小）
-     * 如 TAPD 需求有 4200 条 → batch-tapd-1 (1-200), batch-tapd-2 (201-400), ..., batch-tapd-21 (4001-4200)
-   - iwiki 页面: 每 batch ≤ 30 页（wiki 页面信息密度中等）
-   - 本地文档/Git 文档: 每 batch ≤ 15 个文件（富文本文档信息密度高）
-   - 口述描述: 通常不需拆分
-   
-   ⚠️ **禁止采样/抽样**：无论文档数量多大，都必须全量处理。
-   禁止以"文档数量过多"为由对输入文档进行抽样、采样、随机选取或截断。
-   所有文档都必须被分配到某个 batch 中并完整处理，确保不遗漏任何关联知识。
+2. 按来源类型分组，每组为一个 batch:
+   - batch-tapd:   TAPD stories（如索引存在且非空）
+   - batch-iwiki:  iwiki pages（如索引存在且非空）
+   - batch-docs:   本地文档（如索引存在且非空）
+   - batch-desc:   口述描述（如 description.md 存在，与最小文档组合并，或独立成组）
+   - batch-git:    Git 仓库 README/docs（如有克隆仓库）
 
-3. 生成 batchPlan:
+3. 大组继续拆分（每 batch ≤ 15 个文档）:
+   - 如 TAPD 需求有 30 条 → batch-tapd-1 (1-15), batch-tapd-2 (16-30)
+   - 如 iwiki 有 20 页 → batch-iwiki-1 (1-15), batch-iwiki-2 (16-20)
+
+4. 生成并持久化 batchPlan 到 docs/knowledge-import/_batch-plan.json:
    {
      "batches": [
-       { "id": "batch-tapd-1", "source": "tapd", "docs": [...], "count": 15 },
-       { "id": "batch-tapd-2", "source": "tapd", "docs": [...], "count": 15 },
-       { "id": "batch-iwiki-1", "source": "iwiki", "docs": [...], "count": 12 },
-       { "id": "batch-docs-1", "source": "local", "docs": [...], "count": 4 }
+       { "id": "batch-tapd-1", "source": "tapd", "docIds": ["id1","id2",...], "count": 15,
+         "indexPath": "docs/knowledge-import/tapd-stories/_story-index.json",
+         "docDir": "docs/knowledge-import/tapd-stories/" },
+       { "id": "batch-tapd-2", "source": "tapd", "docIds": [...], "count": 15, ... },
+       { "id": "batch-iwiki-1", "source": "iwiki", "docIds": [...], "count": 12, ... },
+       { "id": "batch-docs-1", "source": "local", "docIds": [...], "count": 4, ... }
      ],
-     "totalBatches": 4
+     "totalBatches": 4,
+     "createdAt": "ISO-8601"
    }
 
-   特殊情况: 只有 1 个来源且文档 ≤ 15 → batchPlan 只有 1 个 batch，流程不变
+   特殊情况: 只有 1 个来源且文档 ≤ 15 → batchPlan 只有 1 个 batch
 ```
 
 ### 2.1 优先模式：Parallel Agent 调度（分批并行 + 合并）
@@ -104,14 +120,21 @@ Agent 规范文件路径: {doc-collector.md 的绝对路径}
 项目根目录: {项目根目录的绝对路径}
 导入工作目录: {项目根目录}/docs/knowledge-import/
 
-⚠️ 分批模式注意事项：
-- 你只负责处理下方分配的文档，不要扫描项目目录或读取其他来源
+⚠️ 索引驱动模式：
+- 你只负责处理下方分配的文档 ID，通过索引文件的 filePath 字段定位并 Read 文件内容
 - 产出文件名: _batch-{batchId}.json（如果是唯一 batch 则直接产出 _doc-collection.json）
 - 产出格式与 _doc-collection.json 完全一致
 - 你的 7 维度评估仅基于本批次文档，某些维度为 missing 是正常的
 
-本批次分配的文档（共 {count} 个，来源: {source}）:
-{文档列表，仅包含文件路径/ID 和类型，不内联文档内容}
+本批次分配（共 {count} 个，来源: {source}）:
+  索引文件: {索引文件的绝对路径}
+  分配的 ID: [{id1}, {id2}, {id3}, ...]
+  文档目录: {文档目录的绝对路径}
+
+⚠️ 字符预算:
+  - 单个文档 Read 上限: 5000 字符（超出部分截断，标注 [TRUNCATED]）
+  - 本批次总 Read 上限: 100K 字符
+  - 如文档有 .md 和 .json 两个版本，优先读取 .md（更精简）
 
 完成后，请向领导发送消息汇报完成状态。
 ```
@@ -125,14 +148,14 @@ Agent 规范文件路径: {doc-collector.md 的绝对路径}
 导入工作目录: {项目根目录}/docs/knowledge-import/
 
 需要合并的批次产物:
-{batch 产物路径列表，如: _batch-tapd-1.json, _batch-iwiki-1.json, _batch-docs-1.json}
+{batch 产物路径列表，如: _batch-tapd-1.json, _batch-tapd-2.json, _batch-iwiki-1.json}
 
 合并规则:
 1. 读取所有 _batch-{id}.json 文件
 2. projectName: 取出现频率最高的，或从最大批次中提取
 3. documentSources: 合并所有批次的 documentSources 数组（去重）
 4. extractedInfo 的 7 个维度: 
-   - 对每个维度，合并所有批次的 content（完整保留，不做字数压缩；仅去重和结构化整理）
+   - 对每个维度，合并所有批次的 content（拼接后压缩到 500 字以内）
    - status 取最佳值: sufficient > partial > missing
    - 如果多个批次对同一维度有互补信息 → 合并后提升 status
 5. informationCoverage: 重新统计合并后的结果
@@ -160,12 +183,12 @@ Agent 规范文件路径: {Agent .md 文件的绝对路径}
 前置产物路径:
 - _doc-collection.json: {绝对路径}
 - tapd-stories/_story-index.json: {绝对路径，如存在}
+
 {仅 T3} 
 - codebase-profile.json: {绝对路径}
 
 {仅 T2(@codebase-profiler) 且有克隆仓库} 额外扫描路径:
 - 克隆仓库路径: {clonedPaths 列表}
-（需对这些路径也进行全景扫描和深度画像）
 
 完成后，请向领导发送消息汇报完成状态，包含：
 - 产出文件列表
@@ -183,7 +206,7 @@ Task 2: 调用 @codebase-profiler
 Task 3: 调用 @knowledge-builder
 ```
 
-每个 Task 的 Prompt 中注入对应 Agent 文件路径，由 Task 自行读取规范。
+每个 Task 的 Prompt 中注入对应 Agent 文件路径 + 索引文件路径，由 Task 自行读取规范和文档。
 
 ### 2.3 特殊情况：跳过 @doc-collector
 
@@ -219,46 +242,63 @@ Task 3: 调用 @knowledge-builder
 
 ```
 docs/knowledge-import/                    # 导入专用目录
+├── import-state.json                    # 导入状态持久化（/flow-import 管理）
+├── _batch-plan.json                     # 编排器 batch 调度计划（中间产物）
 ├── _doc-collection.json                 # @doc-collector 产出（中间产物）
 ├── codebase-profile.json                # @codebase-profiler 产出
 ├── knowledge-baseline.json              # @knowledge-builder 产出
 ├── SUMMARY.md                           # @knowledge-builder 产出
-├── tapd-stories/                        # @doc-collector 产出（Step 1.5，可选）
-│   ├── _story-index.json               # 需求-业务能力映射索引
-│   ├── {story_id}.json                 # 原始需求 JSON（持久化留底）
-│   └── {story_id}.md                   # 清洗后的可读 Markdown
-└── iwiki/                               # iwiki 页面拉取产出（可选）
-    └── {pageId}.md                     # 清洗后的 Markdown 内容
+├── description.md                       # 口述内容落盘（/flow-import Step 2 生成）
+├── tapd-stories/                        # TAPD 需求落盘目录（/flow-import Step 2 生成）
+│   ├── _story-index.json               # 需求轻量索引
+│   ├── {story_id}.json                 # 原始需求 JSON
+│   └── {story_id}.md                   # 清洗后 Markdown（≤3000字）
+├── iwiki/                               # iwiki 页面落盘目录（/flow-import Step 2 生成）
+│   ├── _page-index.json                # 页面索引
+│   └── {pageId}.md                     # 清洗后 Markdown（≤5000字）
+└── local-docs/                          # 本地文档落盘目录（/flow-import Step 2 生成）
+    ├── _doc-index.json                  # 文档索引
+    └── {filename}.md                    # 解析后 Markdown
 
 docs/knowledge-base/                      # 知识库（与 knowledge-evolution 共享）
-├── index.json                           # @knowledge-builder 创建/更新
+├── index.json
 ├── decisions/
-│   └── DEC-IMP-*.md                    # @knowledge-builder 产出
+│   └── DEC-IMP-*.md
 ├── guidelines/
-│   └── GL-IMP-*.md                     # @knowledge-builder 产出
+│   └── GL-IMP-*.md
 └── pitfalls/
-    └── PIT-IMP-*.md                    # @knowledge-builder 产出
-
-docs/knowledge-base/pitfalls/              # @knowledge-builder 追加
+    └── PIT-IMP-*.md
 ```
 
 ---
 
 ## 4. 状态管理
 
-导入工作流**不使用 `state.json`**（那是常规工作流的状态文件），而是通过产物文件的存在性来判断进度：
+导入工作流使用**双层状态管理**：
+
+### 4.1 导入级状态：import-state.json
+
+由 `/flow-import` 管理，追踪拉取进度和阶段流转。见 `/flow-import` 的状态持久化章节。
+
+编排器在导入模式下：
+- 读取 `import-state.json` 获取输入来源信息
+- 更新 `orchestrateStatus` 字段标记编排进度
+- 不覆盖 `fetchProgress` 中已有的拉取状态
+
+### 4.2 编排级状态：产物文件存在性
 
 | 检查点 | 判定方式 | 说明 |
 |--------|---------|------|
-| T1 完成 | `docs/knowledge-import/_doc-collection.json` 存在 | 文档收集完成 |
-| T2 完成 | `docs/knowledge-import/codebase-profile.json` 存在 | 代码画像完成 |
-| T3 完成 | `docs/knowledge-import/knowledge-baseline.json` 存在 | 知识基线构建完成 |
-| 全流程完成 | 以上三个文件均存在 | 可以开始常规工作流 |
+| batchPlan 就绪 | `_batch-plan.json` 存在 | batch 调度计划已生成 |
+| T1 完成 | `_doc-collection.json` 存在 | 文档收集完成 |
+| T2 完成 | `codebase-profile.json` 存在 | 代码画像完成 |
+| T3 完成 | `knowledge-baseline.json` 存在 | 知识基线构建完成 |
+| 全流程完成 | T1+T2+T3 均完成 | 可以开始常规工作流 |
 
-**断点恢复**：如果导入流程中断，重新执行时：
-1. 检查已有产物 → 跳过已完成的步骤
-2. 从断点 Agent 继续执行
-3. 不覆盖已有产物（增量模式）
+**断点恢复**：如果编排流程中断，重新执行时：
+1. 检查 `_batch-plan.json` → 如存在，跳过 batchPlan 生成
+2. 检查各产物文件 → 跳过已完成的步骤
+3. 从断点 Agent 继续执行
 
 ---
 
@@ -267,21 +307,23 @@ docs/knowledge-base/pitfalls/              # @knowledge-builder 追加
 导入完成后，常规工作流在 INIT 阶段会：
 1. 检测 `docs/knowledge-import/knowledge-baseline.json` 是否存在
 2. 如存在 → 将知识基线信息写入 `state.json` 的 `knowledgeContext` 字段
-3. 后续 ANALYSE_PRODUCT、ANALYSE_TECH 等阶段通过 `knowledgeContext` 消费导入的知识
-
-详见 `SKILL.md` §7.3 和 Phase 3 的知识消费协议。
+3. 后续阶段通过 `knowledgeContext` 消费导入的知识
 
 ---
 
 ## 6. 行为约束
 
 ### 编排器在导入模式下的必须做（DO）
+- ✅ 通过索引文件获取文档列表，不在 prompt 中内联文档内容
+- ✅ 持久化 batchPlan 到 `_batch-plan.json`
 - ✅ 确保 `docs/knowledge-import/` 目录存在后再启动 Agent
 - ✅ 每个 Agent 完成后验证产出文件是否存在
 - ✅ Agent 调用失败时自动降级为 Task 模式
 - ✅ 向用户展示每步的进度和关键发现
+- ✅ 更新 import-state.json 的 orchestrateStatus
 
 ### 编排器在导入模式下的禁止做（DON'T）
+- ❌ 禁止在 Agent prompt 中内联文档正文（必须通过索引路径让 Agent 自行读取）
 - ❌ 禁止修改 `phase-transitions.json`
 - ❌ 禁止创建 `docs/workflows/` 下的需求目录
 - ❌ 禁止触发常规工作流的任何阶段
