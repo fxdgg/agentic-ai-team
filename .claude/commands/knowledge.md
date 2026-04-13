@@ -124,51 +124,53 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 
 执行知识库健康检查，调用 knowledge-evolution SKILL.md 6.3 定义的 Lint 规则。
 
+> **⚠️ 上下文隔离**：Lint 需要扫描所有知识条目（可能 100+ 个文件），如果在主对话中逐个 Read 会导致上下文溢出。必须通过子 Agent 执行批量扫描，主对话仅接收检查报告。
+
 ### 执行流程
 
 ```
 1. 加载 Lint 规则:
    → Read 参考文件: skills/knowledge-evolution/references/evolution.md §6.3
 
-2. 执行 Lint 检查项（按 §6.3 规则）:
-   a) 索引不一致检测:
-      - 对比 tech-wiki/index.json 与实际文件
-      - 对比 biz-wiki/{domain}/index.json 与实际文件
-      - 对比 docs/knowledge-base/index.json 与实际文件
-      → 自动修复: 补充缺失条目 / 移除悬空引用
+2. 收集待扫描目录路径:
+   - {knowledgeRepoLocalPath}/tech-wiki/
+   - {knowledgeRepoLocalPath}/biz-wiki/{domain}/（可能多个 domain）
+   - docs/knowledge-base/
 
-   b) 孤儿条目检测:
-      - 无交叉引用（related 字段为空）且无 evidence.verified_in_projects
-      → 标记为待审核，建议补充关联
+3. 派发子 Agent 执行 Lint 扫描:
+   通过 Agent 工具启动子 Agent，prompt 包含:
 
-   c) 矛盾检测:
-      - 同一主题的多条知识，结论相反
-      → 创建 conflict 标记，降级 maturity
+   ---
+   你是知识库 Lint 检查专员。
 
-   d) 过时检测:
-      - maturity 为 draft 且 6 个月未引用
-      → 自动归档到 archive/ 目录
+   任务: 扫描以下知识库目录，执行 7 项健康检查，产出 Lint 报告。
 
-   e) 导入未验证检测:
-      - imported- 前缀条目且连续 3 个工作流未引用
-      → 降级 maturity，标记 unvalidated-import
+   Lint 规则参考文件: {绝对路径}/skills/knowledge-evolution/references/evolution.md §6.3
+   
+   待扫描目录:
+   - {tech-wiki 绝对路径}
+   - {biz-wiki 各 domain 绝对路径}
+   - {docs/knowledge-base 绝对路径}
 
-   f) 重复/相似检测:
-      - 标题或内容语义高度重合（含跨层重复检测）
-      → 标记为合并候选
+   检查项:
+   a) 索引不一致: 对比各目录 index.json 与实际文件 → 自动修复
+   b) 孤儿条目: related 字段为空且无 verified_in_projects → 标记待审核
+   c) 矛盾检测: 同主题多条知识结论相反 → 创建 conflict 标记
+   d) 过时检测: draft 且 6 月未引用 → 归档
+   e) 导入未验证: imported- 前缀且 3 个工作流未引用 → 降级
+   f) 重复/相似检测: 标题或摘要高度重合 → 标记合并候选
+      ⚠️ 优化: 先对比 index.json 中的 title/one_line 字段做轻量筛选，仅对疑似重复的条目才 Read 全文对比
+   g) 成熟度衰减: proven 12月未引用→verified, verified 6月未引用→draft
 
-   g) 成熟度衰减执行:
-      - proven 条目 12 月未引用 → 降级为 verified
-      - verified 条目 6 月未引用 → 降级为 draft
-      → 自动执行降级
+   执行后:
+   - 直接修改文件（自动修复项）
+   - 追加记录到 log.md
+   - 更新各层 index.json 统计数据
+   
+   完成后汇报: 各检查项的发现数量、自动修复数量、需人工处理的条目列表
+   ---
 
-3. 追加 Lint 记录到 log.md:
-   ## [{日期}] lint | [system] | 定期健康检查 | {变更统计}
-   - {修复详情}
-
-4. 更新各层 index.json 统计数据
-
-5. 输出 Lint 报告（格式遵循 SKILL.md §6.3 的报告格式）
+4. 接收子 Agent 报告，展示 Lint 结果给用户
 ```
 
 ---
@@ -232,18 +234,26 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
 
 查询知识库，遵循 knowledge-evolution SKILL.md 6.5 的 Query 流程。
 
+> **⚠️ 上下文预算**：查询过程需严格控制读取的文件数量，避免沿引用链无限展开导致上下文溢出。
+
 ### 执行流程
 
 ```
 1. 关键词提取:
    - 从用户输入中提取领域、模块、技术栈等关键词
 
-2. 渐进式检索（三级索引）:
+2. 渐进式检索（三级索引，轻量优先）:
    a) 读 {knowledgeRepoLocalPath}/knowledge-catalog.md → 定位相关分类
+      （~50 行，全景目录，上下文代价低）
    b) 读对应分类的 catalog.md → 扫描一行摘要，筛选相关条目
+      （~100-300 行，按摘要过滤，不读全文）
    c) 读匹配的完整条目 → 获取知识内容
+      ⚠️ 上限: 最多读取 **5 个**完整条目。如果匹配超过 5 个，按 maturity 降序取 Top 5，其余仅列出 ID+标题
    d) （可选）读归档产物 → 沿 source_references 获取原始上下文
+      ⚠️ 上限: 最多展开 **3 个** SUMMARY.md，每个截取前 100 行
+      ⚠️ 禁止递归展开: 不沿 SUMMARY 中的引用继续读取更多文件
    e) 读 docs/workflows/archived/index.md → 搜索历史需求
+      ⚠️ 仅读 index.md 本身（摘要级），不逐个读取归档工作流目录
 
 3. 相关性排序:
    - 按 maturity 降序（proven > verified > draft）
@@ -251,8 +261,8 @@ description: 知识库维护命令。统一入口管理本地和团队知识库�
    - 按 last_referenced 时间排序
 
 4. 答案合成:
-   - 读取匹配的完整条目
-   - 合成结构化回答 + 引用来源
+   - 基于已读取的 Top 5 条目合成结构化回答 + 引用来源
+   - 如果有更多匹配条目未读取，附注: "还有 {N} 条相关知识未展开，可用 /knowledge query --expand 查看"
 
 5. 回流判定（按 SKILL.md §6.5.4）:
    - 合成答案引用了 >= 3 个条目 → 候选回流
@@ -339,25 +349,51 @@ Step 6: 展示结果
 
 手动触发知识提升判定，扫描 Layer 3 中未提升的条目。
 
+> **⚠️ 上下文隔离**：promote 需要读取所有 Layer 3 条目并逐条分析 + 对比目标层，条目多时会溢出上下文。扫描和分析阶段通过子 Agent 执行，主对话仅接收提升建议列表。
+
 ### 执行流程
 
 ```
-1. 扫描 Layer 3 条目:
-   - 读取 docs/knowledge-base/ 下所有知识条目
-   - 过滤出 layer=project 的条目
+1. 派发子 Agent 执行扫描与分析:
+   通过 Agent 工具启动子 Agent，prompt 包含:
 
-2. 对每条执行三问决策树（knowledge-evolution §4.5）:
-   Q1: 是否包含项目特定代码实现细节？
-     ├─ 否 → Q2
-     └─ 是 → Q3
-   Q2: 是否为跨项目通用的技术知识？
-     ├─ 是 → 候选提升到 Layer 1 (tech-wiki)
-     └─ 否 → Q3
-   Q3: 是否为通用业务规则/实体/流程？
-     ├─ 是 → 候选提升到 Layer 2 (biz-wiki)
-     └─ 否 → 保留在 Layer 3
+   ---
+   你是知识提升分析专员。
 
-3. 展示提升建议:
+   任务: 扫描 Layer 3 知识条目，执行三问决策树，生成提升建议报告。
+
+   提升规则参考文件: {绝对路径}/skills/knowledge-evolution/references/extraction.md §4.5
+   
+   Layer 3 目录: {绝对路径}/docs/knowledge-base/
+   Layer 1 目录: {knowledgeRepoLocalPath}/tech-wiki/
+   Layer 2 目录: {knowledgeRepoLocalPath}/biz-wiki/
+
+   执行步骤:
+   1. 读取 docs/knowledge-base/ 下所有知识条目，过滤 layer=project
+   2. 对每条执行三问决策树:
+      Q1: 是否包含项目特定代码实现细节？→ 否→Q2, 是→Q3
+      Q2: 是否为跨项目通用技术知识？→ 是→候选 Layer 1, 否→Q3
+      Q3: 是否为通用业务规则/实体/流程？→ 是→候选 Layer 2, 否→保留 Layer 3
+   3. 对候选提升的条目，读取目标层 index.json 检查是否已有相似条目
+      ⚠️ 仅读 index.json 中的 title/one_line 字段做轻量对比，不读目标层全文
+   
+   产出 JSON 报告写入 docs/knowledge-base/_promote-report.json:
+   {
+     "scannedCount": N,
+     "candidates": [
+       { "id": "GL-003", "title": "...", "targetLayer": "tech-wiki", "targetDir": "patterns",
+         "hasSimilar": false, "similarId": null },
+       ...
+     ],
+     "retained": [
+       { "id": "PIT-002", "title": "...", "reason": "含项目特定配置值" }
+     ]
+   }
+
+   完成后汇报: 扫描条目数、候选提升数、保留数
+   ---
+
+2. 读取 _promote-report.json，展示提升建议:
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ⬆️ 知识提升建议
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -367,44 +403,48 @@ Step 6: 展示结果
    可提升到 Layer 1 (tech-wiki):
    ┌────────────┬──────────────────┬──────────┐
    │ ID          │ 标题              │ 目标目录  │
-   ├────────────┼──────────────────┼──────────┤
-   │ GL-003     │ 公共模块兼容检查   │ patterns │
-   │ DEC-001    │ Spring Boot 3.x  │ frameworks │
-   └────────────┴──────────────────┴──────────┘
+   ...
 
    可提升到 Layer 2 (biz-wiki):
-   ┌────────────┬──────────────────┬──────────┐
-   │ ID          │ 标题              │ 目标领域  │
-   ├────────────┼──────────────────┼──────────┤
-   │ MOD-001    │ 广告计划实体定义   │ ad       │
-   └────────────┴──────────────────┴──────────┘
+   ...
 
    保留在 Layer 3:
-     PIT-002: 本项目数据库连接池配置（含项目特定配置值）
+   ...
 
-4. 用户确认:
+3. 用户确认:
    使用 AskUserQuestion（multiSelect: true）:
    - 列出所有候选提升条目供勾选
    - 默认全选
    - 用户可取消不想提升的条目
 
-5. 执行提升:
-   对每个确认的条目:
-   a) 检查目标层是否已有相似条目:
-      - 已有 → 合并更新（追加 evidence）
-      - 已有且来自不同项目 → maturity 提升为 verified
+4. 派发子 Agent 执行提升写入:
+   通过 Agent 工具启动子 Agent，prompt 包含:
+
+   ---
+   你是知识提升执行专员。
+
+   任务: 将以下确认的知识条目从 Layer 3 提升到目标层。
+
+   待提升条目: [{id, targetLayer, targetDir, hasSimilar, similarId}, ...]
+   Layer 3 目录: {绝对路径}/docs/knowledge-base/
+   Layer 1 目录: {knowledgeRepoLocalPath}/tech-wiki/
+   Layer 2 目录: {knowledgeRepoLocalPath}/biz-wiki/
+
+   对每个条目:
+   a) 如果 hasSimilar=true → 读取目标层的 similarId 条目，合并 evidence
    b) 生成新 ID（TK-{领域}-{序号} 或 BK-{domain}-{类型}{序号}）
-   c) 复制条目到目标层
+   c) 复制/合并条目到目标层
    d) 更新目标层 index.json 和 catalog.md
    e) 更新 Layer 3 原条目（标注 "已提升到 {target-id}"）
 
-6. 追加 promote 记录到 log.md:
-   ## [{日期}] promote | [{用户}] | 知识提升 | +{N} TK, +{M} BK
-   - 提升 {old-id} → {new-id} ({target-layer})
-   ...
+   执行后:
+   - 追加 promote 记录到 log.md
+   - 在 {knowledgeRepoLocalPath} 执行 git add + commit + push
 
-7. 提交并推送到团队知识仓库:
-   - git add + commit + push
+   完成后汇报: 提升数量、各条目的新旧 ID 映射
+   ---
+
+5. 接收子 Agent 报告，展示最终结果给用户
 ```
 
 ---
@@ -412,9 +452,11 @@ Step 6: 展示结果
 ## 注意事项
 
 1. **知识仓库前置**：除 `query` 和 `add` 外，所有子命令需要 `.ai-team/project.yaml` 中配置了 `knowledge_repo.local_path`，未配置时提示执行 `/team-init`
-2. **来源追踪**：所有写入操作自动填充 `source` 元数据（phase/trigger/workflow/confidence），确保可溯源
-3. **log.md 只追加**：遵循不可变追加日志原则，所有变更记录到 log.md
-4. **Git 工作流**：团队知识仓库的写入通过 Git 分支 + 合并流程，不直接写 main 分支
-5. **成熟度规则**：手动添加的条目初始 maturity 为 draft，需通过工作流引用自动提升
-6. **类型规范**：严格使用 5 种知识类型（model/decision/guideline/pitfall/process），guideline 必须指定 polarity
-7. **confidence 规则**：手动添加 0.7，导入 0.5，工作流提取 0.7-0.9
+2. **上下文隔离原则**：涉及批量文件扫描的操作（lint、promote）**必须通过子 Agent 执行**，主对话仅接收结果报告。直接在主对话中逐个 Read 知识条目会导致上下文溢出
+3. **查询预算控制**：query 操作严格限制读取文件数量（完整条目 ≤5 个，SUMMARY ≤3 个），禁止递归展开引用链
+4. **来源追踪**：所有写入操作自动填充 `source` 元数据（phase/trigger/workflow/confidence），确保可溯源
+5. **log.md 只追加**：遵循不可变追加日志原则，所有变更记录到 log.md
+6. **Git 工作流**：团队知识仓库的写入通过 Git 分支 + 合并流程，不直接写 main 分支
+7. **成熟度规则**：手动添加的条目初始 maturity 为 draft，需通过工作流引用自动提升
+8. **类型规范**：严格使用 5 种知识类型（model/decision/guideline/pitfall/process），guideline 必须指定 polarity
+9. **confidence 规则**：手动添加 0.7，导入 0.5，工作流提取 0.7-0.9
