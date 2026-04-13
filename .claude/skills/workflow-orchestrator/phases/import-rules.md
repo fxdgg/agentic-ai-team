@@ -43,10 +43,16 @@
    - batch-desc:   userDescription（如非空，与最小文档组合并，或独立成组）
    - batch-git:    Git 仓库 README/docs（如有克隆仓库，独立成组）
 
-2. 大组继续拆分（每 batch ≤ 15 个文档）:
-   - 如 TAPD 需求有 30 条 → batch-tapd-1 (1-15), batch-tapd-2 (16-30)
-   - 如 iwiki 有 20 页 → batch-iwiki-1 (1-15), batch-iwiki-2 (16-20)
-   - 本地文档、口述通常不需拆分
+2. 大组继续拆分（按来源类型设定不同的 batch 上限）:
+   - TAPD 需求: 每 batch ≤ 200 条（TAPD 需求通常为结构化短文本，单条信息量小）
+     * 如 TAPD 需求有 4200 条 → batch-tapd-1 (1-200), batch-tapd-2 (201-400), ..., batch-tapd-21 (4001-4200)
+   - iwiki 页面: 每 batch ≤ 30 页（wiki 页面信息密度中等）
+   - 本地文档/Git 文档: 每 batch ≤ 15 个文件（富文本文档信息密度高）
+   - 口述描述: 通常不需拆分
+   
+   ⚠️ **禁止采样/抽样**：无论文档数量多大，都必须全量处理。
+   禁止以"文档数量过多"为由对输入文档进行抽样、采样、随机选取或截断。
+   所有文档都必须被分配到某个 batch 中并完整处理，确保不遗漏任何关联知识。
 
 3. 生成 batchPlan:
    {
@@ -126,7 +132,7 @@ Agent 规范文件路径: {doc-collector.md 的绝对路径}
 2. projectName: 取出现频率最高的，或从最大批次中提取
 3. documentSources: 合并所有批次的 documentSources 数组（去重）
 4. extractedInfo 的 7 个维度: 
-   - 对每个维度，合并所有批次的 content（拼接后压缩到 500 字以内）
+   - 对每个维度，合并所有批次的 content（完整保留，不做字数压缩；仅去重和结构化整理）
    - status 取最佳值: sufficient > partial > missing
    - 如果多个批次对同一维度有互补信息 → 合并后提升 status
 5. informationCoverage: 重新统计合并后的结果

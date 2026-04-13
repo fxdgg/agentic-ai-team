@@ -126,7 +126,7 @@ missing    — 信息缺失，文档中未提及
   "extractedInfo": {
     "projectBackground": {
       "status": "sufficient|partial|missing",
-      "content": "结构化摘要（不超过 500 字）"
+      "content": "结构化摘要（完整保留所有关键信息，不做字数压缩）"
     },
     "techStack": {
       "status": "sufficient|partial|missing",
@@ -207,6 +207,8 @@ missing    — 信息缺失，文档中未提及
 - ❌ 禁止读取 node_modules/、target/、build/ 等构建产物目录
 - ❌ 禁止对缺失信息做猜测性填充（标记为 missing 即可）
 - ❌ 禁止超过 8 次追问（到达上限后直接写入当前结果）
+- ❌ **禁止对输入文档进行采样/抽样/随机选取**（必须全量处理所有分配到本 batch 的文档，无论数量多大）
+- ❌ 禁止以"文档数量过多"为由跳过或截断任何文档内容
 
 ---
 
@@ -216,7 +218,7 @@ missing    — 信息缺失，文档中未提及
 - [ ] 所有 7 个维度均已评估充分性
 - [ ] _doc-collection.json 已写入 docs/knowledge-import/
 - [ ] informationCoverage 统计正确
-- [ ] 所有 content 字段不超过 500 字
+- [ ] 所有 content 字段完整保留关键信息（不做字数压缩）
 - [ ] （如上游提供了 TAPD 数据）tapd-stories/ 目录已创建，每条需求有 .json 和 .md 文件
 - [ ] （如上游提供了 TAPD 数据）tapd-stories/_story-index.json 已写入
 - [ ] （如上游提供了 TAPD 数据）documentSources 中 tapd-story 条目的 detail 字段已填充
