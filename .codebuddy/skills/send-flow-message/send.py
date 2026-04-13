@@ -38,9 +38,9 @@ def _curl_get(url: str) -> dict:
         "-w", "\n%{http_code}",
         url,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=REQUEST_TIMEOUT + 5)
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=REQUEST_TIMEOUT + 5)
     if proc.returncode != 0:
-        raise RuntimeError(f"curl 失败 (exit {proc.returncode}): {proc.stderr.strip()}")
+        raise RuntimeError("curl failed (exit {}): {}".format(proc.returncode, proc.stderr.strip()))
 
     lines = proc.stdout.rsplit("\n", 1)
     body = lines[0] if len(lines) > 1 else ""
@@ -67,9 +67,9 @@ def _curl_post(endpoint: str, payload: dict) -> dict:
         "-d", data,
         url,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=REQUEST_TIMEOUT + 5)
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=REQUEST_TIMEOUT + 5)
     if proc.returncode != 0:
-        raise RuntimeError(f"curl 失败 (exit {proc.returncode}): {proc.stderr.strip()}")
+        raise RuntimeError("curl failed (exit {}): {}".format(proc.returncode, proc.stderr.strip()))
 
     lines = proc.stdout.rsplit("\n", 1)
     body = lines[0] if len(lines) > 1 else ""
