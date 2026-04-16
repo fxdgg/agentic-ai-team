@@ -316,6 +316,8 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 | `skill-learner` | Skill 效果分析与优化 |
 | `token-budget-manager` | Token 预算管理 |
 
+<img width="" src="/uploads/7dcc47b8fb7440f0b3836c09dff6400a/image.png" alt="image.png" />
+
 ---
 
 ## 目录结构
