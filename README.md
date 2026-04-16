@@ -10,7 +10,7 @@
 AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一条命令 `/flow-run` 驱动 AI Agent 完成从需求分析到代码归档的全流程。它不是一个独立平台，而是一组 `.codebuddy/` 目录下的 Skill、Agent、Command 定义文件，被 CodeBuddy IDE 原生识别和执行。
 
 **核心价值**：Skill、Agent、工具链会随模型迭代更新，但**领域知识是永恒的**。AI Team 的每次交付都自动沉淀知识到团队共享仓库，所有成员共建共享，新工作流启动时自动站在前人肩上。
-
+<img width="" src="/uploads/d949dcaa81064a538e4c4dc3406af2cc/image.png" alt="image.png" />
 ---
 
 ## 部署拓扑
