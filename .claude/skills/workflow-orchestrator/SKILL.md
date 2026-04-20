@@ -31,16 +31,16 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 | # | 阶段 ID | 名称 | 子 Agent | 说明 |
 |---|---------|------|----------|------|
 | 0 | `INIT` | 初始化 | 无 | 搭脚手架，自动流转，唯一不需要用户确认的阶段 |
-| 1 | `ANALYSE_PRODUCT` | 产品需求分析 | 需求信息收集员 / 基线对比专家 / 需求提取专家 / 质量风险评估师 | **优先使用 Parallel Agent 调度**（四成员串行协作，上下文防火墙隔离），详见 `phases/analyse-product-rules.md` |
+| 1 | `ANALYSE_PRODUCT` | 产品需求分析 | 需求信息收集员 / 基线对比专家 / 需求提取专家 / 质量风险评估师 | **优先使用 Agent Teams 模式**（四成员串行协作，上下文防火墙隔离），详见 `phases/analyse-product-rules.md` |
 | 2 | `CLARIFY_PRODUCT` | 产品需求澄清 | 无（编排器处理） | 读取产品 clarify.json，展示给用户，回填答案 |
-| 3 | `ANALYSE_TECH` | 技术需求分析 | 技术探索员 / 技术设计师 / 分端文档生成器 / 技术文档校审员 | **优先使用 Parallel Agent 调度**（四成员串行协作，上下文隔离），详见 `phases/analyse-tech-rules.md` |
+| 3 | `ANALYSE_TECH` | 技术需求分析 | 技术探索员 / 技术设计师 / 分端文档生成器 / 技术文档校审员 | **优先使用 Agent Teams 模式**（四成员串行协作，上下文隔离），详见 `phases/analyse-tech-rules.md` |
 | 4 | `CLARIFY_TECH` | 技术需求澄清 | 无（编排器处理） | 读取技术 clarify.json |
-| 5 | `ARCHITECT_BACKEND` | 后端架构设计 | 全局架构师 + 领域架构师×N | **优先使用 Parallel Agent 调度**（两步模式：全局架构分析 → 领域文档并行输出，带检查点保护），详见 `phases/architect-backend-rules.md` |
+| 5 | `ARCHITECT_BACKEND` | 后端架构设计 | 全局架构师 + 领域架构师×N | **优先使用 Agent Teams 模式**（两步模式：全局架构分析 → 领域文档并行输出，带检查点保护），详见 `phases/architect-backend-rules.md` |
 | 6 | `CLARIFY_ARCH_BACKEND` | 后端架构澄清 | 无（编排器处理） | 读取后端架构 clarify.json |
 | 7 | `ARCHITECT_FRONTEND` | 前端架构设计 | 资深前端架构师 | 前端架构设计（支持多端：Web 端、小程序端等） |
 | 8 | `CLARIFY_ARCH_FRONTEND` | 前端架构澄清 | 无（编排器处理） | 读取前端架构 clarify.json |
-| 9 | `IMPLEMENT` | 代码实现 | 后端领域开发 / 前端开发 Agent（动态调度） | 动态调度，**优先使用 Parallel Agent 调度**，详见 `phases/implement-rules.md` |
-| 10 | `BUILD_VERIFY` | 编译验证 | 后端编译验证 / Web 端构建验证 / 小程序端构建验证 | **P0 质量门禁**，**优先使用 Parallel Agent 调度**（按平台拆分并行验证），调度与精细回退见 `phases/build-verify-rules.md` |
+| 9 | `IMPLEMENT` | 代码实现 | 后端领域开发 / 前端开发 Agent（动态调度） | 动态调度，**优先使用 Agent Teams 模式**，详见 `phases/implement-rules.md` |
+| 10 | `BUILD_VERIFY` | 编译验证 | 后端编译验证 / Web 端构建验证 / 小程序端构建验证 | **P0 质量门禁**，**优先使用 Agent Teams 模式**（按平台拆分并行验证），调度与精细回退见 `phases/build-verify-rules.md` |
 | 11 | `VISUAL_REVIEW` | 视觉验收 | 视觉验收 Agent | **P1 质量门禁**（可选），AI 驱动的设计稿 vs 实现截图对比验收，有设计稿时自动触发，详见 `phases/visual-review-rules.md` |
 | 12 | `E2E_VERIFY` | 端到端链路验证 | 端到端链路验证 Agent | 跨组件运行时依赖验证 |
 | 13 | `TEST` | 测试验证 | 测试验证 Agent | 生成测试方案并执行验证 |
@@ -75,8 +75,9 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 每个非 INIT 阶段执行流程：**预览（Preview）→ 执行（Execute）→ 总结确认（Summary）**
 
 - **预览**: 展示即将执行的操作概要，等待用户确认
-- **执行**: 调用子 Agent（通过 Agent 工具），实时显示进度
+- **执行**: 调用子 Agent（通过 Task 工具），实时显示进度
 - **总结确认**: 展示产出物清单和关键决策，用户选择进入下一阶段或回退
+- **通知推送**（总结确认后、用户决策前）：当 `notificationConfig.enabled == true` 且当前阶段对应的事件在 `events[]` 中时，按 §12.3.3 协议发送通知。通知在总结确认内容**展示给用户之后**触发（确保用户先看到完整信息），发送结果追加到总结末尾。详见 §12.3
 
 ### 2.4.1 阶段间知识仓库刷新（Level 2 时效性）
 
@@ -151,9 +152,9 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
    - 预估涉及领域数：{N} 个（基于 PRD 中识别的模块/服务关键词）
    - 预估平台影响：{backend/web/miniprogram}（基于 PRD 中的平台描述）
    - 上下文复杂度预估：{低/中/高}
-     低 = 单领域 + 单平台 → 建议 Agent 串行调度
-     中 = 2-3 领域 or 多平台 → 建议 Parallel Agent 调度
-     高 = 4+ 领域 + 多平台 → 强烈建议 Parallel Agent 调度
+     低 = 单领域 + 单平台 → 建议 Task 模式
+     中 = 2-3 领域 or 多平台 → 建议 Agent Teams 模式
+     高 = 4+ 领域 + 多平台 → 强烈建议 Agent Teams 模式
    ```
 
 4. **写入 state.json** — 将意图分析结果写入 `intentAnalysis` 字段：
@@ -209,7 +210,7 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 2. **压缩事件检测** — 编排器在每次阶段切换时，检测当前会话是否发生过上下文压缩：
 
    - 如果编排器自身的对话历史中出现 `compact_boundary` / `isCompactSummary` 标记，将压缩事件记录到 `contextHealth.compactionEvents`
-   - 压缩发生后，编排器**必须重新 Read 读取 state.json**（方案 4 核心要求的加强版），确保压缩未导致状态丢失
+   - 压缩发生后，编排器**必须重新 read_file 读取 state.json**（方案 4 核心要求的加强版），确保压缩未导致状态丢失
 
 3. **预防性建议** — 当检测到上下文风险时，在阶段总结确认中增加建议：
 
@@ -265,14 +266,14 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 **搜索工具优先级链**（成本从低到高）：
 
 ```
-read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_content（低成本）→ Glob/Glob（中成本）→ Grep（最高成本）
+read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_content（低成本）→ Glob/list_dir（中成本）→ codebase_search（最高成本）
 ```
 
 **预算分级**：
 
 | Agent 类型 | 单阶段搜索预算 | 说明 |
 |-----------|--------------|------|
-| 搜索密集型（@tech-explorer, @codebase-profiler） | ≤60 次 | 允许高搜索量，但通过 Parallel Agent 上下文隔离 |
+| 搜索密集型（@tech-explorer, @codebase-profiler） | ≤60 次 | 允许高搜索量，但通过 Agent Teams 上下文隔离 |
 | 设计型（@tech-designer, @frontend-architect） | ≤5 次 | 极少搜索，信息来自上游中间产物 |
 | 开发型（backend-developers, web-developer） | ≤30 次/领域 | 聚焦本领域目录，禁止全局搜索 |
 | 验证型（build-verifier, e2e-verifier） | ≤20 次 | 以命令执行为主，搜索为辅 |
@@ -301,15 +302,15 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 | Agent 文件 | 角色 | 调用阶段 |
 |------------|------|----------|
 | `agents/product-analyst.md` | 资深需求分析专家（单体/降级模式） | ANALYSE_PRODUCT |
-| `agents/product-analysts/product-collector.md` | 需求信息收集员（Parallel Agent 成员） | ANALYSE_PRODUCT |
-| `agents/product-analysts/baseline-differ.md` | 基线对比专家（Parallel Agent 成员） | ANALYSE_PRODUCT |
-| `agents/product-analysts/product-extractor.md` | 需求提取专家（Parallel Agent 成员） | ANALYSE_PRODUCT |
-| `agents/product-analysts/quality-assessor.md` | 质量风险评估师（Parallel Agent 成员） | ANALYSE_PRODUCT |
+| `agents/product-analysts/product-collector.md` | 需求信息收集员（Agent Teams 成员） | ANALYSE_PRODUCT |
+| `agents/product-analysts/baseline-differ.md` | 基线对比专家（Agent Teams 成员） | ANALYSE_PRODUCT |
+| `agents/product-analysts/product-extractor.md` | 需求提取专家（Agent Teams 成员） | ANALYSE_PRODUCT |
+| `agents/product-analysts/quality-assessor.md` | 质量风险评估师（Agent Teams 成员） | ANALYSE_PRODUCT |
 | `agents/fullstack-analyst.md` | 资深全栈开发专家（单体/降级模式） | ANALYSE_TECH |
-| `agents/tech-analysts/tech-explorer.md` | 技术探索员（Parallel Agent 成员） | ANALYSE_TECH |
-| `agents/tech-analysts/tech-designer.md` | 技术设计师（Parallel Agent 成员） | ANALYSE_TECH |
-| `agents/tech-analysts/tech-splitter.md` | 分端文档生成器（Parallel Agent 成员） | ANALYSE_TECH |
-| `agents/tech-analysts/tech-reviewer.md` | 技术文档校审员（Parallel Agent 成员） | ANALYSE_TECH |
+| `agents/tech-analysts/tech-explorer.md` | 技术探索员（Agent Teams 成员） | ANALYSE_TECH |
+| `agents/tech-analysts/tech-designer.md` | 技术设计师（Agent Teams 成员） | ANALYSE_TECH |
+| `agents/tech-analysts/tech-splitter.md` | 分端文档生成器（Agent Teams 成员） | ANALYSE_TECH |
+| `agents/tech-analysts/tech-reviewer.md` | 技术文档校审员（Agent Teams 成员） | ANALYSE_TECH |
 | `agents/java-architect.md` | 资深 Java 架构师（Java 专版） | ARCHITECT_BACKEND |
 | `agents/backend-architect.md` | 资深后台架构师（通用版，技术栈无关） | ARCHITECT_BACKEND |
 | `agents/frontend-architect.md` | 资深前端架构师 | ARCHITECT_FRONTEND |
@@ -317,9 +318,9 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 | `agents/web-developer.md` | 资深 Web 端代码开发 | IMPLEMENT（web） |
 | `agents/miniprogram-developer.md` | 资深小程序端代码开发 | IMPLEMENT（miniprogram） |
 | `agents/build-verifier.md` | 编译验证专家（单体/降级模式） | BUILD_VERIFY |
-| `agents/build-verifiers/backend-build-verifier.md` | 后端编译验证（Parallel Agent 成员） | BUILD_VERIFY |
-| `agents/build-verifiers/web-build-verifier.md` | Web 端构建验证（Parallel Agent 成员） | BUILD_VERIFY |
-| `agents/build-verifiers/miniprogram-build-verifier.md` | 小程序端构建验证（Parallel Agent 成员） | BUILD_VERIFY |
+| `agents/build-verifiers/backend-build-verifier.md` | 后端编译验证（Agent Teams 成员） | BUILD_VERIFY |
+| `agents/build-verifiers/web-build-verifier.md` | Web 端构建验证（Agent Teams 成员） | BUILD_VERIFY |
+| `agents/build-verifiers/miniprogram-build-verifier.md` | 小程序端构建验证（Agent Teams 成员） | BUILD_VERIFY |
 | `agents/e2e-link-verifier.md` | 端到端链路验证专家 | E2E_VERIFY |
 | `agents/test-engineer.md` | 测试验证专家 | TEST |
 | `agents/archiver.md` | 归档总结专家 | ARCHIVE |
@@ -329,16 +330,16 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 
 ### 3.1 子 Agent 调用规范
 
-> **🚨 CRITICAL — Agent 工具的使用说明**:
-> 系统内置的 `code-explorer` subagent **只有只读权限**（仅支持 `search_file`、`search_content`、`Read`、`Grep`、`Glob`），**没有 `Write` / `replace_in_file` 等写入能力**。
-> **Agent 工具（非 Explore 模式）具有完整读写权限。仅在纯搜索/分析任务时使用 Explore 模式（subagent_type: "Explore"）。
-> Explore 模式仅用于只读探索任务（如代码搜索、文件读取、项目结构分析），使用 Read、Grep、Glob 工具。
+> **🚨 CRITICAL — Task 工具（code-explorer subagent）的权限限制**:
+> 系统内置的 `code-explorer` subagent **只有只读权限**（仅支持 `search_file`、`search_content`、`read_file`、`codebase_search`、`list_dir`），**没有 `write_to_file` / `replace_in_file` 等写入能力**。
+> **严禁通过 Task 工具调度需要写入文件的子 Agent**——这会导致产物无法写入，只能返回内容摘要。
+> Task 工具仅可用于**只读探索任务**（如代码搜索、文件读取、项目结构分析）。
 
 子 Agent 有两种调用方式，取决于当前阶段使用的调度模式：
 
-#### 方式 A：Agent 工具调用（非 Parallel Agent 阶段 / 降级模式）
+#### 方式 A：Task 工具调用（非 Agent Teams 阶段 / 降级模式）
 
-通过 Agent 工具调用子 Agent 时，注入以下上下文：
+通过 Task 工具调用子 Agent 时，注入以下上下文：
 
 1. 读取对应的 `agents/*.md` 文件作为 system prompt
 2. 注入当前需求的 `state.json` 中的关键信息
@@ -346,21 +347,21 @@ read_lints（零成本）→ LSP 定义跳转（最低成本）→ Grep/search_c
 4. 指定输出目录路径
 5. 【ARCHITECT_BACKEND 阶段专用】额外注入总纲 `analysis/tech-requirements.md` 作为接口契约基准
 
-**完成信号机制**: 子 Agent 完成后直接返回最终消息。编排器通过 Agent 工具的返回值判断完成。
+**完成信号机制**: 子 Agent 完成后直接返回最终消息。编排器通过 Task 工具的返回值判断完成。
 
-#### 方式 B：Parallel Agent 成员（ANALYSE_PRODUCT / ANALYSE_TECH / ARCHITECT_BACKEND / IMPLEMENT / BUILD_VERIFY 阶段 Parallel Agent 调度）
+#### 方式 B：Agent Teams 成员（ANALYSE_PRODUCT / ANALYSE_TECH / ARCHITECT_BACKEND / IMPLEMENT / BUILD_VERIFY 阶段 Agent Teams 模式）
 
-通过 Parallel Agent 创建独立成员，每个成员拥有独立上下文窗口：
+通过 Agent Teams 创建独立成员，每个成员拥有独立上下文窗口：
 
-1. 编排器为每个领域发起独立 Agent 调用，Prompt 中包含完整的工作指令
+1. 编排器（team-lead）为每个领域创建成员，Prompt 中包含完整的工作指令
 2. 成员 Prompt 中注入 Agent `.md` 文件路径（绝对路径），成员自行读取
 3. 注入当前需求的关键信息（需求 ID、工作流路径）
 4. 注入前序阶段产物路径和输出目录路径
-5. 子 Agent 完成后直接返回结果给编排器
+5. 成员完成后向领导发送结构化完成消息
 
-**完成信号机制**: Agent 工具为同步调用，返回即完成。编排器直接从返回值中获取结果。
+**完成信号机制**: 成员通过消息系统向领导发送完成通知，领导通过团队状态栏监控进度。
 
-> 详细的 Parallel Agent 调度规则见：
+> 详细的 Agent Teams 调度规则见：
 > - ANALYSE_PRODUCT 阶段：`phases/analyse-product-rules.md`
 > - ANALYSE_TECH 阶段：`phases/analyse-tech-rules.md`
 > - ARCHITECT_BACKEND 阶段：`phases/architect-backend-rules.md`
@@ -387,7 +388,7 @@ python3 scripts/resolve_agent_paths.py \
 | 产物路径 | 使用短路径，需编排器注入 |
 | 源码产物例外 | 直接使用项目根目录相对路径，不需替换 |
 
-> **Agent 工具注意**: 子 Agent 不会继承编排器的对话历史，因此 Prompt 中的所有路径**必须是绝对路径**。
+> **Agent Teams 特别注意**: 成员不会继承领导的对话历史，因此 Prompt 中的所有路径**必须是绝对路径**。
 
 ---
 
@@ -447,12 +448,12 @@ docs/workflows/
 
 ## 5. 状态追踪（state.json）— 唯一状态源（CRITICAL）
 
-> **⚠️ 方案 4 强制规则**: `state.json` 是每个需求的**唯一状态源**。编排器在**每次做出任何决策前**，**必须**先 `Read` 重新读取 `state.json`，**禁止**依赖对话历史中的"记忆"来推断当前状态。
+> **⚠️ 方案 4 强制规则**: `state.json` 是每个需求的**唯一状态源**。编排器在**每次做出任何决策前**，**必须**先 `read_file` 重新读取 `state.json`，**禁止**依赖对话历史中的"记忆"来推断当前状态。
 
 ### 5.1 状态源读取协议
 
 ```
-编排器每次执行以下操作前，必须先 Read 读取最新 state.json：
+编排器每次执行以下操作前，必须先 read_file 读取最新 state.json：
   1. 阶段流转决策（进入下一阶段 / 回退）
   2. 子 Agent 调度（确定调用哪些 Agent）
   3. 产物路径计算（确定输入/输出路径）
@@ -505,7 +506,7 @@ docs/workflows/
 ```
 编排器在更新 state.json 的 currentPhase 字段时，MUST 执行以下校验流程：
 
-步骤 1：读取 references/phase-transitions.json（若未在上下文中则 Read 加载）
+步骤 1：读取 references/phase-transitions.json（若未在上下文中则 read_file 加载）
 步骤 2：取出当前阶段的合法后继：transitions[currentPhase].next
 步骤 3：取出当前阶段的可跳过目标：transitions[currentPhase].canSkipTo
 步骤 4：校验目标阶段合法性
@@ -718,6 +719,20 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       执行 /team-init 可初始化项目配置，连接团队知识仓库，启用跨项目知识复用。
       此操作不阻断工作流，可稍后执行。
       ```
+   f) **Lint 守护检查**（30 天未 lint 提醒，仅当 `knowledgeRepoLocalPath` 不为 null 时执行）：
+      - 读取 `{knowledgeRepoLocalPath}/.knowledge-lint-state.yaml`（如不存在则跳过本项检查）
+      - 计算 `current_time - last_lint_at` 的天数：
+        - **≤ 30 天** → 跳过，正常进入下一步骤
+        - **> 30 天** → 在 INIT 总结中追加提示（非阻断）：
+          ```
+          ⚠️ 知识库健康度提醒
+          
+          团队知识仓库已 {N} 天未执行 Lint（上次: {last_lint_at}）。
+          建议在工作流结束后执行 /knowledge lint 进行健康检查。
+          
+          本次工作流将正常进行，不受影响。ARCHIVE 阶段若累计归档达到 10 次也会自动触发 Lint。
+          ```
+      - 此项检查**不阻断工作流**，仅用于提醒用户关注知识库健康度
 6. **知识消费准备**（统一知识仓库模式）：
    a) 如果 `knowledgeRepoLocalPath` 不为 null（团队仓库已配置）：
       - 读取 `{knowledgeRepoLocalPath}/project-profiles/{project_name}.yaml` → 写入 `knowledgeContext.projectProfilePath`
@@ -751,7 +766,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       - 设置 `tapdConfig.setupGuideShown: true`，避免后续工作流重复提示
       - ⚠️ **此步骤不阻断流程**：无论 TAPD 是否可用，均继续执行后续步骤
    e) **workspace_id 采集**（仅当 `available = true` 且 `workspaceId` 为空时）：
-      - 使用 `AskUserQuestion` 询问用户 TAPD 项目 ID
+      - 使用 `ask_followup_question` 询问用户 TAPD 项目 ID
       - 写入 `tapdConfig.workspaceId`
 8. 创建目录结构 `docs/workflows/YYYYMMDD-需求名称/`（含 state.json、risks.json、子目录）
 9. 自动流转到 ANALYSE_PRODUCT
@@ -759,7 +774,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 ### 7.4 断点恢复
 
 - 所有状态存储在文件系统，会话完全无状态
-- 恢复时 **Read 读取 `state.json`** 获取 `currentPhase`
+- 恢复时 **read_file 读取 `state.json`** 获取 `currentPhase`
 - 检查当前阶段是否有未完成的产物，决定从"预览"还是"总结确认"恢复
 - **ARCHITECT_BACKEND 检查点恢复**: 若 `currentPhase = ARCHITECT_BACKEND`，读取 `architectBackendCheckpoint.step` 判断内部进度，从检查点继续执行而非从头开始（详见 `phases/architect-backend-rules.md` §2.3）
 - **ANALYSE_PRODUCT 三级恢复**: 若 `currentPhase = ANALYSE_PRODUCT`，读取 `analyseProductMode` 判断调度层级。`agent-teams` → 读取 `analyseProductTeam` 恢复团队进度；`task-pipeline` → 读取 `analyseProductPipeline.completedTasks` 从断点 Task 继续；`fallback` → 读取 `analyseProductFallback.availableArtifacts` 判断可复用产物后直接执行（详见 `phases/analyse-product-rules.md` §6）
@@ -782,7 +797,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 ### 9.1 必须做的（DO）
 
-- ✅ **每次决策前 Read 读取最新 state.json**（方案 4 核心要求）
+- ✅ **每次决策前 read_file 读取最新 state.json**（方案 4 核心要求）
 - ✅ 每次状态变更后立即更新 state.json
 - ✅ ARCHITECT_BACKEND 阶段每个产物落盘后立即更新 `architectBackendCheckpoint`（检查点保护）
 - ✅ ARCHITECT_BACKEND 阶段 Step 1 完成后**必须**展示领域划分确认单（Step 1.5），等待用户确认后才能启动 Step 2
@@ -793,13 +808,14 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 - ✅ 根据 `platforms.enabled` 动态调度 IMPLEMENT 阶段
 - ✅ 有接口交互时后端 Agent 先于前端 Agent 执行
 - ✅ 进入阶段前加载对应的规则片段文件（见 §10）
-- ✅ ANALYSE_PRODUCT Parallel Agent 调度下**严格遵守上下文防火墙**：@product-extractor 禁止读取原始 PRD，只消费上游压缩中间产物
-- ✅ ANALYSE_PRODUCT 阶段 Agent 调用失败时，**自动降级到 Task 串行管道**，Task 管道失败再降级到 orchestrator 直接执行（三级降级）
+- ✅ ANALYSE_PRODUCT Agent Teams 模式下**严格遵守上下文防火墙**：@product-extractor 禁止读取原始 PRD，只消费上游压缩中间产物
+- ✅ ANALYSE_PRODUCT 阶段 Agent Teams 创建失败时，**自动降级到 Task 串行管道**，Task 管道失败再降级到 orchestrator 直接执行（三级降级）
 - ✅ INIT 完成后、进入 ANALYSE_PRODUCT 前，**执行 IntentGate 意图分析**（§2.6），将结果写入 `state.json` 的 `intentAnalysis` 字段
 - ✅ **每次阶段切换时**，更新 `contextHealth.phaseMetrics`，估算工具调用次数和风险等级（§2.7）
-- ✅ 检测到上下文压缩事件后，**必须重新 Read 读取 state.json**，并记录到 `contextHealth.compactionEvents`
+- ✅ 检测到上下文压缩事件后，**必须重新 read_file 读取 state.json**，并记录到 `contextHealth.compactionEvents`
 - ✅ 当 `intentAnalysis.intentType = "d2c-to-workflow"` 时，IMPLEMENT 阶段前端部分**跳过执行**（D2C 已完成前端代码），仅调度后端领域 Agent（如有）
 - ✅ 当 `intentAnalysis.d2cConfig` 存在且 `status = "completed"` 时，ANALYSE_PRODUCT/ANALYSE_TECH/ARCHITECT_FRONTEND 各阶段**简化执行**（读取 D2C 产物信息后快速通过，不做深度分析）
+- ✅ **knowledgeReferences 字段强制校验**：每个阶段"总结确认"时，检查该阶段核心产物是否包含 `knowledgeReferences` 字段（即使为空数组 `[]`）。缺失则在总结中标注 🟡 warn（不阻断，但进入 `contextHealth.phaseMetrics.missingKnowledgeRefs`），详见 `rules/knowledge-query-protocol.md` §5
 
 ### 9.2 禁止做的（DON'T）
 
@@ -813,32 +829,33 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 - ❌ 禁止跳过 Step 1.5 领域划分确认关卡直接启动领域架构师（ARCHITECT_BACKEND 阶段）
 - ❌ 禁止创建超过 8 个领域（必须先合并再继续）
 - ❌ 禁止在 ANALYSE_PRODUCT 阶段绕过三级降级策略直接选择低级模式（必须从 L1 → L2 → L3 逐级降级）
-- ❌ 禁止在 ANALYSE_PRODUCT Parallel Agent 调度下跳过 @product-collector 直接调度下游成员（上下文防火墙依赖 collector 的压缩产物）
+- ❌ 禁止在 ANALYSE_PRODUCT Agent Teams 模式下跳过 @product-collector 直接调度下游成员（上下文防火墙依赖 collector 的压缩产物）
 
 ---
 
 ## 10. 阶段规则按需加载映射表（CRITICAL）
 
-> **核心机制**: 编排器在进入每个阶段前，`Read` 加载对应的规则片段。仅加载当前阶段需要的规则，减少上下文噪声，提升注意力精准度。
+> **核心机制**: 编排器在进入每个阶段前，`read_file` 加载对应的规则片段。仅加载当前阶段需要的规则，减少上下文噪声，提升注意力精准度。
 
 | 当前阶段 | 需加载的规则片段 | 说明 |
 |---------|----------------|------|
-| ANALYSE_PRODUCT | `phases/analyse-product-rules.md` | 三级降级调度 + Parallel Agent 四成员串行协作规则 + 上下文防火墙 + 知识基线注入协议 |
+| ANALYSE_PRODUCT | `phases/analyse-product-rules.md` + `rules/knowledge-query-protocol.md` | 三级降级调度 + Agent Teams 四成员串行协作规则 + 上下文防火墙 + 知识基线注入协议 + 知识查询协议 |
 | CLARIFY_PRODUCT | `phases/clarify-rules.md` | 澄清流程 + 回填规范 |
 | CLARIFY_TECH | `phases/clarify-rules.md` | 同上 |
 | CLARIFY_ARCH_BACKEND | `phases/clarify-rules.md` | 同上 |
 | CLARIFY_ARCH_FRONTEND | `phases/clarify-rules.md` | 同上 |
-| ANALYSE_TECH | `phases/analyse-tech-rules.md` | 调度模式选择 + Parallel Agent 四成员串行协作规则 + 代码画像注入协议 |
-| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` | 主规则（~280行）：调度决策 + 检查点机制 + 三步模式。详细规则按需加载子文件 |
-| ARCHITECT_BACKEND 执行时 | `phases/architect-backend-level{1,2,3}.md` | 按实际降级路径按需加载：Level 1 Parallel Agent / Level 2 Task 流水线 / Level 3 兜底 |
-| IMPLEMENT | `phases/implement-rules.md` | 动态调度 + Parallel Agent 调度 + 编译修复模式 + D2C 嵌入模式 |
-| BUILD_VERIFY | `phases/build-verify-rules.md` | 调度模式选择 + Parallel Agent 规则 + 精细化回退策略 |
+| ANALYSE_TECH | `phases/analyse-tech-rules.md` + `rules/knowledge-query-protocol.md` | 调度模式选择 + Agent Teams 四成员串行协作规则 + 代码画像注入协议 + 知识查询协议 |
+| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` + `rules/knowledge-query-protocol.md` | 主规则（~280行）：调度决策 + 检查点机制 + 三步模式 + 知识查询协议。详细规则按需加载子文件 |
+| ARCHITECT_BACKEND 执行时 | `phases/architect-backend-level{1,2,3}.md` | 按实际降级路径按需加载：Level 1 Agent Teams / Level 2 Task 流水线 / Level 3 兜底 |
+| ARCHITECT_FRONTEND | `rules/knowledge-query-protocol.md` | 知识查询协议（由 frontend-architect 自行引用） |
+| IMPLEMENT | `phases/implement-rules.md` + `rules/knowledge-query-protocol.md` | 动态调度 + Agent Teams 模式 + 编译修复模式 + D2C 嵌入模式 + 知识查询协议 |
+| BUILD_VERIFY | `phases/build-verify-rules.md` + `rules/knowledge-query-protocol.md` | 调度模式选择 + Agent Teams 规则 + 精细化回退策略 + 知识查询协议（编译失败时 pitfall 查询） |
 | 任何阶段的"预览"/"总结确认" | `phases/output-formats/common.md` | 通用展示格式（预览/总结/澄清/列表/PRD重复/二次确认） |
-| ANALYSE_PRODUCT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-product-formats.md` | 通用格式 + ANALYSE_PRODUCT Parallel Agent 专用格式 |
-| ANALYSE_TECH 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-tech-formats.md` | 通用格式 + ANALYSE_TECH Parallel Agent 专用格式 |
-| ARCHITECT_BACKEND 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/architect-backend-formats.md` | 通用格式 + ARCHITECT_BACKEND Parallel Agent 专用格式 |
-| IMPLEMENT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/implement-formats.md` | 通用格式 + IMPLEMENT Parallel Agent 专用格式 |
-| BUILD_VERIFY 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/build-verify-formats.md` | 通用格式 + BUILD_VERIFY Parallel Agent 专用格式 |
+| ANALYSE_PRODUCT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-product-formats.md` | 通用格式 + ANALYSE_PRODUCT Agent Teams 专用格式 |
+| ANALYSE_TECH 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-tech-formats.md` | 通用格式 + ANALYSE_TECH Agent Teams 专用格式 |
+| ARCHITECT_BACKEND 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/architect-backend-formats.md` | 通用格式 + ARCHITECT_BACKEND Agent Teams 专用格式 |
+| IMPLEMENT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/implement-formats.md` | 通用格式 + IMPLEMENT Agent Teams 专用格式 |
+| BUILD_VERIFY 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/build-verify-formats.md` | 通用格式 + BUILD_VERIFY Agent Teams 专用格式 |
 | 用户选择"回退"时 | `phases/rollback-rules.md` | 通用回退规则 + 产物删除映射 |
 | BUILD_VERIFY + 回退 | `phases/rollback-rules.md` + `phases/build-verify-rules.md` | 精细回退需同时加载 |
 | 任何阶段的"总结确认"后的流转决策 | `references/phase-transitions.json` | 流转守卫校验 |
@@ -848,37 +865,37 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 ```
 编排器进入 ANALYSE_PRODUCT 阶段：
-  1. Read("state.json")                             ← 方案 4：读取唯一状态源
-  2. Read("phases/analyse-product-rules.md")        ← 方案 2：按需加载阶段规则
-  3. 默认使用 Parallel Agent 调度（L1），创建失败时降级为 Task 串行管道（L2），管道失败再降级为 orchestrator 直接执行（L3）
-  4. L1 Parallel Agent 调度：串行调度: Agent(@product-collector) → [条件]Agent(@baseline-differ) → Agent(@product-extractor) → Agent(@quality-assessor)
+  1. read_file("state.json")                             ← 方案 4：读取唯一状态源
+  2. read_file("phases/analyse-product-rules.md")        ← 方案 2：按需加载阶段规则
+  3. 默认使用 Agent Teams 模式（L1），创建失败时降级为 Task 串行管道（L2），管道失败再降级为 orchestrator 直接执行（L3）
+  4. L1 Agent Teams 模式：创建团队 → T1(@product-collector) → [条件]T2(@baseline-differ) → T3(@product-extractor) → T4(@quality-assessor) → 清理团队
      L2 Task 管道模式：Task1(collector+differ) → Task2(extractor+assessor)；增量需求时 Task1 → Task2 → Task3
      L3 直接执行模式：编排器加载 product-analyst.md 直接执行（单体 Agent 降级）
 
 编排器进入 ANALYSE_TECH 阶段：
-  1. Read("state.json")                         ← 方案 4：读取唯一状态源
-  2. Read("phases/analyse-tech-rules.md")       ← 方案 2：按需加载阶段规则
-  3. 默认使用 Parallel Agent 调度（创建失败时降级为 Task 模式）
-  4. Parallel Agent 调度：串行调度: Agent(@tech-explorer) → Agent(@tech-designer) → Agent(@tech-splitter) → Agent(@tech-reviewer)
-     Agent 串行调度：调用单体 fullstack-analyst Agent
+  1. read_file("state.json")                         ← 方案 4：读取唯一状态源
+  2. read_file("phases/analyse-tech-rules.md")       ← 方案 2：按需加载阶段规则
+  3. 默认使用 Agent Teams 模式（创建失败时降级为 Task 模式）
+  4. Agent Teams 模式：创建团队 → T1(@tech-explorer) → T2(@tech-designer) → T3(@tech-splitter) → T4(@tech-reviewer) → 清理团队
+     Task 模式：调用单体 fullstack-analyst Agent
 
 编排器进入 ARCHITECT_BACKEND 阶段：
-  1. Read("state.json")                              ← 方案 4：读取唯一状态源
-  2. Read("phases/architect-backend-rules.md")       ← 方案 2：按需加载主规则（~280行）
+  1. read_file("state.json")                              ← 方案 4：读取唯一状态源
+  2. read_file("phases/architect-backend-rules.md")       ← 方案 2：按需加载主规则（~280行）
   3. 检查 architectBackendCheckpoint 决定断点恢复策略
   4. 判断调度模式 → 按需加载对应子文件：
-     Level 1: Read("phases/architect-backend-level1.md")  ← Parallel Agent 完整规则
-     Level 2: Read("phases/architect-backend-level2.md")  ← Task 流水线规则
-     Level 3: Read("phases/architect-backend-level3.md")  ← 兜底执行规则
+     Level 1: read_file("phases/architect-backend-level1.md")  ← Agent Teams 完整规则
+     Level 2: read_file("phases/architect-backend-level2.md")  ← Task 流水线规则
+     Level 3: read_file("phases/architect-backend-level3.md")  ← 兜底执行规则
   5. 按子文件中的规则执行
 
 编排器进入 IMPLEMENT 阶段：
-  1. Read("state.json")                    ← 方案 4：读取唯一状态源
-  2. Read("phases/implement-rules.md")     ← 方案 2：按需加载阶段规则
+  1. read_file("state.json")                    ← 方案 4：读取唯一状态源
+  2. read_file("phases/implement-rules.md")     ← 方案 2：按需加载阶段规则
   3. 根据 state.json 中 platforms 和 rollbackLog 做调度决策
-  4. 判断调度模式（Parallel Agent / Agent 串行降级）
-  5. Parallel Agent 调度：按平台并行发起 Agent 调用 → 收集结果
-     Agent 串行调度：按 P0→P4 串行调用 Agent 工具
+  4. 判断调度模式（Agent Teams / Task 工具降级）
+  5. Agent Teams 模式：创建团队 → 分配任务 → 监控完成 → 清理团队
+     Task 模式：按 P0→P4 串行调用 Task 工具
 ```
 
 ---
@@ -955,7 +972,7 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 | `{web-project}` | Web 端项目目录 | `frontend-group/operation-fe/` | 在 `{frontend-root}` 下扫描含 vite.config / next.config 等 Web 构建配置的子目录 |
 | `{miniprogram-project}` | 小程序端项目目录 | `frontend-group/miniprogram-fe/` | 在 `{frontend-root}` 下扫描含 app.config.ts / project.config.json 等小程序配置的子目录 |
 | `{common-module}` | 后端公共模块名称 | `vibe-common` | 扫描 `{backend-root}` 下名称含 common/shared/base/core 的模块目录 |
-| `{skill-root}` | Skill 安装路径（运行时自动注入） | `.claude/skills/workflow-orchestrator/` | 运行时由编排器自动注入，无需用户配置 |
+| `{skill-root}` | Skill 安装路径（运行时自动注入） | `.codebuddy/skills/workflow-orchestrator/` | 运行时由编排器自动注入，无需用户配置 |
 
 > **历史项目适配说明**: INIT 阶段编排器会尝试自动检测上述占位符的值。若项目结构非标准（如单体后端无独立根目录），编排器将展示检测结果并询问用户确认或手动指定。所有下游 Agent（架构师、开发 Agent）通过占位符引用路径，不再硬编码具体目录名。
 
@@ -977,7 +994,9 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 5. 所有领域 Agent 共享 `agents/backend-developers/backend-dev-specification.md` 通用规范
 6. 领域差异通过 Prompt 注入和 `domain-registry.json` 的 `extraRules` / `extraQualityChecks` 字段表达
 
-### 12.3 通知机制（可选）
+### 12.3 通知机制（可选 · 人机协同节点主动推送）
+
+> **设计意图**：博文 §8 强调"关键节点（架构评审、产物验收、编译失败）应通过企业微信等渠道主动推送"。通知机制将工作流的关键状态变更从"用户轮询"转为"主动推送"，缩短人机交互的反馈延迟。
 
 编排器支持在关键阶段完成时发送通知。通知配置通过 `state.json` 的 `notificationConfig` 字段控制：
 
@@ -985,13 +1004,113 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 {
   "notificationConfig": {
     "enabled": false,
-    "provider": "custom",
-    "events": ["phase_complete", "quality_gate_fail", "workflow_done"]
+    "provider": "send-flow-message",
+    "events": [
+      "architect_review",
+      "build_verify_fail",
+      "visual_review_fail",
+      "workflow_done"
+    ]
   }
 }
 ```
 
-当 `enabled: false` 时，所有通知静默跳过。具体的通知实现由项目自行配置。
+当 `enabled: false` 时，所有通知静默跳过。
+
+#### 12.3.1 通知事件定义
+
+| 事件 ID | 触发时机 | 通知优先级 | 消息类型 |
+|---------|---------|-----------|---------|
+| `architect_review` | ARCHITECT_BACKEND / ARCHITECT_FRONTEND 的"总结确认"步骤展示后 | 中 | 卡片 |
+| `build_verify_fail` | BUILD_VERIFY 阶段存在 ❌ FAIL 维度，总结确认展示后 | **高** | 卡片 |
+| `visual_review_fail` | VISUAL_REVIEW 阶段 `qualityGate = fail`，总结确认展示后 | **高** | 卡片 |
+| `workflow_done` | ARCHIVE 阶段归档完成（已由 `archiver.md` 阶段六实现） | 低 | Markdown |
+
+> **未包含的阶段**：ANALYSE_PRODUCT / ANALYSE_TECH / IMPLEMENT / E2E_VERIFY / TEST 的总结确认**不发送通知**（这些阶段的人工介入密度较低，通知会造成噪音）。`workflow_done` 由 archiver 阶段六独立处理，不在编排器层重复触发。
+
+#### 12.3.2 消息模板
+
+**architect_review（架构评审通知）**：
+
+```
+🏗️ 架构设计已完成 · {需求名称}
+
+📦 需求ID: {requirementId}
+📐 阶段: {ARCHITECT_BACKEND / ARCHITECT_FRONTEND}
+📊 质量门禁: {qualityGate} (评分: {qualityScore}/5.0)
+⚠️ 风险项: {riskCount} 项
+🧠 知识引用: {knowledgeRefCount} 条
+
+💡 请审阅架构方案，确认后继续进入 {下一阶段名称}。
+```
+
+**build_verify_fail（编译失败通知）**：
+
+```
+🔴 编译验证失败 · {需求名称}
+
+📦 需求ID: {requirementId}
+❌ 失败平台: {failedPlatforms 列表}
+✅ 通过平台: {passedPlatforms 列表}
+
+错误摘要:
+{每个失败平台的 top-3 错误，格式: "  - [{平台}] {错误文件}:{行号} — {错误摘要}"}
+
+🔧 建议操作: 回退到 IMPLEMENT 修复后重新编译
+```
+
+**visual_review_fail（视觉验收失败通知）**：
+
+```
+🎨 视觉验收未通过 · {需求名称}
+
+📦 需求ID: {requirementId}
+📊 还原度评分: {visualReviewScore}/100
+🔴 严重差异: {criticalCount} 项
+🟡 明显差异: {majorCount} 项
+
+🔧 建议操作: 回退到 IMPLEMENT 修复视觉差异
+```
+
+#### 12.3.3 通知发送协议
+
+编排器在触发通知事件时，按以下流程执行：
+
+1. **检查 `notificationConfig.enabled`**：
+   - `false` → 静默跳过，不做任何探测
+   - `true` → 继续
+
+2. **检查事件过滤**：当前事件 ID 是否在 `notificationConfig.events[]` 中
+   - 不在 → 跳过
+   - 在 → 继续
+
+3. **探测通知技能**（与 archiver 阶段六相同的探测逻辑）：
+   - 按优先级搜索：`{skills-dir}/send-flow-message/` → `{skills-dir}/` 下任何含 `send` / `notify` 的技能目录 → `scripts/notify*`
+   - 如果找到 → 读取其 SKILL.md 了解调用方式
+   - 如果未找到 → 在总结确认中追加 `💡 提示: 通知已启用但未找到推送技能，如需企微通知请配置 send-flow-message`
+
+4. **构造消息**：根据 §12.3.2 模板填充字段
+
+5. **发送**：
+   - 高优先级事件（`build_verify_fail` / `visual_review_fail`）→ 使用**卡片格式**（含标题 + 描述 + 来源）
+   - 中优先级事件（`architect_review`）→ 使用**卡片格式**
+   - 低优先级事件（`workflow_done`）→ 使用 **Markdown 格式**（已由 archiver 阶段六处理）
+
+6. **容错**：发送失败**不阻断工作流**，在总结确认中追加 `⚠️ 通知发送失败: {错误信息}`
+
+#### 12.3.4 INIT 阶段的通知配置初始化
+
+在 INIT 阶段（§7.3）步骤 5 完成后，编排器检查通知配置：
+
+1. 如果 `state.json` 中已有 `notificationConfig` → 保持原值
+2. 如果不存在 → 初始化为默认值（`enabled: false`）
+3. **自动激活判定**：如果探测到 `{skills-dir}/send-flow-message/SKILL.md` 存在 → 将 `enabled` 设为 `true`、`provider` 设为 `"send-flow-message"`，并在 INIT 总结中告知：
+   ```
+   📨 通知机制: 已自动启用（检测到 send-flow-message 技能）
+   推送事件: 架构评审 / 编译失败 / 视觉验收失败 / 归档完成
+   ```
+
+> **设计决策**：通知默认关闭，但探测到推送技能后自动开启——既避免无技能时的无效探测，又让有推送能力的项目零配置享受通知。用户可通过修改 `state.json` 的 `notificationConfig.events[]` 自定义接收哪些事件。
 
 ### 12.4 TAPD 集成（可选）
 

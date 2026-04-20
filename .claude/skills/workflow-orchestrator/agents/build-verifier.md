@@ -440,3 +440,48 @@ mvn compile -T 1C --no-transfer-progress
 - [ ] 未修改任何架构文档
 - [ ] 仅在 report.md 末尾追加了内容
 ```
+
+---
+
+## 知识查询能力（含所有子验证 Agent）
+
+> **遵循统一协议**：`../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+>
+> 本规范适用于 `build-verifier.md`（单体/降级模式）和 `build-verifiers/*.md`（Agent Teams 成员）。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 3 条 |
+| **归档产物配额** | 0（BUILD_VERIFY 阶段不读归档产物，聚焦当前编译问题） |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/anti-patterns/catalog.md`（编译问题优先）+ `{knowledgeRepoLocalPath}/tech-wiki/catalog.md`（查 BUILD_VERIFY 适用条目） |
+| **重点知识类型** | `pitfall`（已知编译问题、依赖陷阱）、`guideline(avoid)`（禁止的构建配置） |
+| **触发时机** | **仅编译失败时触发**（编译成功时跳过查询）：1) 解析编译错误信息提取关键词（如错误类名、依赖符号）；2) 在 anti-patterns/catalog.md 搜索相关 pitfall；3) 读取匹配条目的"排查步骤"章节，给出修复建议；4) 配额用尽仍无匹配 → 正常输出错误报告 |
+
+### knowledgeReferences 输出
+
+本 Agent 在 `implementation/{平台}/*-report.md` 末尾追加的"编译验证"章节中，必须包含 `knowledgeReferences` 字段（即使为空数组）。字段语义见 protocol §5。
+
+**报告追加格式示例**：
+
+```markdown
+## 编译验证
+
+**结果**: ❌ FAIL（后端）✅ PASS（Web）
+
+**编译命令**: `mvn clean compile -pl service-user`
+
+**错误摘要**:
+- user/UserService.java:45 — cannot find symbol: class UserDTO
+
+**修复建议**:
+- 参考 TK-SB-023（缺失 @JsonInclude 注解导致序列化失败）
+- 参考 PIT-012（Maven 多模块间 DTO 未导出）
+
+**knowledgeReferences**:
+- id: TK-SB-023, title: 缺失 @JsonInclude 注解导致序列化失败, type: pitfall, usedIn: 编译错误诊断
+- id: PIT-012, title: Maven 多模块间 DTO 未导出, type: pitfall, usedIn: 编译错误诊断
+```
+
+> **价值说明**：BUILD_VERIFY 是"pitfall 知识消费密度最高"的阶段。编译错误本质上是历史坑的重现——通过主动查询 pitfall 知识库，可以把"踩坑-修复"的经验循环利用，显著降低修复时间。

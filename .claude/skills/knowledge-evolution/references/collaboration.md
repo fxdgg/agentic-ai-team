@@ -30,11 +30,16 @@
 
 ### 2.6.3 团队角色
 
-| 角色 | 权限 | 适用人群 |
-|------|------|---------|
-| `maintainer` | 解决 content_conflict、审批 proven 提升、管理成员 | 团队负责人 |
-| `contributor` | 通过工作流自动贡献（create/verify/flag_contradiction） | 正式成员 |
-| `reader` | 只消费知识（查询/注入），不贡献 | 新成员试用期 |
+| 角色 | 权限 | 适用人群 | 分配时机 |
+|------|------|---------|---------|
+| `maintainer` | 解决 content_conflict、审批 proven 提升、管理成员 | 团队负责人 | 知识仓库首个成员自动分配（仓库创建者） |
+| `contributor` | 通过工作流自动贡献（create/verify/flag_contradiction） | 正式成员 | `/team-init` Step 6 用户选择"正式成员"时分配；`profile.yaml` 中 `trial: false` |
+| `reader` | 只消费知识（查询/注入），不贡献；ARCHIVE 阶段跳过 Step 4-11（贡献写入），仅保留本地归档和索引维护 | 新成员试用期 | `/team-init` Step 6 用户选择"试用期"时分配；`profile.yaml` 中 `trial: true` |
+
+**角色在工作流中的生效点**：
+- `knowledge-query-protocol.md` §6：reader 可查询但不贡献
+- `archiver.md` 阶段七前置条件：检测到 `contributorRole == "reader"` 时跳过贡献写入
+- **角色升级**：reader 用户将 `profile.yaml` 的 `trial` 改为 `false` 后，下次 `/team-init` 会提示升级到 contributor
 
 ### 2.6.4 知识条目团队化 front-matter
 

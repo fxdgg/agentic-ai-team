@@ -391,6 +391,11 @@ duration: "2026-03-19 ~ 2026-03-20"
 **前置条件**：
 - `state.json` 的 `knowledgeContext.knowledgeRepoLocalPath` 不为 null
 - 如果为 null（项目未配置 `.ai-team/project.yaml`）→ 跳过本步骤，记录 `knowledgePromote: "skipped-no-config"`
+- **角色约束（reader 角色处理）**：如果 `knowledgeContext.contributorRole == "reader"` → **跳过 Step 4-11（贡献写入部分）**，仅执行 Step 12（更新三层索引的本地缓存部分，不推送）和 Step 13（引用追踪本地记录）。proven 衰减扫描（总步骤 17）仍正常执行，因为衰减是知识库全局维护，所有角色都应参与。reader 角色跳过时，在 SUMMARY.md 记录 `knowledgePromote: "skipped-reader-role"`，并追加提示：
+  ```
+  💡 当前角色为 reader（试用期），本次 ARCHIVE 的知识产出仅保留在项目内（Layer 3）。
+  结束试用期后，执行 /team-init 可升级为 contributor，开始贡献知识到团队库。
+  ```
 
 **前置条件自检（必须输出）**：
 
@@ -400,8 +405,12 @@ duration: "2026-03-19 ~ 2026-03-20"
 |------|---------|--------|---------|
 | 知识仓库路径 | state.json → knowledgeContext.knowledgeRepoLocalPath | {读取值} | {是/否} |
 | 贡献者姓名 | state.json → knowledgeContext.contributorName | {读取值} | {是/否} |
+| 贡献者角色 | state.json → knowledgeContext.contributorRole | {读取值} | {是/否：maintainer/contributor 为"是"，reader 为"否（仅消费）"} |
 
-只有在上表中实际值为 null 时才可跳过。禁止使用其他字段（如 baselineAvailable）作为跳过依据。
+角色处理决策：
+- **knowledgeRepoLocalPath/contributorName 任一为 null** → 完全跳过 Step 7（记录 `skipped-no-config` / `skipped-no-contributor`）
+- **contributorRole == "reader"** → 跳过贡献写入（Step 4-11），保留 Step 12-17（索引维护 / 引用追踪 / proven 衰减扫描等非贡献性操作）
+- **contributorRole == "contributor" 或 "maintainer"** → 完整执行 Step 1-17
 
 **执行步骤**：
 
@@ -557,6 +566,93 @@ duration: "2026-03-19 ~ 2026-03-20"
     c) 用户确认后 → 自动更新 `project.yaml`
     d) 如无漂移 → 跳过
 
+16. **Lint 自动触发判定（每 10 次归档触发 + 30 天守护）**：
+
+    > **设计意图**：博文 §9.2 承诺"每完成 10 个工作流自动触发 Lint"，此步骤在 archiver 末尾实现该触发点，同时兼顾"30 天未 Lint 强制触发"的时效性守护。
+
+    a) **前置**：仅当 `knowledgeRepoLocalPath` 不为 null 时执行；否则跳过本步骤。
+
+    b) **读取/初始化 Lint 状态文件**：`{knowledgeRepoLocalPath}/.knowledge-lint-state.yaml`
+
+       ```yaml
+       # 示例
+       last_lint_at: "2026-04-01T10:00:00Z"   # 最后一次成功 Lint 的时间（ISO-8601，可为 null）
+       archives_since_last_lint: 7             # 自上次 Lint 以来完成的归档数
+       total_archives: 42                      # 项目接入后的累计归档数（仅统计 knowledgeRepoLocalPath 关联的项目）
+       ```
+
+       - 文件不存在 → 以 `last_lint_at: null, archives_since_last_lint: 0, total_archives: 0` 初始化。
+
+    c) **累加归档计数**：
+
+       ```
+       archives_since_last_lint += 1
+       total_archives += 1
+       ```
+
+    d) **触发判定**（满足任一条件即触发）：
+
+       | 条件 | 判定 | 动作 |
+       |------|------|------|
+       | `archives_since_last_lint >= 10` | 计数触发 | 自动触发 Lint |
+       | `last_lint_at` 距今超过 30 天 | 时效触发 | 自动触发 Lint |
+       | 两者均不满足 | 不触发 | 仅写回状态文件，本步骤结束 |
+
+    e) **触发执行**：
+
+       - 派发子 Agent 执行 Lint 扫描（**复用 `/knowledge lint` 的子 Agent 逻辑**，详见 `commands/knowledge.md` §/knowledge lint 的执行流程）
+       - 子 Agent 完成后：
+         - `last_lint_at = "{当前 ISO-8601}"`
+         - `archives_since_last_lint = 0`
+       - 在 SUMMARY.md 末尾追加 Lint 报告摘要：
+         ```markdown
+         ## 自动 Lint 报告（触发原因：{计数达到/30 天未 lint}）
+         - 检查条目总数: {N}
+         - 自动修复: {K} 条
+         - 待人工审核: {M} 条（见 {knowledgeRepoLocalPath}/log.md 中的 lint 记录）
+         ```
+
+    f) **写回状态文件**：`{knowledgeRepoLocalPath}/.knowledge-lint-state.yaml`
+
+       - 即使未触发 Lint 也必须写回（更新 archives_since_last_lint 和 total_archives）
+
+    g) **容错**：Lint 子 Agent 失败不阻断归档流程，在 SUMMARY.md 标注 `lintStatus: "failed"` + 简短错误信息即可。
+
+17. **proven 知识主动衰减扫描（ARCHIVE 级兜底）**：
+
+    > **设计意图**：避免 Lint 周期过长导致衰减延迟。archiver 在每次归档时对知识仓库中 **≤20 条** proven 条目做"近 12 月未引用"快速扫描，命中即降级。配合 §16 的 Lint 触发形成两级保障。
+
+    a) **前置**：`knowledgeRepoLocalPath` 不为 null 时执行。
+
+    b) **扫描范围**（降低单次开销）：
+
+       - 读取 `{knowledgeRepoLocalPath}/tech-wiki/index.json` 和所有 `biz-wiki/{domain}/index.json`
+       - 筛选 `maturity == "proven"` 的条目，按 `evidence.last_referenced` 升序（最久未引用优先）
+       - 取前 20 条进入详细扫描（单次 ARCHIVE 开销上限）
+
+    c) **衰减判定**：
+
+       - 当前时间 - `evidence.last_referenced` > 12 个月 → 降级为 `verified`
+       - 在条目的 `evidence.contradiction_flags` 追加标记：`"auto-decay-from-proven-at-{ISO-8601}"`
+       - 在 `{knowledgeRepoLocalPath}/log.md` 追加记录：
+         ```markdown
+         ## [{日期}] decay | [auto] | ARCHIVE 级衰减 | proven→verified {N} 条 | #{session_hash}
+         - {ID}: {title}（last_referenced: {date}，超过 12 月未引用）
+         ```
+
+    d) **贡献分支处理**：衰减写入与阶段七 Step 9 的贡献分支合并。如果本次 ARCHIVE 没有创建贡献分支（如 reader 角色），则**单独创建 decay 分支**：`decay/{timestamp}`，合并后推送。
+
+    e) **SUMMARY.md 记录**：在末尾追加：
+
+       ```markdown
+       ## proven 衰减扫描
+       - 扫描条目数: {N}
+       - 衰减降级: {K} 条（proven→verified）
+       - 详情: 见 {knowledgeRepoLocalPath}/log.md decay 记录
+       ```
+
+    f) **容错**：单个条目处理失败不阻断，记录到 SUMMARY.md 的 `decayErrors`。
+
 ---
 
 ## 编排器对接行为（ARCHIVE 阶段）
@@ -646,6 +742,11 @@ duration: "2026-03-19 ~ 2026-03-20"
 ### 项目画像与配置漂移
 - [ ] 项目画像已检查并按需更新（或记录跳过原因）
 - [ ] 配置漂移检测已执行（或记录无漂移）
+
+### 知识库生命周期维护（新增）
+- [ ] Lint 自动触发判定（Step 16）已执行：状态文件 `.knowledge-lint-state.yaml` 已更新（无论是否触发 Lint）
+- [ ] 若触发了 Lint，SUMMARY.md 包含 Lint 报告摘要
+- [ ] proven 衰减扫描（Step 17）已执行，SUMMARY.md 包含衰减扫描结果
 
 ### 权限合规
 - [ ] 未修改任何源码文件

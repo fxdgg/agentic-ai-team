@@ -36,7 +36,7 @@ ARCHITECT_BACKEND 阶段支持两个架构师 Agent，编排器**必须先确定
 
 | 级别 | 模式 | 触发条件 | 子文件 |
 |------|------|---------|--------|
-| **Level 1** | Parallel Agent | 涉及领域/模块 ≥2 个，始终优先尝试 | `phases/architect-backend-level1.md` |
+| **Level 1** | Agent Teams | 涉及领域/模块 ≥2 个，始终优先尝试 | `phases/architect-backend-level1.md` |
 | **Level 2** | Task 串行流水线 | 领域/模块仅 1 个，或 Level 1 创建失败/超时 | `phases/architect-backend-level2.md` |
 | **Level 3** | 编排器直接执行 | Level 2 执行失败 | `phases/architect-backend-level3.md` |
 
@@ -47,15 +47,15 @@ ARCHITECT_BACKEND 阶段支持两个架构师 Agent，编排器**必须先确定
 
 1. 读取 state.json，检查是否有断点恢复信息
 2. 如果 architectBackendMode 已有值且非空：
-   a) "agent-teams" → Read("phases/architect-backend-level1.md")，进入 Level 1 断点恢复
-   b) "task-pipeline" → Read("phases/architect-backend-level2.md")，进入 Level 2 断点恢复
-   c) "fallback" 或 "task" → Read("phases/architect-backend-level3.md")，进入 Level 3 恢复
+   a) "agent-teams" → read_file("phases/architect-backend-level1.md")，进入 Level 1 断点恢复
+   b) "task-pipeline" → read_file("phases/architect-backend-level2.md")，进入 Level 2 断点恢复
+   c) "fallback" 或 "task" → read_file("phases/architect-backend-level3.md")，进入 Level 3 恢复
 3. 如果 architectBackendMode 为空或字段不存在：
    → 尝试 Level 1:
-     a) Read("phases/architect-backend-level1.md")
+     a) read_file("phases/architect-backend-level1.md")
      b) 按 Level 1 规则执行
-     c) 失败或超时 → Read("phases/architect-backend-level2.md")，降级到 Level 2
-     d) Level 2 也失败 → Read("phases/architect-backend-level3.md")，降级到 Level 3
+     c) 失败或超时 → read_file("phases/architect-backend-level2.md")，降级到 Level 2
+     d) Level 2 也失败 → read_file("phases/architect-backend-level3.md")，降级到 Level 3
 ```
 
 ---
@@ -114,7 +114,7 @@ Step 2（并行，多成员）:
 
 ```
 每个产物落盘后：
-  1. 编排器 Read 确认产物文件存在且非空
+  1. 编排器 read_file 确认产物文件存在且非空
   2. 更新 architectBackendCheckpoint（追加 completedArtifacts，移动 pendingDomains→completedDomains）
   3. 写入 state.json
 ```
@@ -150,9 +150,9 @@ Step 2（并行，多成员）:
 
 ```
 验证流程：
-1. Read(architecture.md) → 确认非空
-2. Read(dependency-graph.md) → 确认包含 Mermaid 图
-3. Read(priority-list.md) → 确认包含优先级表
+1. read_file(architecture.md) → 确认非空
+2. read_file(dependency-graph.md) → 确认包含 Mermaid 图
+3. read_file(priority-list.md) → 确认包含优先级表
 4. 全部通过 → 更新 checkpoint.step = "global_completed"
 5. 任一失败 → 保持 "global_pending"，要求补充
 ```
@@ -168,7 +168,7 @@ Step 2（并行，多成员）:
 - 检查点机制说明
 
 **Step 2: 执行** —
-- **Level 1**: Agent 调度 → S1 全局分析 → 检查点 → Step 1.5 领域确认 → S2 并行领域文档 → 逐个检查点
+- **Level 1**: 创建团队 → S1 全局分析 → 检查点 → Step 1.5 领域确认 → S2 并行领域文档 → 逐个检查点 → 清理
 - **Level 2**: Task-A 全局分析 → [领域确认] → Task-B~N 串行领域文档 → 检查产物
 - **Level 3**: 编排器自身读取输入并生成产物
 
@@ -177,6 +177,7 @@ Step 2（并行，多成员）:
 - 全局产物清单 + 领域注册表 + 各领域文档清单
 - 循环依赖检测结果、澄清问题、风险项汇总
 - Level 3 时追加精度降低警告
+- **触发 `architect_review` 通知**（见 SKILL.md §12.3）：构造架构评审卡片消息，包含质量门禁评分、风险项数量和知识引用数，推送到企微群提醒团队审阅架构方案。通知失败不阻断流程。
 
 ---
 
@@ -184,7 +185,7 @@ Step 2（并行，多成员）:
 
 | 子文件 | 行数 | 加载条件 | 包含内容 |
 |--------|------|---------|---------|
-| `phases/architect-backend-level1.md` | ~340 | 走 Level 1 路径时 | Parallel Agent 完整规则：Prompt 模板、领域治理、确认关卡、超时降级、domain-registry Schema |
+| `phases/architect-backend-level1.md` | ~340 | 走 Level 1 路径时 | Agent Teams 完整规则：Prompt 模板、领域治理、确认关卡、超时降级、domain-registry Schema |
 | `phases/architect-backend-level2.md` | ~180 | 走 Level 2 路径时 | Task 流水线定义 + Prompt 模板 + 执行流程 + 失败处理 |
 | `phases/architect-backend-level3.md` | ~45 | 走 Level 3 路径时 | 编排器直接执行策略 + 限制说明 |
 | `references/architect-backend-state-examples.json` | — | 仅调试参考 | state.json 各阶段状态示例（不加载到上下文） |

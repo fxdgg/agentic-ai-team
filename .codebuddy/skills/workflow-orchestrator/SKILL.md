@@ -77,6 +77,7 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 - **预览**: 展示即将执行的操作概要，等待用户确认
 - **执行**: 调用子 Agent（通过 Task 工具），实时显示进度
 - **总结确认**: 展示产出物清单和关键决策，用户选择进入下一阶段或回退
+- **通知推送**（总结确认后、用户决策前）：当 `notificationConfig.enabled == true` 且当前阶段对应的事件在 `events[]` 中时，按 §12.3.3 协议发送通知。通知在总结确认内容**展示给用户之后**触发（确保用户先看到完整信息），发送结果追加到总结末尾。详见 §12.3
 
 ### 2.4.1 阶段间知识仓库刷新（Level 2 时效性）
 
@@ -718,6 +719,20 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       执行 /team-init 可初始化项目配置，连接团队知识仓库，启用跨项目知识复用。
       此操作不阻断工作流，可稍后执行。
       ```
+   f) **Lint 守护检查**（30 天未 lint 提醒，仅当 `knowledgeRepoLocalPath` 不为 null 时执行）：
+      - 读取 `{knowledgeRepoLocalPath}/.knowledge-lint-state.yaml`（如不存在则跳过本项检查）
+      - 计算 `current_time - last_lint_at` 的天数：
+        - **≤ 30 天** → 跳过，正常进入下一步骤
+        - **> 30 天** → 在 INIT 总结中追加提示（非阻断）：
+          ```
+          ⚠️ 知识库健康度提醒
+          
+          团队知识仓库已 {N} 天未执行 Lint（上次: {last_lint_at}）。
+          建议在工作流结束后执行 /knowledge lint 进行健康检查。
+          
+          本次工作流将正常进行，不受影响。ARCHIVE 阶段若累计归档达到 10 次也会自动触发 Lint。
+          ```
+      - 此项检查**不阻断工作流**，仅用于提醒用户关注知识库健康度
 6. **知识消费准备**（统一知识仓库模式）：
    a) 如果 `knowledgeRepoLocalPath` 不为 null（团队仓库已配置）：
       - 读取 `{knowledgeRepoLocalPath}/project-profiles/{project_name}.yaml` → 写入 `knowledgeContext.projectProfilePath`
@@ -800,6 +815,7 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 - ✅ 检测到上下文压缩事件后，**必须重新 read_file 读取 state.json**，并记录到 `contextHealth.compactionEvents`
 - ✅ 当 `intentAnalysis.intentType = "d2c-to-workflow"` 时，IMPLEMENT 阶段前端部分**跳过执行**（D2C 已完成前端代码），仅调度后端领域 Agent（如有）
 - ✅ 当 `intentAnalysis.d2cConfig` 存在且 `status = "completed"` 时，ANALYSE_PRODUCT/ANALYSE_TECH/ARCHITECT_FRONTEND 各阶段**简化执行**（读取 D2C 产物信息后快速通过，不做深度分析）
+- ✅ **knowledgeReferences 字段强制校验**：每个阶段"总结确认"时，检查该阶段核心产物是否包含 `knowledgeReferences` 字段（即使为空数组 `[]`）。缺失则在总结中标注 🟡 warn（不阻断，但进入 `contextHealth.phaseMetrics.missingKnowledgeRefs`），详见 `rules/knowledge-query-protocol.md` §5
 
 ### 9.2 禁止做的（DON'T）
 
@@ -823,16 +839,17 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 | 当前阶段 | 需加载的规则片段 | 说明 |
 |---------|----------------|------|
-| ANALYSE_PRODUCT | `phases/analyse-product-rules.md` | 三级降级调度 + Agent Teams 四成员串行协作规则 + 上下文防火墙 + 知识基线注入协议 |
+| ANALYSE_PRODUCT | `phases/analyse-product-rules.md` + `rules/knowledge-query-protocol.md` | 三级降级调度 + Agent Teams 四成员串行协作规则 + 上下文防火墙 + 知识基线注入协议 + 知识查询协议 |
 | CLARIFY_PRODUCT | `phases/clarify-rules.md` | 澄清流程 + 回填规范 |
 | CLARIFY_TECH | `phases/clarify-rules.md` | 同上 |
 | CLARIFY_ARCH_BACKEND | `phases/clarify-rules.md` | 同上 |
 | CLARIFY_ARCH_FRONTEND | `phases/clarify-rules.md` | 同上 |
-| ANALYSE_TECH | `phases/analyse-tech-rules.md` | 调度模式选择 + Agent Teams 四成员串行协作规则 + 代码画像注入协议 |
-| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` | 主规则（~280行）：调度决策 + 检查点机制 + 三步模式。详细规则按需加载子文件 |
+| ANALYSE_TECH | `phases/analyse-tech-rules.md` + `rules/knowledge-query-protocol.md` | 调度模式选择 + Agent Teams 四成员串行协作规则 + 代码画像注入协议 + 知识查询协议 |
+| ARCHITECT_BACKEND | `phases/architect-backend-rules.md` + `rules/knowledge-query-protocol.md` | 主规则（~280行）：调度决策 + 检查点机制 + 三步模式 + 知识查询协议。详细规则按需加载子文件 |
 | ARCHITECT_BACKEND 执行时 | `phases/architect-backend-level{1,2,3}.md` | 按实际降级路径按需加载：Level 1 Agent Teams / Level 2 Task 流水线 / Level 3 兜底 |
-| IMPLEMENT | `phases/implement-rules.md` | 动态调度 + Agent Teams 模式 + 编译修复模式 + D2C 嵌入模式 |
-| BUILD_VERIFY | `phases/build-verify-rules.md` | 调度模式选择 + Agent Teams 规则 + 精细化回退策略 |
+| ARCHITECT_FRONTEND | `rules/knowledge-query-protocol.md` | 知识查询协议（由 frontend-architect 自行引用） |
+| IMPLEMENT | `phases/implement-rules.md` + `rules/knowledge-query-protocol.md` | 动态调度 + Agent Teams 模式 + 编译修复模式 + D2C 嵌入模式 + 知识查询协议 |
+| BUILD_VERIFY | `phases/build-verify-rules.md` + `rules/knowledge-query-protocol.md` | 调度模式选择 + Agent Teams 规则 + 精细化回退策略 + 知识查询协议（编译失败时 pitfall 查询） |
 | 任何阶段的"预览"/"总结确认" | `phases/output-formats/common.md` | 通用展示格式（预览/总结/澄清/列表/PRD重复/二次确认） |
 | ANALYSE_PRODUCT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-product-formats.md` | 通用格式 + ANALYSE_PRODUCT Agent Teams 专用格式 |
 | ANALYSE_TECH 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-tech-formats.md` | 通用格式 + ANALYSE_TECH Agent Teams 专用格式 |
@@ -977,7 +994,9 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 5. 所有领域 Agent 共享 `agents/backend-developers/backend-dev-specification.md` 通用规范
 6. 领域差异通过 Prompt 注入和 `domain-registry.json` 的 `extraRules` / `extraQualityChecks` 字段表达
 
-### 12.3 通知机制（可选）
+### 12.3 通知机制（可选 · 人机协同节点主动推送）
+
+> **设计意图**：博文 §8 强调"关键节点（架构评审、产物验收、编译失败）应通过企业微信等渠道主动推送"。通知机制将工作流的关键状态变更从"用户轮询"转为"主动推送"，缩短人机交互的反馈延迟。
 
 编排器支持在关键阶段完成时发送通知。通知配置通过 `state.json` 的 `notificationConfig` 字段控制：
 
@@ -985,13 +1004,113 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 {
   "notificationConfig": {
     "enabled": false,
-    "provider": "custom",
-    "events": ["phase_complete", "quality_gate_fail", "workflow_done"]
+    "provider": "send-flow-message",
+    "events": [
+      "architect_review",
+      "build_verify_fail",
+      "visual_review_fail",
+      "workflow_done"
+    ]
   }
 }
 ```
 
-当 `enabled: false` 时，所有通知静默跳过。具体的通知实现由项目自行配置。
+当 `enabled: false` 时，所有通知静默跳过。
+
+#### 12.3.1 通知事件定义
+
+| 事件 ID | 触发时机 | 通知优先级 | 消息类型 |
+|---------|---------|-----------|---------|
+| `architect_review` | ARCHITECT_BACKEND / ARCHITECT_FRONTEND 的"总结确认"步骤展示后 | 中 | 卡片 |
+| `build_verify_fail` | BUILD_VERIFY 阶段存在 ❌ FAIL 维度，总结确认展示后 | **高** | 卡片 |
+| `visual_review_fail` | VISUAL_REVIEW 阶段 `qualityGate = fail`，总结确认展示后 | **高** | 卡片 |
+| `workflow_done` | ARCHIVE 阶段归档完成（已由 `archiver.md` 阶段六实现） | 低 | Markdown |
+
+> **未包含的阶段**：ANALYSE_PRODUCT / ANALYSE_TECH / IMPLEMENT / E2E_VERIFY / TEST 的总结确认**不发送通知**（这些阶段的人工介入密度较低，通知会造成噪音）。`workflow_done` 由 archiver 阶段六独立处理，不在编排器层重复触发。
+
+#### 12.3.2 消息模板
+
+**architect_review（架构评审通知）**：
+
+```
+🏗️ 架构设计已完成 · {需求名称}
+
+📦 需求ID: {requirementId}
+📐 阶段: {ARCHITECT_BACKEND / ARCHITECT_FRONTEND}
+📊 质量门禁: {qualityGate} (评分: {qualityScore}/5.0)
+⚠️ 风险项: {riskCount} 项
+🧠 知识引用: {knowledgeRefCount} 条
+
+💡 请审阅架构方案，确认后继续进入 {下一阶段名称}。
+```
+
+**build_verify_fail（编译失败通知）**：
+
+```
+🔴 编译验证失败 · {需求名称}
+
+📦 需求ID: {requirementId}
+❌ 失败平台: {failedPlatforms 列表}
+✅ 通过平台: {passedPlatforms 列表}
+
+错误摘要:
+{每个失败平台的 top-3 错误，格式: "  - [{平台}] {错误文件}:{行号} — {错误摘要}"}
+
+🔧 建议操作: 回退到 IMPLEMENT 修复后重新编译
+```
+
+**visual_review_fail（视觉验收失败通知）**：
+
+```
+🎨 视觉验收未通过 · {需求名称}
+
+📦 需求ID: {requirementId}
+📊 还原度评分: {visualReviewScore}/100
+🔴 严重差异: {criticalCount} 项
+🟡 明显差异: {majorCount} 项
+
+🔧 建议操作: 回退到 IMPLEMENT 修复视觉差异
+```
+
+#### 12.3.3 通知发送协议
+
+编排器在触发通知事件时，按以下流程执行：
+
+1. **检查 `notificationConfig.enabled`**：
+   - `false` → 静默跳过，不做任何探测
+   - `true` → 继续
+
+2. **检查事件过滤**：当前事件 ID 是否在 `notificationConfig.events[]` 中
+   - 不在 → 跳过
+   - 在 → 继续
+
+3. **探测通知技能**（与 archiver 阶段六相同的探测逻辑）：
+   - 按优先级搜索：`{skills-dir}/send-flow-message/` → `{skills-dir}/` 下任何含 `send` / `notify` 的技能目录 → `scripts/notify*`
+   - 如果找到 → 读取其 SKILL.md 了解调用方式
+   - 如果未找到 → 在总结确认中追加 `💡 提示: 通知已启用但未找到推送技能，如需企微通知请配置 send-flow-message`
+
+4. **构造消息**：根据 §12.3.2 模板填充字段
+
+5. **发送**：
+   - 高优先级事件（`build_verify_fail` / `visual_review_fail`）→ 使用**卡片格式**（含标题 + 描述 + 来源）
+   - 中优先级事件（`architect_review`）→ 使用**卡片格式**
+   - 低优先级事件（`workflow_done`）→ 使用 **Markdown 格式**（已由 archiver 阶段六处理）
+
+6. **容错**：发送失败**不阻断工作流**，在总结确认中追加 `⚠️ 通知发送失败: {错误信息}`
+
+#### 12.3.4 INIT 阶段的通知配置初始化
+
+在 INIT 阶段（§7.3）步骤 5 完成后，编排器检查通知配置：
+
+1. 如果 `state.json` 中已有 `notificationConfig` → 保持原值
+2. 如果不存在 → 初始化为默认值（`enabled: false`）
+3. **自动激活判定**：如果探测到 `{skills-dir}/send-flow-message/SKILL.md` 存在 → 将 `enabled` 设为 `true`、`provider` 设为 `"send-flow-message"`，并在 INIT 总结中告知：
+   ```
+   📨 通知机制: 已自动启用（检测到 send-flow-message 技能）
+   推送事件: 架构评审 / 编译失败 / 视觉验收失败 / 归档完成
+   ```
+
+> **设计决策**：通知默认关闭，但探测到推送技能后自动开启——既避免无技能时的无效探测，又让有推送能力的项目零配置享受通知。用户可通过修改 `state.json` 的 `notificationConfig.events[]` 自定义接收哪些事件。
 
 ### 12.4 TAPD 集成（可选）
 

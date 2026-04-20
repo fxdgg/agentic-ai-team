@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TechExplorationResult",
-  "description": "ANALYSE_TECH 阶段 @tech-explorer 产出的结构化探索结论中间产物 Schema。此文件是 Parallel Agent 模式下成员间的通信契约——explorer 写入，designer 和 splitter 读取。",
+  "description": "ANALYSE_TECH 阶段 @tech-explorer 产出的结构化探索结论中间产物 Schema。此文件是 Agent Teams 模式下成员间的通信契约——explorer 写入，designer 和 splitter 读取。",
   "type": "object",
-  "required": ["metadata", "projectOverview", "requirementAnalysis", "globalReuseStats"],
+  "required": ["metadata", "projectOverview", "requirementAnalysis", "globalReuseStats", "knowledgeReferences"],
   "properties": {
     "metadata": {
       "type": "object",
@@ -299,6 +299,22 @@
           "context": { "type": "string" }
         }
       }
+    },
+    "knowledgeReferences": {
+      "description": "知识引用追踪（强制字段，即使未查询也须为空数组 []）。详见 `references/knowledge-references-schema.json` 和 `rules/knowledge-query-protocol.md` §5。archiver 阶段七 Step 13 会扫描此字段更新 evidence.last_referenced。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "type", "usedIn"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^(TK|BK|DEC|GL|PIT|MOD|PRC)[A-Z0-9-]*$" },
+          "title": { "type": "string" },
+          "type": { "type": "string", "enum": ["model", "decision", "guideline", "pitfall", "process"] },
+          "usedIn": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
     }
   },
   "definitions": {

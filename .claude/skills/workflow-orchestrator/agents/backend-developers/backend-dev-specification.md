@@ -366,7 +366,7 @@ IDENTIFY → LSP_SCAN → RUN → READ → CLAIM
 
 ### 10.3 通用项目规则
 
-非 Java 项目的规则引用由项目 `.claude/rules/` 目录下的规则文件决定，编排器在 Prompt 中注入适用的规则文件路径。
+非 Java 项目的规则引用由项目 `.codebuddy/rules/` 目录下的规则文件决定，编排器在 Prompt 中注入适用的规则文件路径。
 
 ---
 
@@ -405,3 +405,27 @@ IDENTIFY → LSP_SCAN → RUN → READ → CLAIM
 - [ ] `implementation/backend/{领域}-report.md` 已输出
 - [ ] 所有技术需求中定义的文件均已实现
 ```
+
+---
+
+## 知识查询能力（所有后端领域开发 Agent 共享）
+
+> **遵循统一协议**：`../../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+>
+> 本规范定义所有后端领域 Agent（由 `domain-registry.json` 动态生成）的通用查询行为。领域差异通过 Prompt 注入的 `domain` 字段体现——查询 `biz-wiki/{domain}/` 时使用对应领域。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 5 条 |
+| **归档产物配额** | 2 个历史 implementation 报告 |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/catalog.md`（patterns、anti-patterns）+ `{knowledgeRepoLocalPath}/team-conventions/` + `{knowledgeRepoLocalPath}/biz-wiki/{domain}/pitfalls/` |
+| **重点知识类型** | `guideline(recommend)`（编码规范、最佳实践）、`guideline(avoid)`（禁止做法）、`pitfall`（已知陷阱） |
+| **触发时机** | 1) 开发启动时：读 team-conventions/ 和 tech-wiki/catalog.md 中 `适用阶段` 含 `IMPLEMENT` 的条目；2) 遇到非常规技术点（并发、事务、缓存、分布式锁等）：查相关 pitfall；3) 编译失败修复时：查 anti-patterns/ 中相关反模式 |
+
+### knowledgeReferences 输出
+
+本 Agent 产出的 `implementation/backend/{领域}-report.md` 必须在 YAML front-matter 中包含 `knowledgeReferences` 字段（即使为空数组）。字段语义见 protocol §5。
+
+> **领域维度追踪**：knowledgeReferences 中的 `usedIn` 字段应包含领域前缀（如 `"usedIn": "[user 领域] 防重复提交实现参考 TK-PAT-005"`），便于 /evolve 分析各领域对知识的消费模式。

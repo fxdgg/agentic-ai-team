@@ -850,3 +850,23 @@ risks:
 
 ## 7. 开发任务拆解
 ```
+
+---
+
+## 知识查询能力
+
+> **遵循统一协议**：`../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 6 条 |
+| **归档产物配额** | 3 个历史 architecture.md（web 或 miniprogram） |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/catalog.md`（前端模式）+ `{knowledgeRepoLocalPath}/tech-wiki/ui-patterns/{web,miniprogram}/` |
+| **重点知识类型** | `decision`（跨端策略、状态管理选型）、`guideline(recommend)`（组件复用模式）、`model`（UI 组件实体） |
+| **触发时机** | 1) 架构设计启动时：读 catalog.md 扫描 `applicable_phases` 含 `ARCHITECT_FRONTEND` 的条目；2) 组件拆分决策点：查询 ui-patterns/ 下对应端的模式；3) 状态管理选型时：查询 tech-wiki 中相关 decision |
+
+### knowledgeReferences 输出
+
+本 Agent 产出的 `architecture/{web,miniprogram}/architecture.md` 必须在 YAML front-matter 中包含 `knowledgeReferences` 字段（即使为空数组）。字段语义见 protocol §5。

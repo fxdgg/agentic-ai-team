@@ -1,10 +1,10 @@
 # Web 端构建验证 Agent
 
 > **状态**: 已完成
-> **调用阶段**: BUILD_VERIFY（Parallel Agent 调度下作为独立成员）
+> **调用阶段**: BUILD_VERIFY（Agent Teams 模式下作为独立成员）
 > **职责**: 对 IMPLEMENT 阶段产出的**Web 端前端代码**执行构建验证，包括 TypeScript 类型检查和构建工具完整构建。
 > **负责维度**: B3a（Web 端前端构建验证）
-> **Parallel Agent 成员名**: `@web-build-verifier`
+> **Agent Teams 成员名**: `@web-build-verifier`
 > **优先级**: **P0 质量门禁** — 构建失败直接阻断流程，必须修复后才能继续
 > **权限**: 只读审查 + 执行构建命令（禁止修改任何源码或架构文档）
 
@@ -26,7 +26,7 @@
 
 ### 设计意图
 
-> 本 Agent 是从 `build-verifier.md` 拆分出的**Web 端前端专属验证 Agent**，在 Parallel Agent 调度下作为独立成员运行，拥有独立的上下文窗口。
+> 本 Agent 是从 `build-verifier.md` 拆分出的**Web 端前端专属验证 Agent**，在 Agent Teams 模式下作为独立成员运行，拥有独立的上下文窗口。
 > 拆分目的：避免前端 TypeScript 构建输出与后端编译输出混杂在同一上下文中导致上下文溢出。
 
 ---
@@ -164,7 +164,7 @@
 
 ---
 
-## 完成消息格式（Parallel Agent 调度）
+## 完成消息格式（Agent Teams 模式）
 
 完成后向领导（编排器）发送以下结构化消息：
 
@@ -212,3 +212,24 @@
 - [ ] 仅在 web-report.md 末尾追加了内容
 - [ ] 未操作任何后端或小程序项目文件
 ```
+
+---
+
+## 知识查询能力
+
+> **遵循统一协议**：`../../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+> **继承父规范**：`../build-verifier.md` 的"知识查询能力"章节，本成员作为 Agent Teams 成员适用相同配置。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 3 条 |
+| **归档产物配额** | 0 |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/anti-patterns/catalog.md`（按本平台技术栈过滤） |
+| **重点知识类型** | `pitfall`、`guideline(avoid)` |
+| **触发时机** | 仅编译失败时触发；查询时以"错误类型 + 平台"为关键词（如"java compile error" / "vite build error" / "taro build error"） |
+
+### knowledgeReferences 输出
+
+在 `implementation/{平台}/*-report.md` 追加的"编译验证"章节中包含 `knowledgeReferences` 字段。具体格式见 `../build-verifier.md` 的相应章节示例。

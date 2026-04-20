@@ -115,3 +115,17 @@ Agent 查询知识后，在其输出产物中记录引用：
 ```
 
 ARCHIVE 阶段七读取各阶段产物中的 `knowledgeReferences`，批量更新 `evidence.last_referenced` 字段。这形成自动化的引用追踪闭环。
+
+---
+
+## 5.6 角色对消费行为的影响
+
+知识消费与团队角色无关——**所有角色（maintainer/contributor/reader）都可自由查询知识库**。角色仅影响贡献（写入）：
+
+| 角色 | 查询（消费） | 贡献（写入 tech-wiki / biz-wiki） |
+|------|-------------|--------------------------------|
+| maintainer | ✅ | ✅（+ 审批 proven 提升） |
+| contributor | ✅ | ✅ |
+| reader | ✅ | ❌ ARCHIVE 阶段七跳过 Step 4-11（贡献写入） |
+
+> 角色从 `state.json` 的 `knowledgeContext.contributorRole` 读取。详见 `rules/knowledge-query-protocol.md` §6 和 `agents/archiver.md` 阶段七前置条件。

@@ -219,7 +219,7 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
    - 如果为空或文件不存在 → 使用 `ask_followup_question` 引导填写：
      ```
      👤 首次使用 ai-team，请提供个人信息（用于知识贡献追踪）：
-     
+
      姓名（将显示在知识条目的贡献者中）: ___
      角色（如 Full-Stack Developer）: ___
      ```
@@ -227,11 +227,37 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
      ```yaml
      name: "{用户输入}"
      role: "{用户输入}"
+     trial: false                    # 默认非试用期；新成员试用期可手动设为 true，进入 reader 只读模式
      updated_at: "{ISO-8601}"
      ```
    - 如果 `name` 已有值 → 跳过，直接使用已有值
 
-> 个人偏好始终保存在本地 `~/.ai-team/preferences/`，不上传到团队知识仓库。
+3. **试用期确认**（新成员专属步骤）：
+
+   > **设计来源**：博文 §5.2 定义 reader 角色"适用于新成员试用期——只消费知识，不贡献"。此步骤让 reader 角色真正落地。
+
+   如果 `members` 列表非空且当前 `name` **不在**列表中（即将作为新成员加入），使用 `ask_followup_question` 询问：
+
+   ```
+   标题: 🆕 欢迎加入团队知识库
+   问题: 你是否需要试用期模式？
+
+   - 试用期（reader 角色）：只消费团队知识，不贡献新知识到团队库
+     你的工作流产物仍会正常生成，ARCHIVE 阶段的知识仅保留在项目内（Layer 3），
+     不会 push 到团队仓库。适合对团队业务/规范还不熟悉的新成员。
+
+   - 正式成员（contributor 角色）：完整参与知识共建，ARCHIVE 自动贡献到团队库
+
+   选项:
+     - "✅ 试用期（reader）— 我还想先观察一段时间"
+     - "🚀 正式成员（contributor）— 开始贡献知识"
+   ```
+
+   - 选择"试用期" → 写入 `profile.yaml` 的 `trial: true`
+   - 选择"正式成员" → 写入 `profile.yaml` 的 `trial: false`
+   - 如果是首个成员（`members` 列表为空）→ **跳过此步骤**（首个成员自动为 maintainer，不可为 reader）
+
+> 个人偏好始终保存在本地 `~/.ai-team/preferences/`，不上传到团队知识仓库。`trial` 字段仅影响后续 Step 7 的角色判定。
 
 ### Step 7：注册团队成员
 
@@ -239,10 +265,27 @@ ai-team 使用独立 Git 仓库作为团队共享知识库。
 
 1. **读取** `{knowledge-repo}/.knowledge-config.yaml` 的 `members` 列表
 
-2. **判断角色**：
-   - 如果 `members` 列表为空（首个成员 = 仓库创建者）→ 角色设为 `maintainer`
-   - 如果 `members` 列表非空且当前 `name` 不在列表中 → 角色设为 `contributor`
-   - 如果当前 `name` 已在列表中 → 跳过注册，使用已有角色
+2. **判断角色**（三级判定链）：
+   - **Case A**：如果 `members` 列表为空（首个成员 = 仓库创建者）→ 角色 = `maintainer`（首个成员强制为 maintainer，不允许为 reader）
+   - **Case B**：如果 `members` 列表非空且当前 `name` **不在**列表中：
+     - 读取 `~/.ai-team/preferences/profile.yaml` 的 `trial` 字段
+     - `trial == true` → 角色 = `reader`
+     - `trial == false`（或字段不存在）→ 角色 = `contributor`
+   - **Case C**：如果当前 `name` 已在列表中 → 跳过注册，使用 `members` 列表中已有的角色
+
+3. **角色升级路径**（已注册成员从 reader 升级为 contributor）：
+   - 如果用户的 `profile.yaml` 标注 `trial: false` 但 `.knowledge-config.yaml` 中该成员记录为 `role: reader` → 提示并升级：
+     ```
+     🎓 检测到你已结束试用期
+
+     是否将你的团队角色从 reader 升级为 contributor？
+     升级后，下次工作流 ARCHIVE 将开始贡献知识到团队库。
+
+     选项:
+       - "✅ 升级为 contributor"
+       - "⏭️ 保持 reader（暂不升级）"
+     ```
+   - 用户确认升级 → 修改 `.knowledge-config.yaml` 中该成员的 `role: contributor`，并追加 `promoted_from_reader_at` 字段记录升级时间
 
 3. **写入成员信息**（追加到 `members` 列表）：
    ```yaml

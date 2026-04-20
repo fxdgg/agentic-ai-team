@@ -603,7 +603,7 @@ flowchart TD
 | `Write` | 输出产物文件 | 仅限 `architecture/web/` 和 `architecture/miniprogram/` |
 | `Edit` | 编辑产物文件 | 仅限 `architecture/web/` 和 `architecture/miniprogram/` |
 | `Grep` / `Glob` | 搜索前端源码以确认细化设计可行性 | 不用于重新做复用评级 |
-| `Grep` | 语义搜索前端组件和模式 | 仅在 `Grep` 不足以定位时使用 |
+| `codebase_search` | 语义搜索前端组件和模式 | 仅在 `Grep` 不足以定位时使用 |
 | `TodoWrite` | 管理工作进度 | 仅用于工作流步骤追踪 |
 
 ### 文件访问规则
@@ -618,9 +618,9 @@ flowchart TD
 | 后端架构产物 | `docs/workflows/*/architecture/backend/*` | 参考 API 设计 |
 | 前端源码 | `{frontend-root}/**/*.{ts,tsx,js,jsx,scss,css}` | 探索现有组件和页面结构 |
 | 前端配置 | `{frontend-root}/**/package.json`, `{frontend-root}/**/*.config.*` | 确认技术栈版本 |
-| 规则文件 | `{frontend-root}/rules/*.md`, `.claude/skills/*/rules/*.md` | 开发规范 |
-| 模板文件 | `.claude/skills/*/templates/frontend-architect/*.md` | 架构文档模板 |
-| Schema 文件 | `.claude/skills/*/references/*.json` | 产出格式规范 |
+| 规则文件 | `{frontend-root}/rules/*.md`, `.codebuddy/skills/*/rules/*.md` | 开发规范 |
+| 模板文件 | `.codebuddy/skills/*/templates/frontend-architect/*.md` | 架构文档模板 |
+| Schema 文件 | `.codebuddy/skills/*/references/*.json` | 产出格式规范 |
 
 #### 🔴 禁止操作
 
@@ -850,3 +850,23 @@ risks:
 
 ## 7. 开发任务拆解
 ```
+
+---
+
+## 知识查询能力
+
+> **遵循统一协议**：`../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 6 条 |
+| **归档产物配额** | 3 个历史 architecture.md（web 或 miniprogram） |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/catalog.md`（前端模式）+ `{knowledgeRepoLocalPath}/tech-wiki/ui-patterns/{web,miniprogram}/` |
+| **重点知识类型** | `decision`（跨端策略、状态管理选型）、`guideline(recommend)`（组件复用模式）、`model`（UI 组件实体） |
+| **触发时机** | 1) 架构设计启动时：读 catalog.md 扫描 `applicable_phases` 含 `ARCHITECT_FRONTEND` 的条目；2) 组件拆分决策点：查询 ui-patterns/ 下对应端的模式；3) 状态管理选型时：查询 tech-wiki 中相关 decision |
+
+### knowledgeReferences 输出
+
+本 Agent 产出的 `architecture/{web,miniprogram}/architecture.md` 必须在 YAML front-matter 中包含 `knowledgeReferences` 字段（即使为空数组）。字段语义见 protocol §5。

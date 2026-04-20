@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KnowledgeReferencesFragment",
+  "description": "所有 Agent 产物通用的知识引用追踪字段 Schema 片段。对齐 `rules/knowledge-query-protocol.md` §5。\n\n使用方式：\n- JSON 产物：在产物根对象的 required 中加入 'knowledgeReferences'，properties 中引用 $ref 指向本文件的 #/definitions/KnowledgeReferencesArray\n- Markdown 产物：在 YAML front-matter 的 qualityGate 字段旁追加 knowledgeReferences（遵循相同结构）\n\n强制要求：\n- 字段必须存在（即使为空数组 []）\n- 非空时，每个元素必须包含 id/title/type/usedIn 四个字段\n- archiver 阶段七 Step 13 会扫描所有产物的此字段，更新被引用条目的 evidence.last_referenced",
+  "definitions": {
+    "KnowledgeReference": {
+      "type": "object",
+      "required": ["id", "title", "type", "usedIn"],
+      "description": "单条知识引用记录",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "知识条目 ID（TK-*/BK-*/DEC-*/GL-*/PIT-*/MOD-*/PRC-*）",
+          "pattern": "^(TK|BK|DEC|GL|PIT|MOD|PRC)[A-Z0-9-]*$",
+          "examples": ["TK-SB-003", "BK-AD-G001", "DEC-005", "PIT-012"]
+        },
+        "title": {
+          "type": "string",
+          "description": "条目标题（冗余存储，便于人类 Review）",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "type": {
+          "type": "string",
+          "description": "知识类型",
+          "enum": ["model", "decision", "guideline", "pitfall", "process"]
+        },
+        "usedIn": {
+          "type": "string",
+          "description": "在本 Agent 产物中的具体引用点（可读字符串，如'需求点3复用评级'、'架构选型决策'）。用于 /evolve 分析知识使用模式。禁止写泛泛的'参考'、'使用'等无信息量描述",
+          "minLength": 3,
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "KnowledgeReferencesArray": {
+      "type": "array",
+      "description": "知识引用数组。本 Agent 查询并真正影响决策的条目列表。未查询或查了未用的条目不记录，但字段本身必须存在（空数组 []）。",
+      "items": {
+        "$ref": "#/definitions/KnowledgeReference"
+      },
+      "uniqueItems": true
+    }
+  },
+  "examples": [
+    [],
+    [
+      {
+        "id": "TK-SB-003",
+        "title": "分页查询延迟关联优化",
+        "type": "guideline",
+        "usedIn": "需求点3复用评级 Step 2"
+      },
+      {
+        "id": "BK-AD-G004",
+        "title": "广告预算扣减并发控制规则",
+        "type": "guideline",
+        "usedIn": "业务规则参考"
+      }
+    ]
+  ]
+}

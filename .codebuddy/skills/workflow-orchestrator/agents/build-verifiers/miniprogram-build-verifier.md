@@ -231,3 +231,24 @@
 - [ ] 仅在 miniprogram-report.md 末尾追加了内容
 - [ ] 未操作任何后端或 Web 端项目文件
 ```
+
+---
+
+## 知识查询能力
+
+> **遵循统一协议**：`../../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+> **继承父规范**：`../build-verifier.md` 的"知识查询能力"章节，本成员作为 Agent Teams 成员适用相同配置。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 3 条 |
+| **归档产物配额** | 0 |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/anti-patterns/catalog.md`（按本平台技术栈过滤） |
+| **重点知识类型** | `pitfall`、`guideline(avoid)` |
+| **触发时机** | 仅编译失败时触发；查询时以"错误类型 + 平台"为关键词（如"java compile error" / "vite build error" / "taro build error"） |
+
+### knowledgeReferences 输出
+
+在 `implementation/{平台}/*-report.md` 追加的"编译验证"章节中包含 `knowledgeReferences` 字段。具体格式见 `../build-verifier.md` 的相应章节示例。

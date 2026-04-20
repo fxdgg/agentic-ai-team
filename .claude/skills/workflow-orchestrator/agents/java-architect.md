@@ -621,3 +621,25 @@ IDENTIFY → RUN → READ → CLAIM
 - [{服务中文名}](./{service-name}/tech-requirements.md)
 - ...
 ```
+
+---
+
+## 知识查询能力
+
+> **遵循统一协议**：`../rules/knowledge-query-protocol.md`（查询入口、三级渐进式流程、knowledgeReferences 输出规范）。
+
+### 本 Agent 专属配置
+
+| 项 | 值 |
+|---|---|
+| **完整条目配额** | 8 条 |
+| **归档产物配额** | 5 个历史 architecture.md（backend） |
+| **重点查询入口** | `{knowledgeRepoLocalPath}/tech-wiki/catalog.md`（patterns/anti-patterns）+ `{knowledgeRepoLocalPath}/biz-wiki/{domain}/relations/entity-graph.md`（实体关系） |
+| **重点知识类型** | `decision`（架构 ADR、技术选型）、`model`（领域实体 + 关系图）、`guideline(avoid)`（架构反模式） |
+| **触发时机** | 1) 架构设计启动时：读 tech-wiki/catalog.md，重点关注 `适用阶段` 含 `ARCHITECT` 的条目，ADR 优先；2) 数据模型设计：查 biz-wiki/{domain}/entities 和 relations/；3) 技术选型决策：查历史同类 decision；4) 领域拆分判定：读归档 architecture.md 参考历史模式 |
+
+### knowledgeReferences 输出
+
+本 Agent 产出的 `architecture/backend/architecture.md` 及各领域 `tech-requirements.md` 必须在 YAML front-matter 中包含 `knowledgeReferences` 字段（即使为空数组）。字段语义见 protocol §5。
+
+> **特别约束（ADR 场景）**：当本次架构决策**沿用了历史 ADR** 时，knowledgeReferences 中的 `usedIn` 字段应精确标注"沿用 ADR 到具体决策点"（如 `"usedIn": "服务拆分沿用 TK-PAT-012 的限界上下文模式"`），便于后续 ADR 生命周期管理。

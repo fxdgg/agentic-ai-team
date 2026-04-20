@@ -1,6 +1,6 @@
 # BUILD_VERIFY 调度与精细化回退策略（按需加载）
 
-> **加载时机**: 编排器进入 BUILD_VERIFY 阶段时加载本文件，包括调度模式选择、Parallel Agent 调度管理、编译失败回退等。
+> **加载时机**: 编排器进入 BUILD_VERIFY 阶段时加载本文件，包括调度模式选择、Agent Teams 团队管理、编译失败回退等。
 
 ### repos[] 适配规则
 
@@ -23,13 +23,13 @@ BUILD_VERIFY 阶段支持**三级降级调度**，编排器按优先级逐级尝
 
 | 级别 | 模式 | 触发条件 | 说明 |
 |------|------|---------|------|
-| **Level 1** | Parallel Agent 调度（默认） | 启用平台数量 ≥ 2 时优先尝试 | 各平台验证成员独立上下文窗口，隔离 Maven/TypeScript/Taro 构建输出膨胀 |
+| **Level 1** | Agent Teams 模式（默认） | 启用平台数量 ≥ 2 时优先尝试 | 各平台验证成员独立上下文窗口，隔离 Maven/TypeScript/Taro 构建输出膨胀 |
 | **Level 2** | Task 串行流水线 | Level 1 创建失败 / 超时无响应 / 启用平台仅 1 个 | 1-N 个同步 Task 串行调用，复用子 Agent 规范，中间产物传递 |
 | **Level 3** | 编排器直接执行 | Level 2 执行失败 | 编排器自身上下文内，参考 `agents/build-verifier.md` 规范直接执行编译验证 |
 
 > **设计意图**:
-> - **Level 1 (Parallel Agent)** 的核心价值是**上下文防火墙**。后端 Maven 编译输出（数百行 stacktrace + 依赖树）与前端 TypeScript/Vite/Taro 构建输出各自在独立窗口中，彻底避免上下文溢出。多平台验证可真并行执行，效率最高。
-> - **Level 2 (Task 串行流水线)** 解决 Parallel Agent 异步机制不可靠或仅单平台的问题。同步 Task 调用保证可靠性，同时通过拆分 Task 并借助中间产物文件传递数据，避免单个 Task 上下文窗口被撑爆。每个 Task Agent 自行 `Read` 读取子 Agent 规范文件（而非注入完整内容到 Prompt），控制 Prompt 大小。
+> - **Level 1 (Agent Teams)** 的核心价值是**上下文防火墙**。后端 Maven 编译输出（数百行 stacktrace + 依赖树）与前端 TypeScript/Vite/Taro 构建输出各自在独立窗口中，彻底避免上下文溢出。多平台验证可真并行执行，效率最高。
+> - **Level 2 (Task 串行流水线)** 解决 Agent Teams 异步机制不可靠或仅单平台的问题。同步 Task 调用保证可靠性，同时通过拆分 Task 并借助中间产物文件传递数据，避免单个 Task 上下文窗口被撑爆。每个 Task Agent 自行 `read_file` 读取子 Agent 规范文件（而非注入完整内容到 Prompt），控制 Prompt 大小。
 > - **Level 3 (编排器直接执行)** 是最终兜底。编排器在自身上下文中参考 `agents/build-verifier.md` 的核心流程直接执行编译验证，产出精度最低但保证流程不阻断。
 
 ### 0.1 降级决策流程
@@ -183,17 +183,17 @@ BUILD_VERIFY 阶段的调度模式遵循 **§0 三级降级调度策略**，编�
 启用平台总数 = backend.enabled(1/0) + web.enabled(1/0) + miniprogram.enabled(1/0)
 
 示例：
-- backend + web → 2 个平台 → Level 1 (Parallel Agent) ✅
-- backend + web + miniprogram → 3 个平台 → Level 1 (Parallel Agent) ✅
+- backend + web → 2 个平台 → Level 1 (Agent Teams) ✅
+- backend + web + miniprogram → 3 个平台 → Level 1 (Agent Teams) ✅
 - 仅 backend → 1 个平台 → 直接 Level 2 (Task 串行流水线)
 - 仅 web → 1 个平台 → 直接 Level 2 (Task 串行流水线)
 ```
 
-## 4.4 Parallel Agent 模式调度规则
+## 4.4 Agent Teams 模式调度规则
 
 ### 4.4.1 团队创建
 
-编排器作为 **调度中心（团队领导）** 创建 Agent Team，使用**委派模式（Delegate Mode）**：
+编排器作为 **team-lead（团队领导）** 创建 Agent Team，使用**委派模式（Delegate Mode）**：
 
 **创建指令模板**:
 
@@ -268,11 +268,11 @@ BUILD_VERIFY 阶段的调度模式遵循 **§0 三级降级调度策略**，编�
 
 ### 4.4.4 领导（编排器）的行为约束
 
-在 Parallel Agent 调度下，编排器作为 调度中心：
+在 Agent Teams 模式下，编排器作为 team-lead：
 
 | ✅ 必须做 | ❌ 禁止做 |
 |-----------|---------|
-| 发起 Agent 调用并收集结果 | 直接执行任何编译命令 |
+| 创建团队并分配任务 | 直接执行任何编译命令 |
 | 监控成员完成状态 | 在成员工作时中断它们 |
 | 接收成员的完成消息 | 替代成员完成未完成的任务 |
 | 汇总各成员结果并生成统一总结 | 向成员传递其他成员的完整对话 |
@@ -288,23 +288,40 @@ BUILD_VERIFY 阶段的调度模式遵循 **§0 三级降级调度策略**，编�
 3. 确认各端 report.md 已追加编译验证章节
 4. 更新 state.json 中 buildVerifyMode 字段为 "agent-teams"
 5. 记录 buildVerifyTeam 信息（团队名、成员列表、各成员状态）
-6. 
+6. 关闭所有成员 → 清理团队
 7. 恢复正常模式，进入总结确认步骤
 ```
 
-### 4.4.6 失败检测与自动降级（Level 1 → Level 2）
+### 4.4.6 超时检测与自动降级（Level 1 → Level 2）
 
-Agent 工具为同步调用，无需超时计时器。降级触发条件：
+Agent Teams 异步消息机制存在不可靠性风险。编排器必须实施超时检测，防止无限等待：
 
-1. **Agent 调用返回错误**：子 Agent 执行失败或返回空结果
-2. **产物验证失败**：Agent 返回成功但编译验证结果未写入
+#### 超时策略
 
-#### 降级决策
+```
+超时检测流程（对每个成员执行）：
 
-| 场景 | 处理 |
-|------|------|
-| Agent 调用失败且无编译验证产物 | 降级到 Level 2（从该平台 Task 开始） |
-| Agent 调用失败但产物已存在 | 跳过该平台，继续处理其他平台结果 |
+1. 成员创建后启动计时器
+2. 等待 120 秒（2 分钟）后检查：
+   a) 如果成员已发送完成消息 → 正常继续
+   b) 如果成员未响应 → 发送催促消息：
+      "请汇报当前进度。如果已完成，请发送完成消息。"
+3. 催促后再等待 60 秒（1 分钟）：
+   a) 如果收到响应 → 继续等待完成
+   b) 如果仍无响应 → 判定为超时
+4. 超时处理：
+   a) 向该成员发送 shutdown_request
+   b) 检查该成员应产出的编译验证结果（对应 report.md 中的编译验证章节）是否已写入
+   c) 如果产物已存在 → 跳过该成员，继续处理其他平台结果
+   d) 如果产物不存在 → 触发降级
+```
+
+#### 降级触发条件
+
+| 触发条件 | 降级目标 |
+|---------|---------|
+| 团队创建失败（team_create 报错） | Level 2 |
+| 任一成员超时且无编译验证产物 | Level 2（从该成员对应的平台 Task 开始） |
 
 #### 降级执行
 
@@ -318,9 +335,9 @@ Agent 工具为同步调用，无需超时计时器。降级触发条件：
 5. 跳转到 §4.5（Level 2 Task 串行流水线），从断点继续
 ```
 
-### 4.4.7 state.json 中的 Parallel Agent 记录
+### 4.4.7 state.json 中的 Agent Teams 记录
 
-使用 Parallel Agent 调度时，在 state.json 中记录以下信息：
+使用 Agent Teams 模式时，在 state.json 中记录以下信息：
 
 ```json
 {
@@ -353,13 +370,13 @@ Agent 工具为同步调用，无需超时计时器。降级触发条件：
 
 ## 4.5 Level 2: Task 串行流水线
 
-当 Level 1 失败/超时或启用平台仅 1 个时，编排器使用 Agent 工具串行调用，按平台串行执行编译验证。每个 Task 复用 `agents/build-verifiers/` 下的子 Agent 规范，通过中间产物文件传递上下文。
+当 Level 1 失败/超时或启用平台仅 1 个时，编排器使用同步 Task 工具调用，按平台串行执行编译验证。每个 Task 复用 `agents/build-verifiers/` 下的子 Agent 规范，通过中间产物文件传递上下文。
 
 ### 4.5.1 核心设计原则
 
 | 原则 | 说明 |
 |------|------|
-| **规范文件引用，非注入** | Task Prompt 中只给出 Agent 规范文件的**绝对路径**，由 Task Agent 自行 `Read` 加载，避免 Prompt 膨胀 |
+| **规范文件引用，非注入** | Task Prompt 中只给出 Agent 规范文件的**绝对路径**，由 Task Agent 自行 `read_file` 加载，避免 Prompt 膨胀 |
 | **中间产物传递** | 各平台 Task 的编译验证结果写入对应 report.md 的编译验证章节，保证数据格式与 Level 1 一致 |
 | **断点恢复** | 每个 Task 完成后产物已落盘，降级或中断后可从已完成的 Task 之后继续 |
 | **上下文隔离** | 每个 Task 仅处理自己平台的编译输出，避免跨平台构建日志互相污染上下文 |
@@ -393,7 +410,7 @@ Task 流水线（按启用的平台动态生成，顺序执行）：
 ```
 你是一位编译验证专家，负责 {平台中文名} 的构建验证。请按以下步骤执行：
 
-1. 读取你的 Agent 行为规范文件（Read）：{agents/build-verifiers/{平台}-build-verifier.md 的绝对路径}
+1. 读取你的 Agent 行为规范文件（read_file）：{agents/build-verifiers/{平台}-build-verifier.md 的绝对路径}
 2. 读取工作流状态：{state.json 的绝对路径}
 3. 读取实现报告：{implementation/{平台}/*-report.md 的绝对路径}
 {后端额外步骤}:
@@ -409,7 +426,7 @@ Task 流水线（按启用的平台动态生成，顺序执行）：
 项目根目录：{项目绝对路径}
 
 ⚠️ 重要：
-- 你必须先 Read 读取 Agent 规范文件，再按规范执行
+- 你必须先 read_file 读取 Agent 规范文件，再按规范执行
 - 完成后返回各维度的 PASS/FAIL/WARN/N/A 状态和错误摘要
 ```
 
@@ -424,7 +441,7 @@ Task 流水线（按启用的平台动态生成，顺序执行）：
    c) 未有编译验证章节 → 加入待执行列表
 
 2. 按顺序执行各平台 Task（如需）：
-   a) 使用 Agent 工具，注入 §4.5.3 Prompt（替换平台占位符）
+   a) 使用 Task 工具，注入 §4.5.3 Prompt（替换平台占位符）
    b) Task 返回后，检查对应 report.md 是否成功追加编译验证章节
    c) 如果写入失败 → 降级到 Level 3（§4.6）
 
@@ -491,7 +508,7 @@ Task 流水线（按启用的平台动态生成，顺序执行）：
 
 | 值 | 说明 |
 |-----|------|
-| `"agent-teams"` | Level 1: Parallel Agent 调度成功完成 |
+| `"agent-teams"` | Level 1: Agent Teams 模式成功完成 |
 | `"task-pipeline"` | Level 2: Task 串行流水线模式完成 |
 | `"fallback"` | Level 3: 编排器直接执行模式完成 |
 | `"task"`  | 兼容旧值：等价于 Level 3（断点恢复时按 Level 3 处理） |
@@ -559,28 +576,28 @@ Task 流水线（按启用的平台动态生成，顺序执行）：
 本阶段遵循标准三步模式（预览 → 执行 → 总结确认）：
 
 **Step 1: 预览** — 展示即将执行的编译验证计划：
-- 调度模式（Level 1 Parallel Agent / Level 2 Task 串行流水线 / Level 3 编排器直接执行）
+- 调度模式（Level 1 Agent Teams / Level 2 Task 串行流水线 / Level 3 编排器直接执行）
 - 如为断点恢复，说明从哪个步骤继续
 - 启用的平台列表（后端/Web 端/小程序端）
-- Parallel Agent 调度下：团队名称、成员列表、各成员负责的维度
+- Agent Teams 模式下：团队名称、成员列表、各成员负责的维度
 - Task 流水线模式下：Task 数量和各 Task 对应平台
 - 后端：涉及的 Maven 模块列表和编译范围
 - Web 端/小程序端：项目路径和构建命令
 - 跳过的平台（未启用）和跳过原因
 
 **Step 2: 执行** —
-- **Level 1 (Parallel Agent)**: 创建验证团队 → 分配任务（全并行） → 监控完成 → 超时检测 → 汇总结果 → 
+- **Level 1 (Agent Teams)**: 创建验证团队 → 分配任务（全并行） → 监控完成 → 超时检测 → 汇总结果 → 清理团队
 - **Level 2 (Task 串行流水线)**: 按平台串行调用 Task，检查编译验证产物
 - **Level 3 (编排器直接执行)**: 编排器自身读取输入并执行编译验证
 
 **Step 3: 总结确认** — 根据验证结果展示不同级别的提示：
-- 实际使用的调度模式（含降级信息，如"Parallel Agent → Serial Agent 串行流水线（@backend-build-verifier 超时降级）"）
+- 实际使用的调度模式（含降级信息，如"Agent Teams → Task 串行流水线（@backend-build-verifier 超时降级）"）
 
 | 验证结果 | 编排器行为 |
 |----------|-----------|
 | 全部 ✅ PASS | 正常展示总结，提示进入 VISUAL_REVIEW 阶段（或 E2E_VERIFY 如无设计稿）。展示编译耗时和模块覆盖率。 |
 | 存在 ⚠️ WARN | 展示 🟡 黄色警告："编译验证发现 {N} 个警告项（依赖冲突/版本差异/包体积接近限制），建议关注但不阻塞。" 用户可选择继续或回退。 |
-| 存在 ❌ FAIL | 展示 🔴 红色警告，按平台分组展示错误摘要。**强烈建议回退修复。** |
+| 存在 ❌ FAIL | 展示 🔴 红色警告，按平台分组展示错误摘要。**强烈建议回退修复。** **触发 `build_verify_fail` 通知**（见 SKILL.md §12.3）：构造编译失败卡片消息，包含失败/通过平台列表和 top-3 错误摘要，通过 `send-flow-message` 推送到企微群，让不在 IDE 前的团队成员及时知晓编译阻断。通知失败不阻断流程。 |
 | Level 3 兜底模式 | 追加精度降低警告："本次编译验证使用了兜底模式，验证精度可能有所下降，建议仔细审阅结果。" |
 
 ## 5. BUILD_VERIFY PASS 后的流转指令（CRITICAL）

@@ -128,7 +128,7 @@ Playwright CLI 路径：~/.codebuddy/plugins/marketplaces/codebuddy-plugins-offi
 |---------|-----------|
 | qualityGate = `pass` | 正常流转到 E2E_VERIFY |
 | qualityGate = `warn` | 展示 🟡 警告，用户选择继续或回退 |
-| qualityGate = `fail` | 展示 🔴 建议回退，但用户有最终决策权 |
+| qualityGate = `fail` | 展示 🔴 建议回退，但用户有最终决策权。**触发 `visual_review_fail` 通知**（见 SKILL.md §12.3）：构造视觉验收失败卡片消息，包含还原度评分、严重/明显差异数量，通过 `send-flow-message` 推送到企微群。通知失败不阻断流程。 |
 
 ### 3.2 回退目标
 

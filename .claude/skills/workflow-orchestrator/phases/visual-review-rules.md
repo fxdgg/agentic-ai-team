@@ -66,7 +66,7 @@ BUILD_VERIFY (PASS)
 
 ## 2. Agent 调度策略
 
-VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Parallel Agent），因为：
+VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Agent Teams），因为：
 - 视觉对比需要逐页串行执行（启动预览 → 访问页面 → 对比截图）
 - 对比过程依赖本地预览服务的状态连续性
 - 视觉验收通常涉及的页面数量不多（3-10 页）
@@ -75,7 +75,7 @@ VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Parallel 
 
 | 方式 | 条件 | 说明 |
 |------|------|------|
-| **Agent 调度**（默认） | 始终优先 | 使用 Agent 工具调用 visual-reviewer Agent |
+| **Task 调度**（默认） | 始终优先 | 使用 Task 工具调用 visual-reviewer Agent |
 | **编排器直接执行**（兜底） | Task 失败时 | 编排器自身参考 Agent 规范执行视觉验收 |
 
 ### 2.2 Task Prompt 模板
@@ -83,7 +83,7 @@ VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Parallel 
 ```
 你是一位资深视觉验收专家，负责对前端实现进行设计还原度验收。请按以下步骤执行：
 
-1. 读取你的 Agent 行为规范文件（Read）：{agents/visual-reviewer.md 的绝对路径}
+1. 读取你的 Agent 行为规范文件（read_file）：{agents/visual-reviewer.md 的绝对路径}
 2. 读取工作流状态：{state.json 的绝对路径}
 3. 读取视觉分析数据：{_visual-analysis.json 的绝对路径}
 4. 读取 UI 视觉规范：{rules/ui-visual-spec.md 的绝对路径}
@@ -106,10 +106,10 @@ VISUAL_REVIEW 阶段固定使用**单 Agent 直接调度**（不使用 Parallel 
 工作流路径：{docs/workflows/{需求ID}/ 的绝对路径}
 项目根目录：{项目绝对路径}
 Web 端项目目录：{webProject 绝对路径}
-Playwright CLI 路径：~/.claude/plugins/marketplaces/codebuddy-plugins-official/plugins/playwright-cli/playwright-cli.js
+Playwright CLI 路径：~/.codebuddy/plugins/marketplaces/codebuddy-plugins-official/plugins/playwright-cli/playwright-cli.js
 
 ⚠️ 重要：
-- 你必须先 Read 读取 Agent 规范文件，再按规范执行
+- 你必须先 read_file 读取 Agent 规范文件，再按规范执行
 - 必须使用 Playwright 截取实际页面截图，不能仅凭代码分析
 - 截图时必须先滚动到底部触发所有 Framer Motion / IntersectionObserver 入场动画
 - 逐屏截图使用 80% 步进（20% 重叠）确保无遗漏
@@ -128,7 +128,7 @@ Playwright CLI 路径：~/.claude/plugins/marketplaces/codebuddy-plugins-officia
 |---------|-----------|
 | qualityGate = `pass` | 正常流转到 E2E_VERIFY |
 | qualityGate = `warn` | 展示 🟡 警告，用户选择继续或回退 |
-| qualityGate = `fail` | 展示 🔴 建议回退，但用户有最终决策权 |
+| qualityGate = `fail` | 展示 🔴 建议回退，但用户有最终决策权。**触发 `visual_review_fail` 通知**（见 SKILL.md §12.3）：构造视觉验收失败卡片消息，包含还原度评分、严重/明显差异数量，通过 `send-flow-message` 推送到企微群。通知失败不阻断流程。 |
 
 ### 3.2 回退目标
 
@@ -264,7 +264,7 @@ VISUAL_REVIEW 发现还原度不足
 
 ### Step 2: 执行
 
-- 使用 Agent 工具调用 visual-reviewer Agent
+- 使用 Task 工具调用 visual-reviewer Agent
 - 实时监控执行进度
 
 ### Step 3: 总结确认
