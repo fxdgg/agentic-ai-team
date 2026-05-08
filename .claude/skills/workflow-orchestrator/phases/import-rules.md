@@ -3,6 +3,8 @@
 > **加载时机**: 编排器在接收到 `knowledge-import` 模式标识时加载本文件。
 > **注意**: 本规则描述的是独立于常规工作流（INIT → ... → ARCHIVE）的**导入专用流程**。
 
+> **多仓模式路径说明**：本文件中所有 `docs/knowledge-import/` 路径，编排器在运行时基于 `state.json` 的 `projectConfig.docsRoot` 解析为绝对路径（`{workspaceRoot}/{docsRoot}/docs/knowledge-import/`）。Agent Prompt 中注入的路径已为绝对路径，Agent 无需感知单仓/多仓差异。
+
 ---
 
 ## 0. 导入工作流概述

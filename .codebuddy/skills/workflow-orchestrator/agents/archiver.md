@@ -308,6 +308,23 @@ duration: "2026-03-19 ~ 2026-03-20"
       - 移动后验证目标文件存在且源文件已不存在
    d) 若移动失败（如文件不存在、权限问题），记录错误但不阻断流程，在最终报告中标注
    e) 注意：此步骤的目的是避免已归档需求在启动时被重复扫描到
+5. 文档仓 Git 提交（多仓模式专属）：
+   a) 读取 state.json 的 projectConfig.docsRepoMode
+   b) IF docsRepoMode == "standalone"（独立文档仓）：
+      - 读取 projectConfig.docsRoot 获取文档仓路径
+      - 检查该路径下是否有 .git/ 目录
+      - IF 有 .git/ 且 repos[type=docs].autoCommit == true：
+        ```bash
+        cd {workspaceRoot}/{docsRoot}
+        git add -A
+        git commit -m "feat(workflow): archive {需求ID}"
+        ```
+      - IF repos[type=docs].autoPush == true 或 autoPush == "on_archive"：
+        ```bash
+        git push origin {当前分支}
+        ```
+      - 记录 Git 操作结果（成功/失败），失败不阻断流程
+   c) IF docsRepoMode == "embedded"（单仓模式）→ 跳过，由用户自行管理 commit
 ```
 
 ### 阶段五：写入项目记忆

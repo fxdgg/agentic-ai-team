@@ -400,6 +400,18 @@ python3 scripts/resolve_agent_paths.py \
 docs/workflows/
 ```
 
+> **多仓模式文档仓支持（docsRoot 机制）**：
+>
+> 在单仓模式下，`docs/` 目录位于项目仓库内，可直接提交。在多仓模式下，`docs/` 需要一个独立的 Git 仓库来承载（因为 workspace 根不是 Git 仓库）。
+>
+> 编排器通过 `projectConfig.docsRoot` 字段解析文档的实际位置：
+> - **单仓**：`docsRoot = "./"` → 绝对路径 = `{workspaceRoot}/docs/workflows/...`
+> - **多仓**：`docsRoot = "project-docs/"` → 绝对路径 = `{workspaceRoot}/project-docs/docs/workflows/...`
+>
+> **Agent 引用规则**：所有 Agent 文档中继续使用 `docs/` 前缀路径（如 `docs/workflows/{需求ID}/`），编排器在运行时拼接 `{docsRoot}` 前缀解析为绝对路径。Agent 无需感知单仓/多仓差异。
+>
+> 详见 §7.3 步骤 4.5（文档仓检测）和 §12.1（占位符映射）。
+
 ### 4.2 需求目录结构
 
 每个需求以 `YYYYMMDD-自定义名称` 命名，所有产物隔离存储：
@@ -683,6 +695,134 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
       - `commonModule` = 第一个 `type=common` 的 `repo.name`（无则 null）
    d) 如果 `repos[]` 不存在或 `project.yaml` 不存在 → 提示用户执行 `/team-init` 绑定仓库
    e) **不执行任何文件系统扫描**——扫描只在 `/team-init` 中进行一次
+
+4.5. **文档仓检测与初始化**（多仓模式下 docs/ 目录的 Git 管理）：
+
+   > **核心问题**：多仓模式下 `docs/` 目录（含 `workflows/`、`prd/`、`knowledge-import/`、`knowledge-base/`）不属于任何业务仓库，无法被版本管理。通过独立文档仓解决。
+
+   a) 从步骤 4 加载的 `repos[]` 中查找 `type="docs"` 的条目：
+      - 如找到 → 读取其 `path`，写入 `state.json` 的 `projectConfig.docsRoot`
+      - 设置 `projectConfig.docsRepoMode = "standalone"`
+
+   b) 如未找到 `type="docs"` 的 repo：
+      - 判断是否为多仓模式：`repos[]` 中有 >1 个 `hasGit=true` 的条目
+      - **IF 多仓模式**：
+        - 检查 workspace 根下是否已有文档仓目录（扫描含 `docs/workflows/` + `.git/` 的目录）
+        - 如已存在 → 自动注册到 `repos[]`（`type="docs"`），设置 `docsRoot` 为该目录路径
+        - 如不存在但 workspace 根下已有 `docs/` 目录（**存量项目适配**）→ 执行原地 Git 化（见下方 b-migrate）
+        - 如 `docs/` 也不存在（全新多仓项目）→ 向用户提示初始化文档仓（见下方交互 c）
+      - **IF 单仓模式**（`repos[]` 只有 1 个条目或所有条目指向同一 Git 仓库）：
+        - `docsRoot = "./"` （docs/ 在项目仓库内）
+        - `docsRepoMode = "embedded"`
+        - 跳过文档仓初始化
+
+   b-migrate) **存量多仓项目自动适配**（workspace 根下已有 `docs/` 但无 `.git/`）：
+
+      > **设计意图**：对已在跑的多仓项目，`docs/` 已有生成好的文件（活跃工作流、PRD、知识导入产物等），不应要求用户手动搬移。采用"原地 Git 化"策略——文件不动、路径不变、活跃工作流零影响。
+
+      向用户提示：
+      ```
+      📁 检测到已有过程文档（存量适配）
+
+      工作区根下已存在 docs/ 目录，包含：
+        - workflows/: {N} 个需求目录（{M} 个活跃 + {K} 个已归档）
+        - prd/: {P} 个 PRD 文档
+        - knowledge-import/: {有/无}
+
+      当前为多仓模式，这些文件未被任何 Git 仓库管理。
+      推荐操作：原地 Git 化（文件不动，在 workspace 根初始化 Git 仅跟踪 docs/）
+
+      选项：
+        1️⃣ 原地 Git 化（推荐）— 零迁移，文件路径不变，活跃工作流不受影响
+        2️⃣ 迁移到独立目录（project-docs/）— 更干净，但需更新活跃工作流路径
+        3️⃣ 暂不处理 — docs/ 维持现状，无 Git 管理
+      ```
+
+      **用户选择 1**（原地 Git 化）：
+      ```bash
+      cd {workspace}
+      git init
+      # 创建 .gitignore：只跟踪 docs/ 和 .ai-team/
+      cat > .gitignore << 'EOF'
+      # 排除所有内容
+      *
+      # 只保留 docs/ 目录
+      !docs/
+      !docs/**
+      # 保留项目配置
+      !.ai-team/
+      !.ai-team/**
+      # 排除 IDE 工作流配置（已由各自仓库管理）
+      .claude/
+      .codebuddy/
+      EOF
+      git add docs/ .ai-team/ .gitignore
+      git commit -m "chore: init docs tracking for multi-repo workspace"
+      ```
+      - 写入 `project.yaml` 的 `repos[]`：`{ name: "workspace-docs", path: "./", type: "docs", hasGit: true, autoCommit: true }`
+      - 设置 `docsRoot = "./"`，`docsRepoMode = "standalone"`
+      - ⚠️ 注意：此模式下 `docsRoot = "./"` 但 `docsRepoMode = "standalone"`（workspace 根是独立 Git 仓库，仅跟踪 docs/）
+
+      **用户选择 2**（迁移到独立目录）：
+      ```bash
+      cd {workspace}
+      mkdir project-docs
+      mv docs project-docs/docs
+      mv .ai-team project-docs/.ai-team  # 可选，项目配置随文档仓
+      cd project-docs
+      git init
+      git add -A
+      git commit -m "chore: migrate docs to standalone repo"
+      ```
+      - 写入 `project.yaml` 的 `repos[]`：`{ name: "project-docs", path: "project-docs/", type: "docs", hasGit: true, autoCommit: true }`
+      - 设置 `docsRoot = "project-docs/"`，`docsRepoMode = "standalone"`
+      - **⚠️ 活跃工作流路径更新**：扫描 `project-docs/docs/workflows/` 下所有 `state.json`，检查 `currentPhase ≠ "DONE"` 的需求，在 INIT 总结中提示用户确认路径已变更（实际上内部路径 `docs/...` 不变，只有 workspace 级的绝对路径前缀变了，编排器通过 docsRoot 自动适配）
+
+      **用户选择 3**：同前述 e) 逻辑
+
+   c) **多仓模式初始化交互**（仅当检测不到文档仓时触发）：
+      ```
+      📁 多仓模式文档存储配置
+
+      检测到当前工作区为多仓模式（{N} 个独立 Git 仓库），但未找到文档仓库。
+      工作流过程文档（PRD、架构设计、测试报告等）需要一个独立 Git 仓库来管理。
+
+      推荐配置：
+        仓库名称: project-docs
+        本地路径: {workspace}/project-docs/
+        远程地址: （可选，稍后通过 git remote add 配置）
+
+      选项：
+        1️⃣ 自动创建文档仓（推荐）
+        2️⃣ 指定已有目录路径
+        3️⃣ 暂不配置（docs/ 存放在 workspace 根，无 Git 管理）
+      ```
+
+   d) **用户选择 1 后执行**：
+      ```bash
+      mkdir -p {workspace}/project-docs/docs
+      cd {workspace}/project-docs
+      git init
+      mkdir -p docs/workflows docs/prd docs/knowledge-import docs/knowledge-base
+      echo "# Project Docs\n\n工作流过程文档仓库。" > README.md
+      git add -A && git commit -m "chore: init project-docs repo"
+      ```
+      - 写入 `project.yaml` 的 `repos[]`：`{ name: "project-docs", path: "project-docs/", type: "docs", auto_commit: true }`
+      - 设置 `docsRoot = "project-docs/"`，`docsRepoMode = "standalone"`
+
+   e) **用户选择 3**：
+      - 设置 `docsRoot = "./"`，`docsRepoMode = "embedded"`
+      - 在 INIT 总结中追加提示：`⚠️ 多仓模式下过程文档未配置 Git 管理，无法版本控制和团队共享。后续可执行 /team-init 重新配置。`
+
+   f) **写入 `state.json`**：
+      - `projectConfig.docsRoot = "{解析后的路径}"`
+      - `projectConfig.docsRepoMode = "standalone" | "embedded"`
+
+   g) **文档仓自动 Commit 规则**（当 `docsRepoMode = "standalone"` 且 `repos[type=docs].autoCommit = true` 时）：
+      - 每个阶段「总结确认」后：`cd {docsRoot绝对路径} && git add -A && git commit -m "feat(workflow): {需求ID} complete {phase}"`
+      - ARCHIVE 完成后：`cd {docsRoot绝对路径} && git add -A && git commit -m "feat(workflow): archive {需求ID}"`
+      - 如 `autoPush = true` 或 `autoPush = "on_archive"`（ARCHIVE 时）：追加 `git push origin {当前分支}`
+
 5. **全局知识路径注入**（团队共享知识架构）：
    a) 检查 `{项目根目录}/.ai-team/project.yaml` 是否存在
    b) 如存在，读取并将以下信息写入 `state.json` 的 `knowledgeContext` 字段：
@@ -967,12 +1107,19 @@ Web 端和小程序端源文件在文件顶部（import 语句之前）使用以
 
 | 占位符 | 说明 | 示例值 | 检测方式 |
 |--------|------|--------|----------|
+| `{docsRoot}` | 文档仓库根路径（多仓模式的挂载点） | `./`（单仓）、`project-docs/`（多仓） | 从 `project.yaml` 的 `repos[]` 中查找 `type=docs` 的条目，取其 `path`；未找到则默认 `"./"` |
 | `{backend-root}` | 后端微服务组根目录 | `microservice-group/` | 扫描项目根目录，识别含后端特征文件（pom.xml/package.json/go.mod 等）的顶层目录 |
 | `{frontend-root}` | 前端项目组根目录 | `frontend-group/` | 扫描项目根目录，识别含前端特征文件（package.json + src/）的顶层目录 |
 | `{web-project}` | Web 端项目目录 | `frontend-group/operation-fe/` | 在 `{frontend-root}` 下扫描含 vite.config / next.config 等 Web 构建配置的子目录 |
 | `{miniprogram-project}` | 小程序端项目目录 | `frontend-group/miniprogram-fe/` | 在 `{frontend-root}` 下扫描含 app.config.ts / project.config.json 等小程序配置的子目录 |
 | `{common-module}` | 后端公共模块名称 | `vibe-common` | 扫描 `{backend-root}` 下名称含 common/shared/base/core 的模块目录 |
 | `{skill-root}` | Skill 安装路径（运行时自动注入） | `.codebuddy/skills/workflow-orchestrator/` | 运行时由编排器自动注入，无需用户配置 |
+
+> **`{docsRoot}` 路径解析规则**：
+> - 编排器在拼接绝对路径时：`{workspaceRoot}/{docsRoot}/docs/workflows/{需求ID}/...`
+> - Agent 文档中引用的 `docs/` 前缀路径**不变**（如 `docs/workflows/`、`docs/prd/`），编排器在运行时基于 `{docsRoot}` 解析为绝对路径
+> - 单仓模式：`{docsRoot} = "./"` → `{workspaceRoot}/./docs/...` = `{workspaceRoot}/docs/...`
+> - 多仓模式：`{docsRoot} = "project-docs/"` → `{workspaceRoot}/project-docs/docs/...`
 
 > **历史项目适配说明**: INIT 阶段编排器会尝试自动检测上述占位符的值。若项目结构非标准（如单体后端无独立根目录），编排器将展示检测结果并询问用户确认或手动指定。所有下游 Agent（架构师、开发 Agent）通过占位符引用路径，不再硬编码具体目录名。
 

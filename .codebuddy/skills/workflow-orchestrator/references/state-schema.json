@@ -506,8 +506,18 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["backend", "frontend", "fullstack", "miniprogram", "common"],
-                "description": "仓库类型。backend=后端服务，frontend=Web前端，fullstack=前后端一体，miniprogram=小程序，common=公共模块"
+                "enum": ["backend", "frontend", "fullstack", "miniprogram", "common", "docs"],
+                "description": "仓库类型。backend=后端服务，frontend=Web前端，fullstack=前后端一体，miniprogram=小程序，common=公共模块，docs=过程文档仓库（多仓模式下承载 docs/ 目录）"
+              },
+              "autoCommit": {
+                "type": "boolean",
+                "description": "是否在工作流阶段完成时自动对该仓库执行 git commit。仅 type=docs 时有意义。默认 false。",
+                "default": false
+              },
+              "autoPush": {
+                "type": ["string", "boolean", "null"],
+                "description": "自动 push 策略。false=不自动 push（默认），true=每次 commit 后 push，\"on_archive\"=仅 ARCHIVE 阶段 push。仅 type=docs 时有意义。",
+                "default": false
               },
               "techStack": {
                 "type": "array",
@@ -530,6 +540,17 @@
           "type": "boolean",
           "description": "标记当前前端项目是否由 D2C 流程初始化（如目录创建、package.json 生成等）。D2C Coordinator 在新项目场景下创建前端项目目录后设为 true。后续流程可据此跳过重复的项目初始化步骤。",
           "default": false
+        },
+        "docsRoot": {
+          "type": ["string", "null"],
+          "description": "文档仓库根路径（相对于工作区根）。单仓模式为 './'（docs/ 在项目仓库内），多仓模式为文档仓路径（如 'project-docs/'）。INIT 阶段自动检测设置。编排器拼接绝对路径时：{workspaceRoot}/{docsRoot}/docs/workflows/... 。Agent 引用的 docs/ 前缀路径不变，编排器负责在 docsRoot 基础上解析。",
+          "examples": ["./", "project-docs/"]
+        },
+        "docsRepoMode": {
+          "type": ["string", "null"],
+          "enum": ["embedded", "standalone", null],
+          "description": "文档存储模式。embedded=内嵌在项目仓库内（单仓，docs/ 在业务仓内直接提交），standalone=独立文档仓（多仓，docs/ 在独立 Git 仓库中）。INIT 阶段根据 repos[] 配置自动判定。",
+          "default": "embedded"
         }
       }
     },

@@ -33,6 +33,8 @@
 
 > **前置条件**：如果 `state.json` 的 `knowledgeContext.knowledgeRepoLocalPath` 为 null（项目未执行 `/team-init`），所有团队知识查询**自动跳过**，Agent 正常降级到本地知识库 + 代码搜索。
 
+> **多仓模式路径说明**：表中 `docs/` 前缀的路径（项目知识库、归档工作流索引），编排器在注入 Agent Prompt 时会基于 `state.json` 的 `projectConfig.docsRoot` 解析为绝对路径。Agent 文档中继续使用 `docs/` 前缀引用，无需感知单仓/多仓差异。
+
 ---
 
 ## 3. 三级渐进式查询流程（共享）

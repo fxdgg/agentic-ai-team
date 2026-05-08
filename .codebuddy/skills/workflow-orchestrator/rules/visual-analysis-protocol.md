@@ -3,6 +3,8 @@
 > **加载条件**: 当用户通过 `/flow-run` 提供的需求文档中包含图片文件（`.png`/`.jpg`/`.jpeg`/`.gif`/`.webp`/`.svg`）、设计稿截图、或 Figma 设计链接（`figma.com/design/...` / `figma.com/file/...`）时，加载本协议进行结构化视觉分析。
 > **设计意图**: 图片/设计稿不再简单"降级为纯文本描述"，而是通过标准化流程提取**布局结构、组件树、交互行为、视觉风格**等设计意图，产出结构化 JSON 供 PRD 创建和后续架构设计消费。**当存在 Figma URL 时优先通过 MCP 获取精确数据，避免 SVG/PNG 中间转换的信息损失。**
 
+> **多仓模式路径说明**：本文件中所有 `docs/prd/` 路径（如 `docs/prd/design-screenshots/`、`docs/prd/_visual-analysis.json`），编排器在运行时基于 `state.json` 的 `projectConfig.docsRoot` 解析为绝对路径（`{workspaceRoot}/{docsRoot}/docs/prd/...`）。Agent Prompt 中注入的路径已为绝对路径，Agent 无需感知单仓/多仓差异。
+
 ---
 
 ## 0. 前置检测与预处理（CRITICAL）
