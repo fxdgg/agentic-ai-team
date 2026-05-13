@@ -87,7 +87,11 @@
    - 基础设施: docker-compose.yml, Dockerfile, k8s manifests
 
 6. 产出 projectOverview（内存中，不写文件）：
-   - modules[]: 模块列表（name, type, path, description, subModules）
+   - modules[]: 模块列表（name, type, path, description, subModules, last_active_at, last_active_workflow, active_workflow_count）
+     * last_active_at 首次生成时设为 profiledAt（视为"刚激活"）
+     * last_active_workflow 首次生成时为 null
+     * active_workflow_count 首次生成时为 0
+     * 这三个字段后续由 archiver §14 在每次归档时增量维护，用于"模块活跃度抑制时间衰减"判定（详见 knowledge-evolution §6.1）
    - techStack{}: 技术栈版本（key=技术名, value={version, source}）
    - conventions[]: 项目约定（type, content, evidence）
 ```
@@ -264,7 +268,10 @@
         "type": "backend-service|frontend-web|frontend-miniprogram|common-lib|gateway|config|other",
         "path": "string (相对项目根)",
         "description": "string (功能简述)",
-        "subModules": ["string"]
+        "subModules": ["string"],
+        "last_active_at": "ISO-8601 (模块最后一次被工作流触及的时间；首次生成时=profiledAt)",
+        "last_active_workflow": "string | null (最后一次触及该模块的工作流 ID；首次生成时=null)",
+        "active_workflow_count": 0
       }
     ],
     "techStack": {

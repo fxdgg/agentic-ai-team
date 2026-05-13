@@ -17,10 +17,10 @@
 | 原终端命令 | 替代为 IDE 工具 | 说明 |
 |------------|-----------------|------|
 | `git clone <repo>` | ❌ 不执行克隆 | 项目路径由编排器直接注入，Agent 不负责获取代码 |
-| `tree -L 3 -d` | `Glob` + `search_file` | 用 `Glob` 递归浏览目录层级 |
+| `tree -L 3 -d` | `list_dir` + `search_file` | 用 `list_dir` 递归浏览目录层级 |
 | `find . -name "*.ext"` | `search_file(pattern="*.ext", recursive=true)` | 搜索特定类型文件 |
-| `find ... \| xargs wc -l` | `search_file` 计数 + 采样 `Read` 估算 | 统计文件数量，采样估算平均行数 |
-| `cat` / `head` / `tail` | `Read` (可指定 offset/limit) | 读取文件内容 |
+| `find ... \| xargs wc -l` | `search_file` 计数 + 采样 `read_file` 估算 | 统计文件数量，采样估算平均行数 |
+| `cat` / `head` / `tail` | `read_file` (可指定 offset/limit) | 读取文件内容 |
 | `grep -r "pattern"` | `search_content(pattern="...")` | 内容搜索 |
 
 ### 代码行数估算策略（替代 `wc -l`）
@@ -28,7 +28,7 @@
 不使用 `find | xargs wc -l`，改用以下方式：
 1. 根据检测到的技术栈，`search_file(pattern="*.{ext}", recursive=true)` → 获取文件列表和数量
    - 例：Python 项目搜 `*.py`，Go 项目搜 `*.go`，Java 项目搜 `*.java`，等等
-2. 从文件列表中**随机采样 5-10 个文件**，用 `Read` 读取，记录各文件行数
+2. 从文件列表中**随机采样 5-10 个文件**，用 `read_file` 读取，记录各文件行数
 3. **平均行数 × 总文件数 = 估算总行数**
 4. 在 `codeMetrics.totalLines` 中标注 `"(estimated)"` 后缀
 
@@ -52,7 +52,7 @@
 > **搜索预算: 60 次**（全景扫描模式，比 @tech-explorer 的 120 次少）
 
 ```
-1. 使用 Glob 逐层扫描项目目录结构（先根目录，再下探关键子目录，共 2-3 层）
+1. 使用 list_dir 逐层扫描项目目录结构（先根目录，再下探关键子目录，共 2-3 层）
 
 2. 识别项目语言和构建体系（按检测到的特征文件判定）：
 
@@ -87,7 +87,11 @@
    - 基础设施: docker-compose.yml, Dockerfile, k8s manifests
 
 6. 产出 projectOverview（内存中，不写文件）：
-   - modules[]: 模块列表（name, type, path, description, subModules）
+   - modules[]: 模块列表（name, type, path, description, subModules, last_active_at, last_active_workflow, active_workflow_count）
+     * last_active_at 首次生成时设为 profiledAt（视为"刚激活"）
+     * last_active_workflow 首次生成时为 null
+     * active_workflow_count 首次生成时为 0
+     * 这三个字段后续由 archiver §14 在每次归档时增量维护，用于"模块活跃度抑制时间衰减"判定（详见 knowledge-evolution §6.1）
    - techStack{}: 技术栈版本（key=技术名, value={version, source}）
    - conventions[]: 项目约定（type, content, evidence）
 ```
@@ -215,7 +219,7 @@
      | C# | *.cs |
      | C / C++ | *.c, *.cpp, *.h, *.hpp |
      | Swift | *.swift |
-   - 从结果中采样 5-10 个文件，用 Read 读取并记录行数
+   - 从结果中采样 5-10 个文件，用 read_file 读取并记录行数
    - 平均行数 × 总文件数 = 估算总行数
    - 注意: search_file 默认排除 node_modules、vendor、.git 等目录
    
@@ -264,7 +268,10 @@
         "type": "backend-service|frontend-web|frontend-miniprogram|common-lib|gateway|config|other",
         "path": "string (相对项目根)",
         "description": "string (功能简述)",
-        "subModules": ["string"]
+        "subModules": ["string"],
+        "last_active_at": "ISO-8601 (模块最后一次被工作流触及的时间；首次生成时=profiledAt)",
+        "last_active_workflow": "string | null (最后一次触及该模块的工作流 ID；首次生成时=null)",
+        "active_workflow_count": 0
       }
     ],
     "techStack": {
@@ -337,7 +344,7 @@
 
 | 预算项 | 配额 | 说明 |
 |--------|------|------|
-| 总搜索预算 | 60 次 | 包括 Grep + search_content + search_file |
+| 总搜索预算 | 60 次 | 包括 codebase_search + search_content + search_file |
 | Step 1 全景扫描 | ≤ 25 次 | 目录结构 + 配置文件读取 |
 | Step 2a 业务模块 | ≤ 15 次 | API/路由扫描 |
 | Step 2b 数据模型 | ≤ 10 次 | ORM/模型扫描 |

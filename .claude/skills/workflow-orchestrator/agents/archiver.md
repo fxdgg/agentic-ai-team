@@ -34,6 +34,9 @@
 编排器: 所有阶段完成后触发 ARCHIVE
        ↓
 归档总结专家 Agent (archiver) ← 当前角色
+       ├── §16 自动 Lint 触发 → 派发 Lint 子 Agent（复用 /knowledge lint 逻辑）
+       ├── §17   proven 时间衰减（含模块活跃度抑制判定）
+       └── §17.5 代码事实校对    → 派发 fact-checker 子 Agent（独立上下文窗口）
        ↓ 输出: SUMMARY.md + state.json(DONE) + 目录移动 + 知识库写入 + 归档通知（可选）🎉
 工作流结束 ✅
 ```
@@ -558,12 +561,25 @@ duration: "2026-03-19 ~ 2026-03-20"
 
 14. **项目画像增量更新**：
     a) 读取 `{knowledgeRepoLocalPath}/project-profiles/{project_name}.yaml`（如不存在则跳过）
-    b) 对比本次工作流产物：
+    b) **汇总本次工作流的变更文件清单 changed_files[]**（为后续模块活跃度刷新和 §17.5 事实校对共同复用）：
+       - 扫描 `implementation/**/*-report.md`，提取每份报告中的"新增/修改的文件"清单
+       - 归一化为相对项目根的路径列表，去重后得到 `changed_files[]`
+       - 若 `implementation/` 不存在或无变更文件 → `changed_files[] = []`（不阻断画像更新，仅跳过活跃度刷新）
+    c) **模块活跃度刷新**（新增，服务于知识衰减抑制）：
+       - 对 `projectOverview.modules[]` 中的每个 module：
+         - 若存在 `changed_files[i]` 以 `module.path` 为前缀（文件归属于该模块）：
+           - `module.last_active_at = 当前 ISO-8601`
+           - `module.last_active_workflow = {需求ID}`
+           - `module.active_workflow_count += 1`
+         - 否则保持原值不变（不存在字段则首次补齐为：`last_active_at = profile.created_at 或 last_updated`，`active_workflow_count = 0`）
+       - 若 `changed_files[]` 中存在路径前缀未匹配到任何现有 module（典型为 IMPLEMENT 阶段新建的目录）→ 交由步骤 d) 的新增模块逻辑处理
+    d) 对比本次工作流产物：
        - `architecture/*.md` 中是否引入了新技术栈？→ 更新 `tech_stack`
-       - `implementation/` 中是否创建了新模块/服务？→ 更新 `modules[]`
+       - `implementation/` 中是否创建了新模块/服务？→ 新增到 `modules[]`，同时初始化 `last_active_at = 当前 ISO-8601`、`last_active_workflow = {需求ID}`、`active_workflow_count = 1`
        - `tech-requirements.md` 中是否有新的 API？→ 更新 `api_summary`
-    c) 如有变化 → 更新画像文件，记录 `last_updated` 和 `source_workflow`
-    d) 如无变化 → 跳过
+    e) 如有变化 → 更新画像文件，记录 `last_updated` 和 `source_workflow`
+    f) 如无变化 → 跳过
+    g) **导出给后续步骤**：将 `changed_files[]` 和刷新后的 `modules[]` 暂存到内存（或临时状态），供 §17（衰减抑制判定）和 §17.5（事实校对）复用，避免重复读取 implementation 报告
 
 15. **配置漂移检测**：
     a) 扫描本次工作流产物，检测以下变化：
@@ -596,6 +612,9 @@ duration: "2026-03-19 ~ 2026-03-20"
        last_lint_at: "2026-04-01T10:00:00Z"   # 最后一次成功 Lint 的时间（ISO-8601，可为 null）
        archives_since_last_lint: 7             # 自上次 Lint 以来完成的归档数
        total_archives: 42                      # 项目接入后的累计归档数（仅统计 knowledgeRepoLocalPath 关联的项目）
+       last_fact_check_at: "2026-05-13T14:00:00Z"   # 最后一次代码事实校对的时间（§17.5；可为 null）
+       fact_check_cursor: 18                        # 下次 §17.5 扫描的起始位置（候选集下标；回绕到 0 表示已完整扫过一轮）
+       fact_check_session_count: 23                 # §17.5 累计执行次数（仅统计成功完成的）
        ```
 
        - 文件不存在 → 以 `last_lint_at: null, archives_since_last_lint: 0, total_archives: 0` 初始化。
@@ -647,15 +666,83 @@ duration: "2026-03-19 ~ 2026-03-20"
        - 筛选 `maturity == "proven"` 的条目，按 `evidence.last_referenced` 升序（最久未引用优先）
        - 取前 20 条进入详细扫描（单次 ARCHIVE 开销上限）
 
-    c) **衰减判定**：
+    c) **衰减判定**（含模块活跃度抑制）：
 
-       - 当前时间 - `evidence.last_referenced` > 12 个月 → 降级为 `verified`
-       - 在条目的 `evidence.contradiction_flags` 追加标记：`"auto-decay-from-proven-at-{ISO-8601}"`
-       - 在 `{knowledgeRepoLocalPath}/log.md` 追加记录：
-         ```markdown
-         ## [{日期}] decay | [auto] | ARCHIVE 级衰减 | proven→verified {N} 条 | #{session_hash}
-         - {ID}: {title}（last_referenced: {date}，超过 12 月未引用）
-         ```
+       > **设计意图**：原始纯 `last_referenced` 判定会误伤"季节性活跃模块"（如对账/结算模块只在月末/年末活跃）——模块不迭代时关联知识自然不被引用，但知识并未过时。通过引入 `project-profile.modules[].last_active_at` 作为抑制信号，区分"没人用是因为不需要"和"没人用是因为模块没在迭代"。
+
+       **前置数据准备**：
+       - 读取 §14 已加载的 `project-profile.modules[]`（含 `last_active_at`），作为模块活跃度查询表 `M_all`
+       - 读取团队配置 `{knowledgeRepoLocalPath}/.knowledge-config.yaml` 的 `decay_rules` 段（缺失则使用默认值，见下方阈值说明）
+
+       **对每条扫描到的候选条目 entry 执行**：
+
+       ```
+       IF now - entry.evidence.last_referenced <= knowledge_inactive_months (默认 12 月):
+         跳过（未到衰减期）
+         continue
+
+       # 已到衰减期 → 进入抑制判定
+       related_modules = 派生自 entry 的关联模块集合，规则：
+         信号1: entry.tags 中命中 M_all 中任一 module.name → 加入
+         信号2: entry.source_references[].path 去掉 "docs/workflows/archived/{id}/" 前缀后
+                包含 M_all 中任一 module.path 或 module.name → 加入该 module
+         信号3: 若 entry 位于 biz-wiki/{domain}/ → 加入该 domain 下所有 module
+         （去重后得到 related_modules）
+
+       IF entry.source.trigger == "import":
+         # 导入条目的关联可能与当前项目画像不匹配，不参与活跃度抑制
+         走原降级逻辑
+         flag += "auto-decay-from-proven-at-{ISO-8601}"
+         continue
+
+       IF related_modules 为空:
+         # 无法映射到任何模块 → 按原逻辑降级
+         走原降级逻辑
+         flag += "auto-decay-no-module-mapping-at-{ISO-8601}"
+         continue
+
+       # 取最活跃模块的 last_active_at 作为判据（避免过度抑制横切型知识）
+       most_active_at = max(m.last_active_at for m in related_modules)
+       months_since_module_active = (now - most_active_at) / 30
+
+       IF months_since_module_active <= module_active_threshold_months (默认 6 月):
+         # 模块最近仍在迭代 → 知识确实可能过时，正常衰减
+         走原降级逻辑
+         flag += "auto-decay-from-proven-at-{ISO-8601}"
+         continue
+
+       IF months_since_module_active <= module_dormancy_cap_months (默认 24 月):
+         # 模块休眠中 → 抑制衰减，仅打标
+         不修改 maturity
+         flag += "dormant-module-skipped-decay-at-{ISO-8601}:modules={names}:last_active={most_active_at}"
+         log_suppressed.append(entry)
+         continue
+
+       # 超过 24 月 → 强制衰减（避免永久保留）
+       走原降级逻辑
+       flag += "auto-decay-long-dormant-module-at-{ISO-8601}"
+       ```
+
+       **降级动作统一定义**：
+       - 修改 entry 的 `maturity` 字段：`proven → verified`
+       - 在 `evidence.contradiction_flags` 追加对应 flag
+
+       **阈值默认值与配置覆盖**（从 `.knowledge-config.yaml.decay_rules` 读取，缺失则用默认）：
+       | 配置键 | 默认值 | 含义 |
+       |-------|-------|------|
+       | `knowledge_inactive_months` | 12 | 知识多久未引用进入衰减判定 |
+       | `module_active_threshold_months` | 6 | 模块多久内有变更算"活跃"（活跃则正常衰减）|
+       | `module_dormancy_cap_months` | 24 | 模块休眠上限（超过则强制衰减，避免永久保留）|
+
+       **日志写入**：在 `{knowledgeRepoLocalPath}/log.md` 追加两段记录：
+       ```markdown
+       ## [{日期}] decay | [auto] | ARCHIVE 级衰减 | proven→verified {K1} 条 | #{session_hash}
+       - {ID}: {title}（last_referenced: {date}，超过 12 月未引用）
+
+       ## [{日期}] decay-suppressed | [auto] | 模块休眠抑制衰减 | 保留 {K2} 条 | #{session_hash}
+       - {ID}: {title}（last_referenced: {date}，关联模块 {modules} 最后活跃于 {most_active_at}）
+       ```
+       （若某类计数为 0 则对应段落可省略）
 
     d) **贡献分支处理**：衰减写入与阶段七 Step 9 的贡献分支合并。如果本次 ARCHIVE 没有创建贡献分支（如 reader 角色），则**单独创建 decay 分支**：`decay/{timestamp}`，合并后推送。
 
@@ -664,11 +751,71 @@ duration: "2026-03-19 ~ 2026-03-20"
        ```markdown
        ## proven 衰减扫描
        - 扫描条目数: {N}
-       - 衰减降级: {K} 条（proven→verified）
-       - 详情: 见 {knowledgeRepoLocalPath}/log.md decay 记录
+       - 衰减降级: {K1} 条（proven→verified）
+       - 休眠抑制保留: {K2} 条（模块长期未迭代，暂缓衰减）
+       - 无模块映射降级: {K3} 条（导入或无关联模块条目）
+       - 详情: 见 {knowledgeRepoLocalPath}/log.md 的 decay / decay-suppressed 记录
        ```
 
     f) **容错**：单个条目处理失败不阻断，记录到 SUMMARY.md 的 `decayErrors`。
+
+17.5. **代码事实校对（委派 fact-checker 子 Agent）**：
+
+    > **设计意图**：基于"代码变更事实"主动检测与本次变更模块关联的知识条目是否过时，与 §17 的时间衰减形成"时间 + 事实"双信号衰减。
+    >
+    > **上下文控制**：本步骤以 **Task 子 Agent** 形式委派给 `@fact-checker`，将候选筛选、符号检测、front-matter 修改等高 token 操作放入独立上下文窗口，避免撑爆 archiver 主上下文。archiver 只接收精简的摘要结果（约 500-2K tokens）。
+
+    a) **前置检查**：
+       - `knowledgeRepoLocalPath` 不为 null
+       - §14 已完成，内存中持有 `changedFiles[]` 和刷新后的 `modules[]`
+       - 读取 `{knowledgeRepoLocalPath}/.knowledge-config.yaml` 的 `fact_check` 段（缺失则使用默认）
+       - `fact_check.enabled` 不为 false
+       - 任一前置不满足 → 跳过本步骤，在 SUMMARY.md 记录 `factCheckStatus: "skipped"` + 简短原因
+
+    b) **派发 fact-checker 子 Agent**（使用 Task 工具，subagent_name 为通用编码类 Agent 即可，通过 prompt 加载 `agents/fact-checker.md` 的职责）：
+
+       传入参数：
+       ```json
+       {
+         "stateJsonPath": "{state.json 绝对路径}",
+         "workflowId": "{需求ID}",
+         "knowledgeRepoLocalPath": "{知识仓库路径}",
+         "changedFiles": [/* §14 已汇总 */],
+         "modules": [/* §14 刚刷新的 project-profile.modules */],
+         "sessionHash": "{archiver 会话哈希}",
+         "config": {/* .knowledge-config.yaml.fact_check 段，缺失用默认 */}
+       }
+       ```
+
+       **派发提示词**（核心部分）：
+       ```
+       你的完整职责与执行规则见 {skill_dir}/agents/fact-checker.md，请严格按该文件的
+       Step A~E 执行。完成后返回摘要结构（status/scannedCount/各类计数/errors/cursor），
+       不要返回候选条目明细——明细全部写入 log.md。
+       ```
+
+    c) **接收子 Agent 摘要**：
+       - 若 `status == "skipped"` 或 `"completed"` 或 `"partial"` → 继续
+       - 若 Task 调用本身失败（非子 Agent 业务失败）→ 记录 `factCheckStatus: "agent-dispatch-failed"`，不阻断归档
+
+    d) **SUMMARY.md 末尾追加"代码事实校对"章节**：
+
+       ```markdown
+       ## 代码事实校对
+       - 本次变更模块：{M_names}
+       - 扫描候选知识：{scannedCount} 条（从 {cursor} 起，下次从 {nextCursorPosition} 继续）
+       - 降级（stale-source-reference）：{downgradedCount} 条
+       - 打标待审（code-fact-drift）：{flaggedCount} 条
+       - 弱信号观察（possibly-modified）：{observedCount} 条
+       - 跳过（无可验证符号）：{skippedNoSymbolsCount} 条
+       - 错误：{errors.length} 条
+       - 详情：见 {knowledgeRepoLocalPath}/log.md 的 fact-check 记录
+       ```
+
+    e) **容错**：
+       - 子 Agent 失败不阻断归档流程
+       - log.md 写入由 fact-checker 自行负责；archiver 不重复写入
+       - fact-checker 产生的 front-matter 变更会随阶段七 Step 9 的贡献分支统一提交推送（若本次没有贡献分支，沿用 §17 的 `decay/{timestamp}` 分支机制）
 
 ---
 
@@ -763,7 +910,8 @@ duration: "2026-03-19 ~ 2026-03-20"
 ### 知识库生命周期维护（新增）
 - [ ] Lint 自动触发判定（Step 16）已执行：状态文件 `.knowledge-lint-state.yaml` 已更新（无论是否触发 Lint）
 - [ ] 若触发了 Lint，SUMMARY.md 包含 Lint 报告摘要
-- [ ] proven 衰减扫描（Step 17）已执行，SUMMARY.md 包含衰减扫描结果
+- [ ] proven 衰减扫描（Step 17）已执行，含模块活跃度抑制判定，SUMMARY.md 包含衰减扫描结果（衰减/抑制/无映射三类计数）
+- [ ] 代码事实校对（Step 17.5）已委派 fact-checker 子 Agent 执行（或在前置不满足时记录跳过原因），SUMMARY.md 包含校对结果摘要
 
 ### 权限合规
 - [ ] 未修改任何源码文件

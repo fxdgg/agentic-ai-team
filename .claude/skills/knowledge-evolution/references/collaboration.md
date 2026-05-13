@@ -75,3 +75,48 @@ evidence:
 | guideline | GL | GL-001 | BK-AD-G001 |
 | pitfall | PIT | PIT-001 | BK-AD-T001 |
 | process | PRC | PRC-001 | BK-AD-P001 |
+
+### 2.6.5 团队级配置：`.knowledge-config.yaml`
+
+知识仓库根目录的 `.knowledge-config.yaml` 除成员和冲突策略外，还包含 **知识衰减与事实校对** 的阈值配置。所有字段均为可选，缺失时使用默认值。
+
+```yaml
+# 成员与冲突（已有段落，示意）
+members:
+  - name: "Steven"
+    role: "maintainer"
+  - name: "Alice"
+    role: "contributor"
+conflict_policy:
+  auto_merge_strategies: [additive, evidence_append, maturity_upgrade]
+  maintainer_review_required: [content_conflict]
+
+# ─────────────────────────────────────────
+# 知识衰减规则（archiver §17 使用）
+# ─────────────────────────────────────────
+decay_rules:
+  knowledge_inactive_months: 12      # 知识多久未引用进入衰减判定（默认 12）
+  module_active_threshold_months: 6  # 模块多久内有变更算"活跃"——活跃则正常衰减（默认 6）
+  module_dormancy_cap_months: 24     # 模块休眠上限——超过则强制衰减，避免永久保留（默认 24）
+
+# ─────────────────────────────────────────
+# 代码事实校对（archiver §17.5 + fact-checker 子 Agent 使用）
+# ─────────────────────────────────────────
+fact_check:
+  enabled: true                      # 总开关（默认 true）
+  max_entries_per_archive: 20        # 单次 ARCHIVE 最多校对的候选条目数（默认 20）
+  max_symbols_per_entry: 5           # 每条候选最多提取的可验证符号数（默认 5）
+  skip_maturity: [draft]             # 跳过哪些成熟度的条目（默认 draft，因其本就不可信）
+```
+
+**字段如何起效**：
+
+| 字段 | 影响的逻辑 | 调整建议 |
+|-----|-----------|---------|
+| `knowledge_inactive_months` | 控制 proven 衰减触发时间 | 业务迭代快的团队可调小（如 6），稳定项目可调大 |
+| `module_active_threshold_months` | 控制"活跃模块"的定义边界 | 小于实际迭代周期将失效抑制；大于业务周期会保留过多老知识 |
+| `module_dormancy_cap_months` | 防止休眠抑制形成"永不衰减"的僵尸条目 | 通常设为 `knowledge_inactive_months × 2` |
+| `fact_check.max_entries_per_archive` | 控制 archiver 单次开销 | 团队知识量大时保持 20；小型团队可调高到 50 |
+| `fact_check.max_symbols_per_entry` | 控制 search_content 扫描量 | 典型值 3-10，超过 10 会显著增加 token 消耗 |
+
+**配置热更新**：修改后下次 ARCHIVE 时生效，无需重启工作流。

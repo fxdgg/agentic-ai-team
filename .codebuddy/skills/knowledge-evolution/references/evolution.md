@@ -8,19 +8,41 @@
 
 ### 6.1 知识生命周期（三级成熟度）
 
+知识生命周期由两组正交信号驱动：**时间信号**（是否被引用）和 **事实信号**（代码事实是否改变）。
+
+#### 6.1.1 主流转
+
 ```
 draft（导入/新提取/矛盾降级）
   ↓ 在 1 个工作流中被成功引用（ARCHIVE 阶段自动判定）
 verified（单项目验证）
   ↓ 在 ≥2 个不同项目中被验证（跨项目提升自动判定）
 proven（成熟/可信赖）
-  ↓ 12 月未引用
-verified（衰减）
-  ↓ 6 月未引用
-draft（进一步衰减）
-  ↓ 6 月未引用 + Lint 标记
-archived（归档，移出活跃索引）
 ```
+
+#### 6.1.2 时间信号衰减（默认 12/6/6 月阈值）
+
+```
+proven 12 月未引用 → verified
+verified 6 月未引用 → draft
+draft 6 月未引用 + Lint 标记 → archived
+```
+
+> **模块活跃度抑制**（archiver §17）：时间衰减触发时，会查询知识条目的关联模块在 `project-profile.modules[].last_active_at` 中的活跃度。若模块已 6~24 月未迭代（休眠中），则**抑制本次降级**并打标 `dormant-module-skipped-decay`，避免误伤季节性活跃模块（如对账/结算）。模块超过 24 月未动则强制衰减。阈值可通过 `.knowledge-config.yaml.decay_rules` 自定义。
+>
+> 导入条目（`source.trigger == "import"`）不参与活跃度抑制，因其关联可能与当前项目画像不匹配。
+
+#### 6.1.3 事实信号衰减（archiver §17.5）
+
+> 代码事实校对每次 ARCHIVE 针对"本次变更涉及的模块"的关联知识执行，基于符号存在性做确定性检测：
+
+```
+引用的源码文件整体消失     → 降级一级 + contradiction_flags += "stale-source-reference"
+条目中描述的关键符号消失   → maturity 不变 + contradiction_flags += "code-fact-drift"（需人工复查）
+符号仍在变更文件中出现     → 不改状态，仅列入观察清单（弱信号）
+```
+
+事实信号与时间信号**独立作用**，都在 `contradiction_flags` 留痕，同一条目可能被两者同时命中并各自打标。
 
 ### 6.2 冲突处理
 
@@ -55,7 +77,9 @@ archived（归档，移出活跃索引）
 | **过时检测** | maturity 为 draft 且 6 个月未引用 | 自动归档到 `archive/` 目录 |
 | **导入未验证** | `imported-` 前缀条目且连续 3 个工作流未引用 | 降级 maturity 到 draft，标记 `unvalidated-import` |
 | **重复/相似** | 标题或内容语义高度重合（含跨层重复检测） | 标记为合并候选，建议人工合并 |
-| **成熟度衰减** | proven 条目 12 月未引用 / verified 条目 6 月未引用 | 按生命周期规则（§6.1）自动降级 maturity |
+| **成熟度衰减** | proven 条目 12 月未引用 / verified 条目 6 月未引用 | 按生命周期规则（§6.1）自动降级 maturity（含模块活跃度抑制判定）|
+| **事实漂移待审** | 条目 `contradiction_flags` 含 `code-fact-drift`（由 archiver §17.5 打标） | 列入"待人工审核"清单，建议 maintainer 通过 `/knowledge update` 修订正文或执行归档 |
+| **休眠抑制待复查** | 条目 `contradiction_flags` 含 `dormant-module-skipped-decay` 且距首次抑制 > 3 月 | 列入"待人工复查"清单，提示 maintainer 检查关联模块是否仍在业务路线图内；若模块已废弃则手动归档知识 |
 
 **Lint 报告格式**：
 
@@ -76,7 +100,16 @@ archived（归档，移出活跃索引）
 - 补充 index.json 缺失条目: {N} 条
 - 归档过时条目: {M} 条
 - maturity 衰减降级: {K} 条
-- 更新 index.md / log.md
+
+💤 因模块休眠被抑制衰减: {S} 条（archiver §17 打标，此处汇总）
+- {ID}: {title} — 关联模块 {modules}（最后活跃 {date}，距今 {X} 月）
+- ... 
+- 建议：确认关联模块是否仍在业务路线图内；若已废弃，手动归档对应知识
+
+⚠️ 代码事实漂移待审（archiver §17.5 打标）: {F} 条
+- {ID}: {title} — 缺失符号 {symbols}（打标于 {date}）
+- ...
+- 建议：运行 /knowledge update 修订正文，或确认事实变更后归档
 
 待人工审核:
 - 矛盾条目: {列表}
