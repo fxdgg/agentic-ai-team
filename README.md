@@ -109,8 +109,9 @@ team-knowledge.git
 
 # 5. 知识库维护
 /knowledge status                      # 查看知识库状态
-/knowledge lint                        # 健康检查
+/knowledge lint                        # 健康检查（含模块活跃度抑制 + 事实漂移扫描）
 /knowledge sync                        # 同步团队知识仓库
+/knowledge fact-check                  # 手动触发代码事实校对（重构后立即用）
 
 # 6. 复盘改进
 /evolve                                # 分析改进建议
@@ -231,7 +232,11 @@ Layer 2    业务知识（{知识仓库}/biz-wiki/{domain}/）    ← model、pr
 draft（新提取，单一来源）→ verified（在 1 个工作流中被成功引用）→ proven（在 ≥2 个不同项目中被验证）
 ```
 
-**自动衰减**：proven 12 个月未引用 → 降级为 verified；verified 6 个月未引用 → 降级为 draft；draft 持续未引用 → Lint 标记后归档。
+**双信号衰减**：成熟度由两组正交信号共同维护——
+- **时间信号**：proven 12 个月未引用 → verified；verified 6 个月未引用 → draft；draft 持续未引用 → Lint 标记后归档。判定时引入"模块活跃度抑制"，避免误伤季节性活跃模块（如对账/结算只在月末/年末活跃），关联模块休眠 6~24 月时跳过降级，超过 24 月强制衰减。
+- **事实信号**：每次 ARCHIVE 由 `@fact-checker` 子 Agent 针对本次变更模块的关联知识做符号级校对——引用文件整体消失则降级，关键符号消失则打标 `code-fact-drift` 待人工复查。可通过 `/knowledge fact-check` 手动触发（支持指定模块或最近变更范围）。
+
+阈值通过 `{知识仓库}/.knowledge-config.yaml` 的 `decay_rules` 和 `fact_check` 段配置。
 
 > 成熟度仅适用于知识条目（Layer 1/2/3），不适用于个人偏好（Layer 0-P）和团队约定（Layer 0-T）。
 
@@ -294,7 +299,7 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 | `/flow-upgrade` | 工作流版本更新（版本对比 + 选择性更新） |
 | `/flow-status` | 查看工作流状态 |
 | `/team-init` | 初始化项目配置，连接团队知识仓库 |
-| `/knowledge` | 知识库维护（status/lint/sync/query/add/promote） |
+| `/knowledge` | 知识库维护（status/lint/sync/query/add/fact-check/promote） |
 | `/evolve` | 分析改进建议 |
 | `/evolve-apply` | 落地改进 |
 | `/guard` | SKILL/Rule 变更守护检查 |

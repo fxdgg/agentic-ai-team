@@ -20,3 +20,7 @@
 
 # ─── 本地文档（博文草稿、笔记等，不入库）───
 docs/
+
+# iWiki plugin files
+.iwiki
+.vscode/iwiki-*.json
