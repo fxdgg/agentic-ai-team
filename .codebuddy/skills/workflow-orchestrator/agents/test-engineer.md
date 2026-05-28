@@ -669,6 +669,35 @@ risks:
 - 删除 `testing/` 目录下所有文件
 - 若需回退到 `IMPLEMENT` 阶段修复代码，可从 TEST 连续回退两次
 
+### TEST 完成后的流转指令（CRITICAL）
+
+> **编排器必读**：TEST PASS 仅表示"测试验证通过"，**不等于工作流完成**。TEST 之后还有 ARCHIVE 阶段必须执行（归档目录移动、PRD 归档、知识库写入、state.json → DONE）。
+
+TEST 阶段总结确认后，无论 qualityGate 为 `pass` / `warn` / `fail`，只要用户选择"继续"，编排器的下一步操作如下：
+
+| 步骤 | 操作 |
+|------|------|
+| 1 | 在"总结确认"中展示测试结果（L1/L2 验证统计 + L3 用例数量 + qualityGate 等级） |
+| 2 | 查阅 `references/phase-transitions.json`，确认下一阶段为 **ARCHIVE** |
+| 3 | 加载 `phases/archive-rules.md`（按 SKILL.md §10 阶段规则按需加载映射表） |
+| 4 | 更新 `state.json`：`currentPhase` → `ARCHIVE`，并在 phaseHistory 追加 TEST 阶段完成记录 |
+| 5 | 进入 ARCHIVE 阶段的"预览"步骤（参见 `agents/archiver.md` §「编排器对接行为（ARCHIVE 阶段）」） |
+
+**严禁操作**：
+- ❌ 不得将 `currentPhase` 直接设为 `DONE`（**只有 ARCHIVE 阶段的 archiver Agent 才能将 `currentPhase` 设为 `DONE`**，详见 SKILL.md §2.2）
+- ❌ 不得在 TEST PASS 后输出"需求完成总结"、"工作流完成"、"🎉 全部阶段已完成"等终态消息
+- ❌ 不得跳过 ARCHIVE 阶段（即使用户表达"功能已验证完毕"，也必须先执行 ARCHIVE 才能进入 DONE）
+- ❌ 不得仅展示"提示进入 ARCHIVE 阶段"的文案后停止动作 —— 必须立即更新 `currentPhase` 并进入 ARCHIVE 预览
+
+TEST PASS 后的完整剩余流程：
+```
+TEST (PASS/WARN/FAIL 用户选继续) → ARCHIVE → DONE
+                                    ↑          ↑
+                                    归档动作    终态（仅 archiver 可置）
+```
+
+> **常见漂移场景提醒**：TEST 阶段在 SKILL.md §12.3 通知映射中被列为"低人工介入、不发送通知"的阶段，加之 TEST 是 BUILD_VERIFY/VISUAL_REVIEW/E2E_VERIFY/TEST 验证序列的最后一个，编排器极易误判"工作流到此为止"。出现此类倾向时，必须强制回到本节"严禁操作"清单进行对照。
+
 ---
 
 ## 规则引用

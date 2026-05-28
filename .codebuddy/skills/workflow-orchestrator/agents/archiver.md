@@ -31,7 +31,9 @@
 ```
 测试验证 Agent (test-engineer)
        ↓ 输出: testing/ 下的测试方案和测试报告
-编排器: 所有阶段完成后触发 ARCHIVE
+编排器: TEST 总结确认通过后，依据 phase-transitions.json 流转守卫，
+        更新 state.json.currentPhase = ARCHIVE，
+        加载 phases/archive-rules.md，进入 ARCHIVE 三步模式（预览 → 执行 → 总结确认）
        ↓
 归档总结专家 Agent (archiver) ← 当前角色
        ├── §16 自动 Lint 触发 → 派发 Lint 子 Agent（复用 /knowledge lint 逻辑）

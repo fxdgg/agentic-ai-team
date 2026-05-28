@@ -56,6 +56,7 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 5. **澄清阶段**：仅当对应的 `*-clarify.json` 存在且有 `pending` 问题时才进入，否则自动跳过
 6. **流转守卫（CRITICAL）**：`BUILD_VERIFY` → `VISUAL_REVIEW` → `E2E_VERIFY` → `TEST` → `ARCHIVE` → `DONE` 之间**不存在可跳过的阶段**（`VISUAL_REVIEW` 除外：当无设计稿时可自动跳过，详见 `phases/visual-review-rules.md` §0.1），即使某些验证维度标记为 N/A，阶段本身仍必须按顺序执行并记录到 phaseHistory。特别地：
    - **BUILD_VERIFY PASS ≠ 工作流完成**，BUILD_VERIFY 之后还有 4 个阶段
+   - **TEST PASS ≠ 工作流完成**，TEST 之后**必须**进入 ARCHIVE 阶段执行归档动作（目录移动 / PRD 归档 / 知识库写入 / state.json → DONE）。编排器在 TEST 总结确认后只要用户选择"继续"，须立即更新 `currentPhase` → `ARCHIVE` 并进入 ARCHIVE 预览，详见 `agents/test-engineer.md` §「TEST 完成后的流转指令」与 `phases/archive-rules.md`
    - **只有 ARCHIVE 阶段的 archiver Agent 才能将 `currentPhase` 设为 `DONE`**
 
 ### 2.3 质量门禁处理规则
@@ -990,6 +991,8 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 | ARCHITECT_FRONTEND | `rules/knowledge-query-protocol.md` | 知识查询协议（由 frontend-architect 自行引用） |
 | IMPLEMENT | `phases/implement-rules.md` + `rules/knowledge-query-protocol.md` | 动态调度 + Agent Teams 模式 + 编译修复模式 + D2C 嵌入模式 + 知识查询协议 |
 | BUILD_VERIFY | `phases/build-verify-rules.md` + `rules/knowledge-query-protocol.md` | 调度模式选择 + Agent Teams 规则 + 精细化回退策略 + 知识查询协议（编译失败时 pitfall 查询） |
+| TEST | （无专属 phases 规则文件）由 `agents/test-engineer.md` 末尾「TEST 完成后的流转指令」驱动流转 + `references/phase-transitions.json` 守卫；编排器须将 `agents/test-engineer.md` 视为本阶段的规则来源 |
+| ARCHIVE | `phases/archive-rules.md` + `agents/archiver.md` | ARCHIVE 进入条件 / 三步模式 / 严禁操作 / DONE 写入唯一入口；archiver Agent 内部细则见 archiver.md |
 | 任何阶段的"预览"/"总结确认" | `phases/output-formats/common.md` | 通用展示格式（预览/总结/澄清/列表/PRD重复/二次确认） |
 | ANALYSE_PRODUCT 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-product-formats.md` | 通用格式 + ANALYSE_PRODUCT Agent Teams 专用格式 |
 | ANALYSE_TECH 的"预览"/"总结" | `phases/output-formats/common.md` + `phases/output-formats/analyse-tech-formats.md` | 通用格式 + ANALYSE_TECH Agent Teams 专用格式 |

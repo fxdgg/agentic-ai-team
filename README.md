@@ -7,7 +7,7 @@
 
 ## 这是什么
 
-AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一条命令 `/flow-run` 驱动 AI Agent 完成从需求分析到代码归档的全流程。它不是一个独立平台，而是一组 `.codebuddy/` 目录下的 Skill、Agent、Command 定义文件，被 CodeBuddy IDE 原生识别和执行。
+AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一条命令 `/flow-run` 驱动 AI Agent 完成从需求分析到代码归档的全流程。它不是一个独立平台，而是一组 IDE 原生识别的 Skill / Agent / Command 定义文件——`.codebuddy/` 给 CodeBuddy 用、`.claude/` 给 Claude Code 用，**双平台镜像维护、功能完全等价**。
 
 **核心价值**：Skill、Agent、工具链会随模型迭代更新，但**领域知识是永恒的**。AI Team 的每次交付都自动沉淀知识到团队共享仓库，所有成员共建共享，新工作流启动时自动站在前人肩上。
 
@@ -22,10 +22,10 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 **单仓模式**（一个 Git 仓库包含所有代码）：
 ```
 工作区根/（= Git 仓库根）
-├── .codebuddy/               ← 引擎副本
-├── .ai-team/project.yaml     ← 知识锚点
-├── docs/workflows/            ← 工作流产物
-├── src/                       ← 你的代码
+├── .codebuddy/  +  .claude/      ← 引擎副本（双平台镜像）
+├── .ai-team/project.yaml          ← 知识锚点
+├── docs/workflows/                ← 工作流产物
+├── src/                           ← 你的代码
 └── pom.xml / package.json
 
 → repos[]: [{ name: "my-project", path: "./", type: "fullstack" }]
@@ -34,22 +34,23 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 **多仓模式**（多个独立 Git 仓库，微服务拆分）：
 ```
 工作区根/（CodeBuddy 打开的父目录，不是 Git 仓库）
-├── .codebuddy/               ← 引擎副本
-├── .ai-team/project.yaml     ← 知识锚点
-├── docs/workflows/            ← 工作流产物（不属于任何 Git 仓库）
+├── .codebuddy/  +  .claude/       ← 引擎副本（双平台镜像）
+├── .ai-team/project.yaml          ← 知识锚点
+├── project-docs/      (.git/)     ← 文档仓（type=docs，承载 docs/workflows/）
 │
-├── ad-service/        (.git/) ← Git 仓库 A（后端微服务）
-├── creative-service/  (.git/) ← Git 仓库 B（后端微服务）
-└── ad-frontend/       (.git/) ← Git 仓库 C（前端）
+├── ad-service/        (.git/)     ← Git 仓库 A（后端微服务）
+├── creative-service/  (.git/)     ← Git 仓库 B（后端微服务）
+└── ad-frontend/       (.git/)     ← Git 仓库 C（前端）
 
 → repos[]: [
-    { name: "ad-service",       path: "ad-service/",       type: "backend" },
-    { name: "creative-service", path: "creative-service/",  type: "backend" },
-    { name: "ad-frontend",      path: "ad-frontend/",       type: "frontend" }
+    { name: "project-docs",     path: "project-docs/",     type: "docs"     },
+    { name: "ad-service",       path: "ad-service/",       type: "backend"  },
+    { name: "creative-service", path: "creative-service/", type: "backend"  },
+    { name: "ad-frontend",      path: "ad-frontend/",      type: "frontend" }
   ]
 ```
 
-两种模式的工作流完全一致：INIT 自动扫描填充 `repos[]`，后续阶段遍历 `repos[]` 执行。
+两种模式的工作流完全一致：`/team-init` 引导填充 `repos[]`，后续阶段遍历 `repos[]` 执行。多仓模式下 `docs/` 由独立的 `type=docs` 仓库承载（`projectConfig.docsRoot` 自动解析路径，Agent 无需感知单仓/多仓差异）。
 
 **团队知识仓库**（独立 Git 仓库，所有成员 clone，跨项目/跨工作区共享）：
 ```
@@ -70,7 +71,7 @@ team-knowledge.git
 
 ## 安装
 
-在你的业务项目中打开 CodeBuddy，粘贴给 Agent：
+在你的业务项目中打开 CodeBuddy 或 Claude Code，粘贴给 Agent：
 
 ```
 请帮我从远程仓库拉取 ai-team 工作流系统到当前工作区。按顺序执行：
@@ -79,15 +80,16 @@ team-knowledge.git
    git clone --depth 1 git@git.woa.com:Agentic-CE-Infra/ur-ai-team.git .ai-team-install
 
 2. cp -r .ai-team-install/.codebuddy ./
+   cp -r .ai-team-install/.claude ./        # 双平台同步部署
 
 3. rm -rf .ai-team-install
 
-4. 验证：检查 .codebuddy/skills/ 和 .codebuddy/commands/ 目录是否存在。
+4. 验证：检查 .codebuddy/skills/、.codebuddy/commands/、.claude/skills/、.claude/commands/ 目录是否存在。
 
 完成后告诉我安装结果。
 ```
 
-安装后 `.codebuddy/` 目录立即被 IDE 识别。后续更新重新执行即可覆盖。
+安装后两个目录立即被对应 IDE 识别。后续可使用 `/flow-upgrade` 命令版本对比 + 选择性更新（双平台同步）。
 
 ---
 
@@ -123,40 +125,98 @@ team-knowledge.git
 
 ---
 
-## 工作流：16 阶段状态机
+## 工作流：15 阶段状态机
 
 ```
-/flow-run 启动后自动流转：
+/flow-run 启动后自动流转（15 个合法阶段，含 4 个澄清阶段）：
 
-INIT → ANALYSE_PRODUCT → ANALYSE_TECH → ARCHITECT_BACKEND → ARCHITECT_FRONTEND
-  → ARCHITECT_MINIPROGRAM → IMPLEMENT → BUILD_VERIFY → VISUAL_REVIEW
+INIT
+  → ANALYSE_PRODUCT  → CLARIFY_PRODUCT
+  → ANALYSE_TECH     → CLARIFY_TECH
+  → ARCHITECT_BACKEND  → CLARIFY_ARCH_BACKEND
+  → ARCHITECT_FRONTEND → CLARIFY_ARCH_FRONTEND
+  → IMPLEMENT → BUILD_VERIFY → VISUAL_REVIEW
   → E2E_VERIFY → TEST → ARCHIVE → DONE
 ```
 
-每个阶段遵循**三步模式**：Preview（预览计划）→ Execute（执行）→ Summary（总结确认），确保每一步人工可控。
+每个非 INIT 阶段遵循**三步模式**：Preview（预览计划）→ Execute（执行）→ Summary（总结确认），确保每一步人工可控。`CLARIFY_*` 仅当对应澄清文件有 `pending` 问题时进入，否则自动跳过（记录 `status: "skipped"`）。**只有 ARCHIVE 阶段的 `@archiver` Agent 才能将 `currentPhase` 设为 `DONE`**——BUILD_VERIFY PASS ≠ 工作流完成。
 
 ### 各阶段做什么
 
-| 阶段 | Agent | 做什么 |
-|------|-------|--------|
-| **ANALYSE_PRODUCT** | 4-5 成员 Agent Teams | 需求分析：迭代判定、基线对比、用户故事/业务规则提取、视觉分析 |
-| **ANALYSE_TECH** | 4 成员 Agent Teams | 技术分析：按 repos[] 逐仓库扫描、3 轮递进复用搜索、技术方案设计、分端拆解、校审 |
-| **ARCHITECT** | 架构师 Agent | 后端/前端/小程序架构设计，数据库设计，API 契约定义 |
-| **IMPLEMENT** | 各端开发 Agent 并行 | 按 repos[] 分配文件所有权，每个仓库独立 Agent，LSP 实时诊断 |
-| **BUILD_VERIFY** | 验证 Agent | 按 repos[] 逐仓库编译（各自 buildCommand），LSP 预扫描 |
-| **VISUAL_REVIEW** | 视觉验收 Agent | AI 对比设计稿 vs 实现截图，还原度评分（A/B/C/D/F） |
-| **ARCHIVE** | @archiver | 归档 + 知识提取 + 团队知识仓库同步（Git push） |
+| # | 阶段 ID | Agent | 做什么 |
+|---|--------|-------|--------|
+| 0 | `INIT` | 编排器 | 解析 PRD、加载 `repos[]`、注入团队知识仓库路径、TAPD 检测、IntentGate 意图分析（自动流转，唯一无需用户确认） |
+| 1 | `ANALYSE_PRODUCT` | 4 成员产品 Agent Teams | 需求分析：迭代判定、基线对比、用户故事/业务规则提取、视觉分析 |
+| 2 | `CLARIFY_PRODUCT` | 编排器 | 读取产品澄清问题，向用户提问，回填答案 |
+| 3 | `ANALYSE_TECH` | 4 成员技术 Agent Teams | 技术分析：按 `repos[]` 逐仓库扫描、3 轮递进搜索、技术方案设计、分端拆解、校审 |
+| 4 | `CLARIFY_TECH` | 编排器 | 技术澄清问题处理 |
+| 5 | `ARCHITECT_BACKEND` | 全局架构师 + 领域架构师×N | 三级降级（Agent Teams → Task 流水线 → 单体兜底）+ 领域确认检查点 + 数据库 / API 契约 |
+| 6 | `CLARIFY_ARCH_BACKEND` | 编排器 | 后端架构澄清 |
+| 7 | `ARCHITECT_FRONTEND` | 资深前端架构师 | Web / 小程序架构设计 |
+| 8 | `CLARIFY_ARCH_FRONTEND` | 编排器 | 前端架构澄清 |
+| 9 | `IMPLEMENT` | 各端开发 Agent 并行 | 按 `domain-registry.json` 分配领域所有权，每个领域独立 Agent，LSP 实时诊断；前端可由 D2C 直通完成 |
+| 10 | `BUILD_VERIFY` | 后端/Web/小程序验证 Agent | **P0 质量门禁**，Agent Teams 模式下按平台并行验证（B1/B2/B3），精细化回退仅重跑失败平台 |
+| 11 | `VISUAL_REVIEW` | 视觉验收 Agent | **P1 质量门禁**（可选），AI 对比设计稿 vs 实现截图，还原度评分（A/B/C/D/F），无设计稿时自动跳过 |
+| 12 | `E2E_VERIFY` | 端到端链路验证 Agent | 跨组件 / 跨服务运行时依赖验证（7 维度） |
+| 13 | `TEST` | 测试验证 Agent | 生成测试方案并执行验证（3 层测试体系） |
+| 14 | `ARCHIVE` | `@archiver` + `@fact-checker` | 汇总变更报告、知识提取与提升判定、团队知识仓库 push、TAPD 附件回写、企微归档通知 |
+| 15 | `DONE` | — | 终态（仅 ARCHIVE 阶段可流转至此） |
 
 ### 核心工程机制
 
 | 机制 | 说明 |
 |------|------|
-| **上下文防火墙** | 搜索密集型工作在独立上下文窗口执行，仅将结构化结论（~10x 压缩）传递给下游 |
-| **IntentGate** | INIT 后自动意图分析：四分类 + 歧义检测 + 影响估算 + 路由提示 |
-| **三级降级** | L1 Agent Teams → L2 Task 串行管道 → L3 编排器直接执行 |
-| **检查点恢复** | ARCHITECT 四阶段追踪，ANALYSE_PRODUCT 三级恢复 |
-| **LSP 诊断** | IMPLEMENT 每次写入后 `read_lints`，BUILD_VERIFY 全项目扫描 |
-| **搜索预算** | 每个 Agent 有独立搜索配额，LSP → Grep → Glob → codebase_search 优先链 |
+| **上下文防火墙** | 搜索密集型工作在独立 Agent Teams 上下文窗口执行，仅将结构化结论（~10x 压缩）传递给下游成员 |
+| **三级降级** | L1 Agent Teams → L2 Task 串行管道 → L3 编排器直接执行（ANALYSE_PRODUCT / ARCHITECT_BACKEND 适用） |
+| **IntentGate 意图分析** | INIT 后前置执行：5 类意图分类（`new-feature` / `feature-modify` / `bug-fix` / `tech-refactor` / `d2c-to-workflow`）+ 歧义检测 + 影响范围预估 + 路由提示，写入 `state.json.intentAnalysis` |
+| **检查点恢复** | ARCHITECT_BACKEND 四阶段（global_pending → global_completed → domains_confirmed → domains_completed）；ANALYSE_PRODUCT 三级恢复（teams / pipeline / fallback） |
+| **流转守卫** | 每次更新 `currentPhase` 前查 `references/phase-transitions.json`，非法跳跃强制阻断；DONE 终态保护（写入前校验所有 14 个前置阶段均有 phaseHistory 记录） |
+| **阶段计时协议** | `phaseHistory` 5 时间戳：`startedAt`（预览开始）/ `confirmedAt`（用户确认）/ `executionStartedAt` / `executionCompletedAt` / `completedAt`（总结确认）逐轮填充 |
+| **运行时上下文健康度** | 每次阶段切换估算工具调用次数与压缩事件，写入 `contextHealth.phaseMetrics`，>150 次累计建议 `/compact` |
+| **搜索预算** | 每个 Agent 有独立配额（搜索密集型 ≤60、设计型 ≤5、开发型 ≤30/领域、验证型 ≤20）；优先链：`read_lints` → LSP → Grep → Glob → `codebase_search` |
+| **LSP 诊断** | IMPLEMENT 每次写入后 `read_lints`，BUILD_VERIFY 全项目扫描，预防 80% 编译失败 |
+| **knowledgeReferences 校验** | 每个阶段总结确认时强制检查核心产物含 `knowledgeReferences` 字段（即使为 `[]`），缺失则标 🟡 warn |
+| **代码溯源（@changelog）** | 每个源文件头部维护 `\| 版本 \| REQ:{需求ID} \| TECH:{方案文档} \| 摘要 \| 日期 \|` 表格 + `@author agent:{name}`，实现 O(1) 需求-代码关联查找 |
+| **通知机制** | `architect_review` / `build_verify_fail` / `visual_review_fail` / `workflow_done` 四类事件经 `send-flow-message` 主动推送到企微（探测到技能时自动启用） |
+
+### Agent 编制全景
+
+`workflow-orchestrator/agents/` 下的 Agent 按团队/职责划分（不含项目运行时动态生成的领域 Agent）：
+
+| 团队 / 单体 | 成员 | 调用阶段 |
+|------------|------|---------|
+| **产品分析团队**（4 成员）| `@product-collector` · `@baseline-differ` · `@product-extractor` · `@quality-assessor` | ANALYSE_PRODUCT |
+| **技术分析团队**（4 成员）| `@tech-explorer` · `@tech-designer` · `@tech-splitter` · `@tech-reviewer` | ANALYSE_TECH |
+| **后端架构团队**（动态）| `@global-architect` + `@domain-architect-{N}`（≤8） | ARCHITECT_BACKEND |
+| **后端开发**（动态领域）| 共享 `backend-dev-specification.md` 通用规范，按 `domain-registry.json` 实例化 | IMPLEMENT |
+| **构建验证团队**（3 成员）| `@backend-build-verifier` · `@web-build-verifier` · `@miniprogram-build-verifier` | BUILD_VERIFY |
+| **知识导入团队**（3 成员）| `@doc-collector` · `@codebase-profiler` · `@knowledge-builder` | `/flow-import` |
+| **单体 / 降级 Agent** | `product-analyst` · `fullstack-analyst` · `build-verifier`（三级降级时使用） | 对应阶段 |
+| **架构师** | `java-architect`（Java 专版） · `backend-architect`（通用版） · `frontend-architect` | ARCHITECT_* |
+| **前端开发** | `web-developer` · `miniprogram-developer` | IMPLEMENT |
+| **验证 / 验收 / 归档** | `e2e-link-verifier` · `test-engineer` · `visual-reviewer` · `archiver` · `fact-checker` | E2E_VERIFY/TEST/VISUAL_REVIEW/ARCHIVE |
+
+### D2C 双模式
+
+Figma 设计稿转代码（`figma-d2c` Skill）有两种与工作流的集成方式，通过 `state.json.intentAnalysis.d2cConfig.mode` 区分：
+
+| 模式 | 触发场景 | 工作流路径 |
+|------|---------|----------|
+| **standalone**（直通模式） | 用户直接粘贴 Figma 链接、无 PRD 上下文 | D2C 完成 → 自动生成 PRD → `intentType = d2c-to-workflow` → 简化执行 ANALYSE/ARCHITECT_FRONTEND → IMPLEMENT 前端部分**跳过**（D2C 已完成）→ BUILD_VERIFY 起正常 |
+| **embedded**（嵌入模式） | 已有 PRD + 关联 Figma | 正常执行 ANALYSE/ARCHITECT，IMPLEMENT 阶段前端开发 Agent 调用 D2C 生成基础代码后做业务增强 |
+
+两种模式均支持 16 步检查点协议（CP-0 → CP-M），断点续传、回归对比、视觉验收自动衔接。
+
+### 多仓文档仓（docsRoot / docsRepoMode）
+
+多仓模式下 `docs/workflows/` 不属于任何业务 Git 仓库——通过 `projectConfig.docsRoot` + `docsRepoMode` 解决：
+
+| 字段 | 取值 | 含义 |
+|------|------|------|
+| `docsRoot` | `"./"` / `"project-docs/"` | 文档仓根相对 workspace 的路径 |
+| `docsRepoMode` | `embedded` / `standalone` | 内嵌（单仓 docs 在业务仓内）/ 独立（多仓独立 Git）|
+
+INIT 阶段自动检测：单仓 → `embedded`；多仓且 `repos[].type=docs` 已配置 → `standalone`；多仓但 workspace 根已有 `docs/`（存量项目）→ 提示用户在 workspace 根「原地 Git 化」或迁移到 `project-docs/`。Agent 文档中所有 `docs/` 前缀路径保持不变，**编排器运行时拼接 `{docsRoot}` 解析为绝对路径**，Agent 完全无感。
 
 ---
 
@@ -294,32 +354,57 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 
 | 命令 | 用途 |
 |------|------|
-| `/flow-run` | 启动交付工作流 |
+| `/flow-run` | 启动交付工作流（支持附带 PRD 文档启动 / 文字描述 / 直接启动三种入口） |
 | `/flow-import` | 历史项目知识导入（支持 Git/TAPD/iwiki/本地文档/口述） |
-| `/flow-upgrade` | 工作流版本更新（版本对比 + 选择性更新） |
-| `/flow-status` | 查看工作流状态 |
-| `/team-init` | 初始化项目配置，连接团队知识仓库 |
-| `/knowledge` | 知识库维护（status/lint/sync/query/add/fact-check/promote） |
-| `/evolve` | 分析改进建议 |
-| `/evolve-apply` | 落地改进 |
-| `/guard` | SKILL/Rule 变更守护检查 |
+| `/flow-upgrade` | 工作流版本更新（远程对比 + 选择性更新 `.codebuddy/` 与 `.claude/` 双平台同步） |
+| `/flow-status` | 查看所有需求的进度、当前阶段、风险汇总（无需启动编排器） |
+| `/team-init` | 初始化项目配置，连接团队知识仓库，绑定 `repos[]`、业务领域和技术栈 |
+| `/knowledge` | 知识库维护（status / lint / sync / query / add / fact-check / promote） |
+| `/evolve` | 流水线进化分析（基于 Bug 追溯 Agent 环节，产出改进建议存入进化日志） |
+| `/evolve-apply` | 流水线进化落地（仅 Owner 使用，浏览 pending 记录后逐条审阅落地） |
+| `/guard` | 守卫模式开关（开启后 AI 不直接执行操作，逐步确认推进） |
 
 ## 可用 Skills
 
+> 双平台镜像维护，`.codebuddy/` 与 `.claude/` 各自的 `skills/` 目录中均包含以下 Skills（标 ⚠️ 的为单平台特例，详见末尾「待办」）。
+
+**核心工作流类**
+
 | Skill | 用途 |
 |-------|------|
-| `workflow-orchestrator` | 核心编排 — 16 阶段状态机 + Agent Teams + 知识闭环 |
-| `knowledge-evolution` | 知识进化引擎 — 提取 + 存储 + 按需查询 + 生命周期 |
-| `figma-d2c` | Figma 设计稿转代码（16 步检查点协议） |
-| `prd-creator` | 结构化 PRD 创建 |
-| `git-push-helper` | 智能 Git 提交推送 + MR + 通知 |
-| `quality-guardian` | 全流程质量监控 |
-| `capability-router` | 意图分析与 Skill 路由 |
-| `tapd-toolkit` | TAPD 集成 |
-| `team-hub` | 多角色协作 |
-| `model-router` | 多模型路由 |
-| `skill-learner` | Skill 效果分析与优化 |
-| `token-budget-manager` | Token 预算管理 |
+| `workflow-orchestrator` | 核心编排 — 15 阶段状态机 + Agent Teams + 三级降级 + 知识闭环 |
+| `knowledge-evolution` | 知识进化引擎 — 提取 + 存储 + 按需查询 + 生命周期 + 衰减 |
+| `figma-d2c` | Figma 设计稿转代码（16 步检查点协议 CP-0 → CP-M） |
+| `prd-creator` | 苏格拉底式渐进提问引导创建 PRD |
+| `quality-guardian` | 全流程质量监控（质量看板、回退分析、趋势对比） |
+| `team-hub` | 团队级多需求协同管理（角色看板、瓶颈分析、资源冲突检测） |
+
+**集成 / 协作类**
+
+| Skill | 用途 |
+|-------|------|
+| `tapd-toolkit` | TAPD 集成（图片上传、附件上传/查询/下载，补充 MCP 原生工具） |
+| `git-push-helper` | Git 自动化推送（暂存 → AI 生成 commit message → 推送 + MR + 通知） |
+| `send-flow-message` | 通过 Redis 消息队列向企微群发送通知（卡片 / Markdown） |
+| `iwiki-operation` ⚠️ | iWiki 文档创建/修改（仅 `.codebuddy/`，依赖 iwiki MCP） |
+| `mcp-setup-guide` | MCP 服务配置引导（TAPD / iWiki / Figma 等） |
+
+**元能力 / 优化类**
+
+| Skill | 用途 |
+|-------|------|
+| `capability-router` | 意图分析与 Skill 路由（Skills 系统的智能前端） |
+| `model-router` | 多模型路由（按任务复杂度/上下文长度/成本预算选模型） |
+| `skill-learner` | Skill 自学习引擎（基于历史数据评估优化 Skill / Agent 表现） |
+| `skill-creator` | 创建 / 改进 / 评测 Skill 的元工具 |
+| `token-budget-manager` | Token 预算管理（消耗追踪、预警、成本优化） |
+
+**通用文档处理类**（来自 Anthropic 官方 Skills）
+
+| Skill | 用途 |
+|-------|------|
+| `pdf` | PDF 读写（提取/合并/分割/旋转/水印/OCR/表单） |
+| `docx` | Word 文档处理（创建、读取、编辑 .docx，支持表格、目录、图片） |
 
 <img width="" src="/uploads/7dcc47b8fb7440f0b3836c09dff6400a/image.png" alt="image.png" />
 
@@ -328,33 +413,57 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 ## 目录结构
 
 ```
-.codebuddy/
-├── skills/                              # Skill 定义
-│   ├── workflow-orchestrator/           # 🧠 核心编排器
-│   │   ├── SKILL.md                     #   16 阶段状态机 + Agent Teams
-│   │   ├── agents/                      #   子 Agent 定义（动态调度）
-│   │   ├── phases/                      #   阶段调度规则
-│   │   ├── references/                  #   Schema 定义（state-schema.json 等）
-│   │   ├── rules/                       #   编码规范、诊断策略、视觉协议
-│   │   └── templates/                   #   Agent Prompt 模板
-│   ├── knowledge-evolution/             # 知识进化引擎
-│   ├── figma-d2c/                       # Figma D2C
-│   ├── prd-creator/                     # PRD 创建器
-│   ├── quality-guardian/                # 质量守卫
-│   └── ...                              # 其余 Skills
+仓库根/
+├── README.md                          # 本文件（项目全景 + 更新日志）
+├── CLAUDE.md  +  CODEBUDDY.md          # AI 协作约定（迭代本仓库时生效，详见文件本身）
 │
-├── commands/                            # 用户命令
-│   ├── flow-run.md                      # 启动交付工作流
-│   ├── flow-import.md                   # 历史知识导入
-│   ├── flow-upgrade.md                  # 工作流版本更新
-│   ├── flow-status.md                   # 工作流状态查看
-│   ├── knowledge.md                     # 知识库维护
-│   ├── team-init.md                     # 初始化+连接知识仓库
-│   └── ...                              # evolve, guard 等
-│
-├── rules/                               # 编码规则（java-backend, tcb, anydev）
-└── memory/                              # 组织记忆
+├── .codebuddy/   ←─┐                   # CodeBuddy 平台
+└── .claude/      ←─┘                   # Claude Code 平台（与 .codebuddy/ 镜像维护）
+    ├── skills/                         # Skill 定义（19 / 18 个）
+    │   ├── workflow-orchestrator/      # 🧠 核心编排器
+    │   │   ├── SKILL.md                #   15 阶段状态机 + Agent Teams + 流转守卫
+    │   │   ├── agents/                 #   子 Agent 定义
+    │   │   │   ├── product-analysts/   #     ANALYSE_PRODUCT 4 成员团队
+    │   │   │   ├── tech-analysts/      #     ANALYSE_TECH 4 成员团队
+    │   │   │   ├── backend-developers/ #     IMPLEMENT 后端领域开发通用规范
+    │   │   │   ├── build-verifiers/    #     BUILD_VERIFY 多平台并行验证
+    │   │   │   ├── import-agents/      #     /flow-import 3 Agent 串行管道
+    │   │   │   └── *.md                #     单体/降级 Agent + 架构师 + 验收/归档
+    │   │   ├── phases/                 #   阶段调度规则（按需加载）
+    │   │   │   ├── architect-backend-level{1,2,3}.md   #   三级降级独立文件
+    │   │   │   ├── analyse-product-rules.md / ...      #   各阶段主规则
+    │   │   │   └── output-formats/     #     预览/总结/澄清的格式模板
+    │   │   ├── references/             #   Schema (state/risks/clarify/import/...)
+    │   │   ├── rules/                  #   编码规范、LSP、视觉协议、知识查询协议
+    │   │   ├── templates/              #   Agent Prompt 模板
+    │   │   └── scripts/                #   resolve_agent_paths.py 等
+    │   ├── knowledge-evolution/        # 知识进化引擎
+    │   ├── figma-d2c/                  # Figma D2C
+    │   ├── prd-creator/ / quality-guardian/ / team-hub/ / capability-router/
+    │   ├── tapd-toolkit/ / git-push-helper/ / send-flow-message/ / mcp-setup-guide/
+    │   ├── model-router/ / skill-learner/ / skill-creator/ / token-budget-manager/
+    │   ├── pdf/ / docx/                # 通用文档处理
+    │   └── iwiki-operation/            # ⚠️ 仅 .codebuddy/
+    │
+    ├── commands/                       # 9 个用户命令
+    │   ├── flow-run.md / flow-import.md / flow-upgrade.md / flow-status.md
+    │   ├── team-init.md / knowledge.md
+    │   ├── evolve.md / evolve-apply.md
+    │   └── guard.md                    # 守卫模式开关
+    │
+    ├── references/                     # 顶层引用资料
+    │   ├── agent-catalog/              # 第 2 层综合指南（Agent 系统全景导航）
+    │   ├── workflow-templates/         # 工作流模板
+    │   └── legacy-docs/                # 历史文档归档
+    │
+    ├── rules/                          # 业务项目用编码规则（与本引擎自身无关）
+    │   ├── tcb/                        # CloudBase 开发指南
+    │   └── anydev/                     # AnyDev 开发指南
+    │
+    └── plans/                          # 临时规划草稿（非核心，可忽略）
 ```
+
+> 「业务项目用编码规则」与「引擎自身协作约定」的边界：`.{platform}/rules/` 是**业务项目集成的**编码规则，会随 `.codebuddy/` 一起部署到业务项目；`CLAUDE.md` / `CODEBUDDY.md` 是**仅本仓库迭代时生效**的协作约定，不会被部署。
 
 ---
 
@@ -362,7 +471,7 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 
 | 原则 | 实现 |
 |------|------|
-| **IDE 原生** | `.codebuddy/` 目录驱动，无独立平台、无数据库 |
+| **IDE 原生** | `.codebuddy/` + `.claude/` 双平台镜像目录驱动，无独立平台、无数据库 |
 | **文件即状态** | `state.json` 管理工作流，阶段产物即进度凭证 |
 | **知识是核心资产** | 团队共享 Git 知识仓库，三级成熟度 + 贡献追踪 + 不可变日志 |
 | **按需消费** | 三层渐进索引，Agent 主动查询而非被动推送 |
@@ -375,6 +484,64 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 - **[Karpathy LLM Wiki](https://gist.github.com/karpathy/1dd0294ef9567971c1e4348a90d69285)** — 知识复合增长：Ingest + Query + Lint
 - **[vibe-coding](../vibe-coding/)** — 生产验证的文件状态机 + Agent 编排模式
 - **[oh-my-claudecode](https://github.com/yeachan-heo/oh-my-claudecode)** — IDE 原生 Skill/Rule 架构
+
+---
+
+## 更新日志
+
+> 用于记录引擎自身的架构性迭代历史，便于新对话开始时快速了解项目演化脉络。
+> 维护约定见 [`CLAUDE.md`](./CLAUDE.md) / [`CODEBUDDY.md`](./CODEBUDDY.md) — 凡是涉及命令/Skill/Agent/16 阶段流程/知识体系/部署拓扑等"用户可见行为"的变更，都需要在此追加一条记录。
+
+### 格式约定
+
+每条记录使用 `### YYYY-MM-DD — 一句话主题` 作为小节标题，正文按以下结构组织（无内容的小节可省略）：
+
+- **背景 / 动机**：为什么做这次变更
+- **变更内容**：具体改了什么（按 commands / skills / agents / phases / knowledge / docs 分类）
+- **影响面**：用户可观察到的行为变化、是否需要重新部署 / 重新跑 `/team-init`
+- **关联文件**：本次变更涉及的核心文件路径
+
+### 2026-05-28 — 修复 TEST → ARCHIVE 不自动流转的工作流缺陷
+
+- **背景 / 动机**：团队反馈"执行完需求流程后没有自动触发 archive 流程"。排查发现：`BUILD_VERIFY` / `VISUAL_REVIEW` 两阶段在各自的 `phases/*-rules.md` 末尾都有显式的「完成处理 → 流转下一阶段」分步表（更新 `state.json.currentPhase` + 进入下一阶段预览 + 严禁操作清单），但 `TEST` 阶段在 `agents/test-engineer.md` 末尾**仅有 qualityGate 的文案性"提示进入 ARCHIVE"**，没有同等强度的指令。叠加 SKILL.md §10 阶段规则按需加载映射表中没有 `TEST` / `ARCHIVE` 行（仓库内根本不存在 `phases/archive-rules.md`）、§2.2 流转守卫只有「BUILD_VERIFY PASS ≠ 工作流完成」而没有「TEST PASS ≠ 工作流完成」、TEST 又被 §12.3 通知映射归类为"低人工介入、不发送通知"的阶段，导致编排器在 TEST 总结展示后极易误判工作流到此结束，静悄悄停在 `currentPhase = TEST`。
+- **变更内容**：
+  - `agents/test-engineer.md`：在「编排器对接行为（TEST 阶段）」末尾新增 §「TEST 完成后的流转指令（CRITICAL）」，含 5 步流转分步表（含加载 `phases/archive-rules.md` + 更新 `currentPhase` → `ARCHIVE` + 进入 ARCHIVE 预览）+「严禁操作」清单 +「常见漂移场景提醒」+ 完整剩余流程图（TEST → ARCHIVE → DONE）。
+  - `phases/archive-rules.md`：**新建**，定义 ARCHIVE 进入条件、三步模式（预览/执行/总结确认）、状态机约束（`DONE` 写入唯一入口 = archiver Agent）、严禁操作、回退行为、完成检查清单。
+  - `SKILL.md` §10 阶段规则按需加载映射表：补充 `TEST`（指向 test-engineer.md 末尾流转指令）和 `ARCHIVE`（指向 `phases/archive-rules.md` + `agents/archiver.md`）两行。
+  - `SKILL.md` §2.2 流转守卫：在「BUILD_VERIFY PASS ≠ 工作流完成」之后追加「TEST PASS ≠ 工作流完成」防漂移条款，明确 TEST 总结确认后必须立即更新 `currentPhase` → `ARCHIVE`。
+  - `agents/archiver.md` 协作关系图：把模糊描述「编排器: 所有阶段完成后触发 ARCHIVE」改为精确指令（依据 `phase-transitions.json` 守卫 + 加载 `phases/archive-rules.md` + 进入 ARCHIVE 三步模式）。
+  - `commands/flow-status.md`：阶段总数 `({N}/13)` → `({N}/15)` 与实际状态机对齐（顺手修正历史遗留的过时常数）。
+- **影响面**：用户可观察到的行为变化 — 完成 `TEST` 阶段并选择"继续"后，编排器会立即进入 `ARCHIVE` 阶段的预览（而不再是停在 TEST 不动）；归档完成后 `state.json.currentPhase` 会被 archiver 写为 `DONE`，工作流正常收尾。无需重新部署 / 无需重跑 `/team-init`；正在进行中的工作流如果当前已停留在 `TEST` 阶段，下次对编排器发指令"继续"即可正常推进到 `ARCHIVE`。
+- **关联文件**：`.claude/skills/workflow-orchestrator/agents/test-engineer.md`、`.claude/skills/workflow-orchestrator/agents/archiver.md`、`.claude/skills/workflow-orchestrator/phases/archive-rules.md`（新建）、`.claude/skills/workflow-orchestrator/SKILL.md`、`.claude/commands/flow-status.md`，以及 `.codebuddy/` 下全部对称文件。
+
+### 2026-05-27 — README 深度梳理 + 引入更新日志机制
+
+- **背景**：随着引擎 19 个 Skill / 25+ 个 Agent / 15 阶段状态机持续演进，原 README 存在多处事实漂移（如「16 阶段」「12 个 Skills」「`/guard` 用途描述」等），且没有迭代历史的沉淀位置。
+- **变更内容**：
+  - `README.md`：
+    - 修正「16 阶段」→「15 阶段」，重画状态机流程图（补全 4 个 `CLARIFY_*` 阶段）；
+    - 阶段表从 7 行扩展到完整 16 行（0=INIT … 15=DONE），新增 Agent / 行为列；
+    - 「核心工程机制」从 6 项扩到 11 项（新增流转守卫、阶段计时协议、运行时上下文健康度、knowledgeReferences 校验、@changelog 溯源、通知机制等）；
+    - 新增「Agent 编制全景」「D2C 双模式（standalone / embedded）」「多仓文档仓（docsRoot / docsRepoMode）」三个小节；
+    - 「可用 Skills」从 12 个补全到 19 个，按「核心工作流 / 集成协作 / 元能力 / 通用文档处理」四组重新分组；
+    - 「可用命令」修正 `/guard` 描述（守卫模式开关 ≠ 变更守护检查）；
+    - 「安装」「部署拓扑」「目录结构」「设计哲学」全部升级为双平台（`.codebuddy/` + `.claude/`）描述；
+    - 引入本「更新日志」板块。
+  - `CLAUDE.md` / `CODEBUDDY.md`（昨日已新建）：作为「迭代本仓库时」的 AI 协作约定，要求每次对话先读 README、架构性变更同步 README、双平台对称维护。
+- **影响面**：纯文档变更，不影响任何运行时行为。新建对话时 AI 将自动读取 README + CLAUDE.md/CODEBUDDY.md 建立项目背景认知。
+- **关联文件**：`README.md`、`CLAUDE.md`、`CODEBUDDY.md`。
+
+---
+
+## 已知待办（不对称项 / 待回归项）
+
+> 这些是当前已知但尚未处理的不一致项，记录于此防止遗忘。处理后请移到「更新日志」并删除本条目。
+
+- [ ] **`iwiki-operation` Skill 仅存在于 `.codebuddy/skills/`**，`.claude/skills/` 缺失。需评估是否将其同步到 Claude Code 平台（或在 README 显式标注为单平台特例并保持现状）。
+- [ ] **`.codebuddy/plans/` 含 1 个临时草稿文件**（`team-sharing-blog-post_*.md`），`.claude/` 无对应目录。需决定是删除草稿、转入 `references/` 还是双平台对齐。
+- [ ] **`.codebuddy/skills/README.md`** 中列出的 Skills 共 15 个，与实际目录数（19 个）不一致，待与本 README 表格对齐。
+
+---
 
 ## License
 
