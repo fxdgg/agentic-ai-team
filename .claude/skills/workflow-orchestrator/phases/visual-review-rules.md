@@ -236,7 +236,7 @@ VISUAL_REVIEW 发现还原度不足
 ** 📋 阶段预览: VISUAL_REVIEW **
 
 📌 需求: [需求名称]
-🔄 当前阶段: VISUAL_REVIEW (11/14)
+🔄 当前阶段: VISUAL_REVIEW (11/15)
 🎨 验收模式: AI 视觉对比验收
 
 📥 输入:

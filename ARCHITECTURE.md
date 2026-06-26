@@ -11,7 +11,7 @@
 1. [项目定位与设计哲学](#1-项目定位与设计哲学)
 2. [整体架构](#2-整体架构)
 3. [双平台镜像设计](#3-双平台镜像设计)
-4. [工作流：15 阶段状态机](#4-工作流15-阶段状态机)
+4. [工作流：16 阶段状态机](#4-工作流16-阶段状态机)
 5. [Agent 编制全景](#5-agent-编制全景)
 6. [知识体系](#6-知识体系)
 7. [核心工程机制](#7-核心工程机制)
@@ -197,7 +197,7 @@ team-knowledge.git
 | 全局配置 | `~/.codebuddy/` | `~/.claude/` |
 | MCP 配置 | `mcp.json` | `settings.json` |
 
-> 这个清单的机器化登记位置：`meta/platform-divergence.yaml`（Phase 3-new 引入 `paired_translation` 段后）。当前体检对这些方言的处理：**保留为 FAIL 但按已知漂移看待**，Phase 3-new 完成后才会被自动豁免。
+> 这个清单的机器化登记位置：`meta/platform-divergence.yaml` 的 `paired_translation` 段（17 条映射）。`platform-symmetry` 体检在比对前先 normalize（把双方文本中的 claude 形式统一替换为 codebuddy 基线），相等即视为方言-only 差异**自动豁免**，仅真功能差异计入 FAIL。
 
 ### 3.4 对称约束清单（功能层）
 
@@ -223,11 +223,13 @@ team-knowledge.git
 
 - 修改时**优先改 `.codebuddy/`**，再翻译同步到 `.claude/`（v2 修正前的"两个平台都要改"措辞过于简化，实际是"先 codebuddy 再 claude，且需翻译"）
 - 与本仓库相关的 `ai-team-project/` 和 `git-viewer/ur-ai-team/` 目录文件**不要直接修改**——它们通过本仓库 push 后从远程同步
-- Phase 3-new 完成后会有 `mirror_platforms.py` 对账工具协助这一流程，但**不引入自动翻译**（误伤风险与维护成本权衡后决定）
+- `scripts/mirror_platforms.py` 对账工具协助这一流程（`--status` 列出未豁免的真漂移），但**不引入自动翻译**（误伤风险与维护成本权衡后决定）
 
 ---
 
-## 4. 工作流：15 阶段状态机
+## 4. 工作流：16 阶段状态机
+
+> 状态机共 **16 个 PhaseId**（`INIT`=0 … `DONE`=15，含 4 个 `CLARIFY_*` 澄清阶段）。
 
 ### 4.1 流程图
 
@@ -836,7 +838,7 @@ description: 一句话描述（用于 / 自动补全列表）
    - §4.2 阶段全表加一行（重新编号）
    - §6.7 各阶段查询预算表如适用补一行
    - §5 Agent 编制全景对应位置同步
-7. README「15 阶段状态机」描述 / 流程图同步（注意：本阶段数从 15 升至 N 时所有"15 阶段"措辞都要批量改）
+7. ARCHITECTURE §4「16 阶段状态机」描述 / 流程图同步（注意：阶段数变化时所有"16 阶段"措辞都要批量改；README 仅在命令 / Skills 清单受影响时同步）
 8. 完成 [§11.1 通用 5 项](#111-通用-5-项必勾清单每次扩展共通) 清单
 
 ### 11.6 新增 state.json 字段
@@ -861,7 +863,7 @@ description: 一句话描述（用于 / 自动补全列表）
 | 新增 / 删除 / 重命名 Skill | §10.2 双平台并列结构（Skills 数量） + README Skills 表 |
 | 新增 / 删除 / 重命名 Command | README 命令表 + `/flow-run` 等核心命令引用同步 |
 | 新增 / 删除 / 重命名 Agent | §5.1（静态）或 §5.2（动态） |
-| 修改 15 阶段流程 | §4.1 流程图 + §4.2 阶段全表（重新编号） |
+| 修改 16 阶段流程 | §4.1 流程图 + §4.2 阶段全表（重新编号） |
 | 修改 Agent Teams / 三级降级 | §5.3 三级降级表 + §7.1 工程能力清单 |
 | 修改知识体系（层级 / 类型 / 成熟度 / 查询预算） | §6 全章 |
 | 修改 `repos[]` / 单仓多仓拓扑 | §2.2 部署模式 + §8.2 关键字段交叉表 |
@@ -875,7 +877,7 @@ description: 一句话描述（用于 / 自动补全列表）
 ## 附录 A：更新日志
 
 > 用于记录引擎自身的架构性迭代历史，便于新对话开始时快速了解项目演化脉络。
-> 维护约定见 [`CLAUDE.md`](./CLAUDE.md) / [`CODEBUDDY.md`](./CODEBUDDY.md) — 凡是涉及命令 / Skill / Agent / 15 阶段流程 / 知识体系 / 部署拓扑等"用户可见行为"的变更，都需要在此追加一条记录。
+> 维护约定见 [`CLAUDE.md`](./CLAUDE.md) / [`CODEBUDDY.md`](./CODEBUDDY.md) — 凡是涉及命令 / Skill / Agent / 16 阶段流程 / 知识体系 / 部署拓扑等"用户可见行为"的变更，都需要在此追加一条记录。
 
 ### 格式约定
 
@@ -885,6 +887,20 @@ description: 一句话描述（用于 / 自动补全列表）
 - **变更内容**：具体改了什么（按 commands / skills / agents / phases / knowledge / docs 分类）
 - **影响面**：用户可观察到的行为变化、是否需要重新部署 / 重新跑 `/team-init`
 - **关联文件**：本次变更涉及的核心文件路径
+
+### 2026-06-26 — 四份核心文档一致性校准 + 统一「16 阶段」+ README 复原为门户
+
+- **背景 / 动机**：用户审阅 `README.md` / `ARCHITECTURE.md` / `CLAUDE.md` / `CODEBUDDY.md` 后指出三类问题：① 四份文件失同步（阶段数 15/16 打架、Skills 数 19/18 vs 18/17、测试基线 61 vs 115、CLAUDE 引用了 README 不存在的章节名、"必读 README vs ARCHITECTURE" 自相矛盾）；② README 与 ARCHITECTURE 大面积内容重复（部署拓扑 / 阶段表 / 知识体系 / 工程机制几乎逐字重叠）；③ README「开发者工具链」段落充斥 Phase 编号溯源、v1 遗留删除线、诚实清单等赘述。根因是 2026-05-28（夜）那次把 README 瘦身到 ~130 行后，README 又在某次**未登记 changelog** 的改动中被重新扩写回全文（628 行），导致门户 / 权威源分工塌陷。
+- **变更内容**：
+  - **统一阶段口径为「16 阶段」**（`INIT`…`DONE` 共 16 个 PhaseId）：ARCHITECTURE 目录 / §4 标题 / §11.5 / §11.7 / 附录 A 标准说明的「15 阶段」措辞全部改为「16 阶段」（历史 changelog 条目保留原措辞不改写，忠实记录当时表述）；CLAUDE / CODEBUDDY 本就为「16 阶段」，仅修正其引用的 README 章节名。
+  - **README 复原为薄门户**：仅保留 这是什么 / 安装 / 快速开始 / 可用命令（AUTO-GEN 表保持不变）/ 可用 Skills / 文档导航 / License。删除与 ARCHITECTURE 重复的 部署拓扑 / 阶段状态机 / 核心工程机制 / Agent 编制 / 知识体系 / 冷启动 / 目录结构 / 设计哲学 / 设计灵感，以及 README 自带的「更新日志」（违反"附录 A 唯一入口"原则、且仅 2 条陈旧记录）和「已知待办」（含已解决的僵尸条目）；新增「文档导航」表指向 ARCHITECTURE 各章 + `scripts/README.md` + `meta/README.md`。
+  - **README「开发者工具链」整段移除**：Phase 进度 / v1 遗留 / 显式不做 / AUTO-GEN·DSL·方言豁免叙事下沉到 ARCHITECTURE（附录 A / C）与 `scripts/README.md`，门户只在文档导航留一行指针。
+  - **修正失同步数字**：README Skills 数对齐为 `.codebuddy/` 18 / `.claude/` 17；CLAUDE / CODEBUDDY 测试基线 `61 用例` → `115 用例`；§1 "约 500 行" 描述改为「门户 + 权威源」双读。
+  - **CLAUDE / CODEBUDDY §1 / §2 重写**：§1 改为「先读 README 门户、再通读 ARCHITECTURE 权威源」并消除与 ARCHITECTURE 头部"必读本文件"的冲突；§2 同步表重写为「README 只同步命令 / Skills / 安装，架构性内容一律同步 ARCHITECTURE」，修正所有指向 README 已删除章节的指针。两份保持 byte-equal。
+  - **顺手修正 ARCHITECTURE §3.3 / §3.6 的过时措辞**（"Phase 3-new 完成后才会自动豁免" → 现已生效）与 附录 C.1 IntentGate 意图类型（对齐 §7.1 的 `new-feature` / `feature-modify` / `bug-fix` / `tech-refactor` / `d2c-to-workflow`）。
+  - **运行时文件阶段口径校准**（涉及 `.codebuddy/` + `.claude/` 双平台）：① `skills/workflow-orchestrator/README.md` §2.1 描述「15 个阶段」→「16 个阶段」（§2.1 表实际为 `INIT`…`DONE` 共 16 行）；② 进度展示示例分母统一为 `/15`（0-based 最大索引 = `DONE`，与 `commands/flow-status.md` 的 `{N}/15` 一致）——修正 `phases/output-formats/{analyse-product,analyse-tech,architect-backend,build-verify,implement,common}.md` 与 `phases/visual-review-rules.md` 中原先 `/13`·`/14` 混用的 9 处展示点。`commands/flow-status.md` 的 `{N}/15`、`legacy-docs/*` 的「15 阶段（vibe-coding 旧机）」、`phases/import-rules.md` 的「14 个实质阶段」均为合理表述，**保持不变**。
+- **影响面**：纯文档 / 展示文案变更，**不影响任何运行时逻辑**——`.claude/` / `.codebuddy/` 下 Skill / Agent / Command 的执行逻辑零改动（仅调整 README 描述与进度展示示例的分母文案），无需重新部署 / 无需重跑 `/team-init`。对未来对话的影响：新会话先读薄 README 建立全景、再读 ARCHITECTURE 权威源；维护者迭代时架构性内容只需同步 ARCHITECTURE，README 只在命令 / Skills 清单变化时同步，冗余维护成本显著下降。阶段口径已全仓库统一为 0-based「16 个 PhaseId（0..15）」：展示分母统一 `/15`，`flow-status` 的 `{N}/15` 为有意保留（15 = `DONE` 最大索引）。
+- **关联文件**：`README.md`（复原为门户）、`ARCHITECTURE.md`（目录 / §4 / §11 / 本附录 A 条目 + §3.3 / §3.6 / 附录 C.1 措辞修正）、`CLAUDE.md`（§1 / §2 重写 + 测试基线 + 自检清单）、`CODEBUDDY.md`（同步 byte-equal）；运行时（双平台对称）：`skills/workflow-orchestrator/README.md`、`phases/output-formats/{analyse-product,analyse-tech,architect-backend,build-verify,implement,common}.md`、`phases/visual-review-rules.md`。
 
 ### 2026-05-29（Phase V / v2）— 工作流可视化：单文件零依赖交互式 HTML
 
@@ -1166,7 +1182,7 @@ description: 一句话描述（用于 / 自动补全列表）
 ### C.1 dry_run 业务路径模拟（30 条）
 
 - **当前现状**：`scripts/dry_run.py` 只做状态机骨架自检（图遍历、节点可达性、Agent 绑定、`$ref` 解析），不模拟任何业务路径
-- **候选范围**：模拟 IntentGate 5 类意图（new-feature / bug-fix / d2c-to-workflow / refactor / review-only）× D2C 双模式（standalone / embedded）× 三级降级（Agent Teams / Task Pipeline / Single Agent）= 30 条路径
+- **候选范围**：模拟 IntentGate 5 类意图（new-feature / feature-modify / bug-fix / tech-refactor / d2c-to-workflow）× D2C 双模式（standalone / embedded）× 三级降级（Agent Teams / Task Pipeline / Single Agent）= 30 条路径
 - **触发条件**（任一）：
   1. 引擎新增了改变状态机分支结构的特性（如新意图类型、新降级级别）
   2. 维护者多次反馈"改完流转后还要真跑 `/flow-run` 才能验证业务行为"

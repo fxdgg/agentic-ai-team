@@ -11,7 +11,7 @@
 ** 📋 阶段预览: ANALYSE_PRODUCT（Agent Teams 模式） **
 
 📌 需求: [需求名称]
-🔄 当前阶段: ANALYSE_PRODUCT (1/13)
+🔄 当前阶段: ANALYSE_PRODUCT (1/15)
 🚀 调度模式: Agent Teams 四成员串行协作（三级降级）
 🏷️ 团队名称: analyse-product-[需求ID]
 📑 PRD 来源: [PRD 路径或用户输入]

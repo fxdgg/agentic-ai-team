@@ -6,22 +6,22 @@
 
 ---
 
-## 1. 对话开始：必读 README.md
+## 1. 对话开始：先读 README 门户，再通读 ARCHITECTURE 权威源
 
-**每次新对话开始时，AI 必须首先读取仓库根目录的 [`README.md`](./README.md)**，建立以下背景认知后再回答用户问题：
+**每次新对话开始时，AI 必须先快速浏览仓库根的 [`README.md`](./README.md)（薄门户，约 150 行）建立全景，再通读 [`ARCHITECTURE.md`](./ARCHITECTURE.md)（单一架构权威源）了解细节**，建立以下背景认知后再回答用户问题：
 
 - 项目定位：基于 IDE 的 Skill/Command/Rule 体系，多 Agent 协作的工作流引擎
-- 部署拓扑：单仓 / 多仓统一 `repos[]` 模型 + 独立的团队知识仓库
-- 16 阶段状态机的整体流程
-- 知识体系（Layer 0-P/0-T/1/2/3 + 5 种知识类型 + 三级成熟度）
-- 双平台镜像维护与方言对照（见本文件 §3）
+- 部署拓扑：单仓 / 多仓统一 `repos[]` 模型 + 独立的团队知识仓库（ARCHITECTURE §2）
+- 16 阶段状态机的整体流程（ARCHITECTURE §4）
+- 知识体系（Layer 0-P/0-T/1/2/3 + 5 种知识类型 + 三级成熟度，ARCHITECTURE §6）
+- 双平台镜像维护与方言对照（见本文件 §3 + ARCHITECTURE §3）
 - **开发者工具链 12 维度体检 + DSL 单一真相源 + 平台方言豁免**（见本文件 §4 / §5）
 
-> 读取 README 的成本极低（约 500 行），但能避免方向性错误。
+> README 是面向使用者的薄门户，ARCHITECTURE 是面向维护者的架构权威源——两者职责不重叠，遇到架构细节以 ARCHITECTURE 为准。
 
-## 2. 工作流变更：同步更新 README.md
+## 2. 工作流变更：同步更新文档（README 门户 + ARCHITECTURE 权威源）
 
-**当本次对话涉及对以下任一目录的实质性变更（新增/删除/重命名 skill/command/agent，或修改 16 阶段状态机、知识体系结构、命令清单等架构性内容）时，必须同步更新 `README.md`：**
+**当本次对话涉及对以下任一目录的实质性变更（新增/删除/重命名 skill/command/agent，或修改 16 阶段状态机、知识体系结构、命令清单等架构性内容）时，必须同步更新文档：**
 
 涉及的目录：
 - `.claude/skills/` 与 `.codebuddy/skills/`
@@ -31,22 +31,22 @@
 - `meta/`（DSL 真相源）
 - `scripts/`（开发者工具链）
 
-需要同步更新的 README 章节（按变更类型对应）：
+**文档分工**：README 只承载使用者可见的「命令清单 / Skills 清单 / 安装 / 快速开始」；其余架构性内容一律以 ARCHITECTURE 为单一权威源。需要同步更新的位置（按变更类型对应）：
 
-| 变更类型 | 需更新 README 的章节 |
+| 变更类型 | 需更新的文档位置 |
 |---------|---------------------|
-| 新增/删除/重命名 command | 「快速开始」代码块 + 「可用命令」表格 |
-| 新增/删除/重命名 skill | 「可用 Skills」表格 |
-| 修改 16 阶段流程 | 「工作流：16 阶段状态机」代码块 + 「各阶段做什么」表格 |
-| 修改 Agent Teams / 三级降级 / IntentGate 等核心机制 | 「核心工程机制」表格 |
-| 修改知识体系（层级/类型/成熟度/查询预算） | 「知识体系」全部子章节 |
-| 修改 `repos[]` / 单仓多仓拓扑 | 「部署拓扑」章节 |
-| 修改 `/flow-import` 流程 | 「冷启动：/flow-import」章节 |
-| 修改目录结构（新增顶层目录、调整 skills 内部组织） | 「目录结构」章节 |
-| 新增/修改开发者脚本（`scripts/*.py`） | 「开发者工具链」段落工具表 |
-| 新增/修改体检维度 | 「开发者工具链」工具表 + 「Phase 进度」清单 |
+| 新增/删除/重命名 command | README「可用命令」表 + 「快速开始」+ ARCHITECTURE §11.3 |
+| 新增/删除/重命名 skill | README「可用 Skills」表 + ARCHITECTURE §10.2 / §11.2 |
+| 修改 16 阶段流程 | ARCHITECTURE §4（流程图 + 阶段全表）+ §11.5 |
+| 修改 Agent Teams / 三级降级 / IntentGate 等核心机制 | ARCHITECTURE §7（核心工程机制）+ §5 |
+| 修改知识体系（层级/类型/成熟度/查询预算） | ARCHITECTURE §6 全章 |
+| 修改 `repos[]` / 单仓多仓拓扑 | ARCHITECTURE §2 |
+| 修改 `/flow-import` 流程 | ARCHITECTURE §9.3 |
+| 修改目录结构（新增顶层目录、调整 skills 内部组织） | ARCHITECTURE §10 |
+| 新增/修改开发者脚本（`scripts/*.py`） | [`scripts/README.md`](./scripts/README.md) + ARCHITECTURE §10.4 |
+| 新增/修改体检维度 | 本文件 §4.3 + [`scripts/README.md`](./scripts/README.md) |
 
-**判定原则**：如果用户运行 `/flow-run`、`/knowledge`、`/team-init` 等命令时**可观察到的行为**发生了变化，README 必须同步。仅修改 prompt 措辞、修复笔误、调整内部实现细节（用户不可见）则无需更新。
+**判定原则**：如果用户运行 `/flow-run`、`/knowledge`、`/team-init` 等命令时**可观察到的行为**发生了变化，README 的命令 / Skills 清单必须同步；架构细节始终同步到 ARCHITECTURE。仅修改 prompt 措辞、修复笔误、调整内部实现细节（用户不可见）则无需更新。
 
 **更新日志强制项**：除了修正对应章节外，**还必须在 [`ARCHITECTURE.md` 附录 A](./ARCHITECTURE.md#附录-a更新日志) 追加一条记录**（格式见附录 A 内的「格式约定」），这是了解项目演化脉络的唯一入口，不可省略。
 
@@ -145,7 +145,7 @@ exit=2  PASS=9  INFO=1  WARN=7  FAIL=13  ERROR=0
 3. 实施代码
 4. 再跑 `pytest` 应 PASS
 
-> 当前测试基线：**61 用例 / 0.15s**。改动应让基线增长，绝不允许减少。
+> 当前测试基线：**115 用例 / < 8s**。改动应让基线增长，绝不允许减少。
 
 ### 铁律 2：承诺三段式（Phase 设计必守）
 
@@ -211,7 +211,7 @@ python3 scripts/consistency_check.py --scope=platforms
 - [ ] 用户可见行为是否变化？若是，README 对应章节是否已更新？
 - [ ] **`ARCHITECTURE.md` 附录 A 是否已追加本次变更条目**（含 YYYY-MM-DD 标题、变更内容、影响面、关联文件）？
 - [ ] 「可用命令」/「可用 Skills」表格是否仍然准确？
-- [ ] 「16 阶段状态机」流程图是否仍然准确？
+- [ ] ARCHITECTURE §4「16 阶段状态机」流程图 / 阶段全表是否仍然准确？
 - [ ] 承诺降级（如有）是否同时改了 plan 主体 + 脚本注释 + README + 附录 A 四处？
 
 ### 体检层
