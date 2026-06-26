@@ -28,6 +28,8 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 
 ### 2.1 阶段定义
 
+<!-- BEGIN AUTO-GEN: skill-phases-table hash=6eb9d06ab7a1b56c source=state-schema.json#PhaseId + 现状 -->
+
 | # | 阶段 ID | 名称 | 子 Agent | 说明 |
 |---|---------|------|----------|------|
 | 0 | `INIT` | 初始化 | 无 | 搭脚手架，自动流转，唯一不需要用户确认的阶段 |
@@ -46,6 +48,8 @@ INIT → ANALYSE_PRODUCT → CLARIFY_PRODUCT → ANALYSE_TECH → CLARIFY_TECH
 | 13 | `TEST` | 测试验证 | 测试验证 Agent | 生成测试方案并执行验证 |
 | 14 | `ARCHIVE` | 完成归档 | 归档总结 Agent | 汇总变更报告，更新项目上下文 |
 | 15 | `DONE` | 已完成 | 无 | 终态 |
+
+<!-- END AUTO-GEN: skill-phases-table -->
 
 ### 2.2 阶段流转规则
 
@@ -978,6 +982,8 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 
 > **核心机制**: 编排器在进入每个阶段前，`read_file` 加载对应的规则片段。仅加载当前阶段需要的规则，减少上下文噪声，提升注意力精准度。
 
+<!-- BEGIN AUTO-GEN: skill-phase-rules-loader hash=79f0a683cc515197 source=phases/*-rules.md 文件清单 + 现状 -->
+
 | 当前阶段 | 需加载的规则片段 | 说明 |
 |---------|----------------|------|
 | ANALYSE_PRODUCT | `phases/analyse-product-rules.md` + `rules/knowledge-query-protocol.md` | 三级降级调度 + Agent Teams 四成员串行协作规则 + 上下文防火墙 + 知识基线注入协议 + 知识查询协议 |
@@ -1003,6 +1009,8 @@ IMPLEMENT | BUILD_VERIFY | E2E_VERIFY | TEST | ARCHIVE | DONE
 | BUILD_VERIFY + 回退 | `phases/rollback-rules.md` + `phases/build-verify-rules.md` | 精细回退需同时加载 |
 | 任何阶段的"总结确认"后的流转决策 | `references/phase-transitions.json` | 流转守卫校验 |
 | **knowledge-import 模式** | `phases/import-rules.md` | 历史项目知识导入编排规则（3 个导入 Agent 串行调度） |
+
+<!-- END AUTO-GEN: skill-phase-rules-loader -->
 
 **加载示例**:
 

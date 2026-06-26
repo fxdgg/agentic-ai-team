@@ -1,0 +1,200 @@
+version: 1
+$comment: >-
+  工作流可视化专用数据补充（render_visualization.py 消费）。
+  描述每个 phase 的分组（group）、输入文档（inputs）、输出产物（outputs）。
+  ⚠ 本文件不属于 DSL 真相源（phases.yaml / state-schema.yaml），不参与
+  validate_meta / consistency_check / render_artifacts 的编译与体检，纯展示用、手工维护。
+  缺失或某 phase 未配置时，可视化降级为不展示对应区块（不报错）。
+  产物路径均相对于需求根目录 docs/workflows/{需求ID}/。
+
+# ── 工作流大阶段分组（决定流程卡片的彩色区块） ──
+groups:
+  - id: start
+    name: 起点
+    color: "#57606A"
+    bg: "#F0F1F3"
+  - id: product
+    name: 产品需求
+    color: "#0969DA"
+    bg: "#E7F1FF"
+  - id: tech
+    name: 技术需求
+    color: "#1A7F37"
+    bg: "#E6F6EB"
+  - id: arch_backend
+    name: 后端架构
+    color: "#8250DF"
+    bg: "#F3EDFD"
+  - id: arch_frontend
+    name: 前端架构
+    color: "#BF3989"
+    bg: "#FCEEF5"
+  - id: build
+    name: 实现与验证
+    color: "#BC4C00"
+    bg: "#FFF1E7"
+  - id: archive
+    name: 归档收尾
+    color: "#424A53"
+    bg: "#EAECEF"
+
+# ── 每个 phase 的分组 / 输入 / 输出 ──
+phase_io:
+  INIT:
+    group: start
+    inputs:
+      - "PRD / 用户需求描述"
+      - "项目类型信息（/flow-run Step 0）"
+    outputs:
+      - { file: "state.json", desc: "工作流唯一状态源（currentPhase / platforms / projectConfig）" }
+      - { file: "risks.json", desc: "风险追踪文件" }
+      - { file: "目录脚手架", desc: "analysis/ architecture/ implementation/ testing/ 结构（按启用平台）" }
+
+  ANALYSE_PRODUCT:
+    group: product
+    inputs:
+      - "docs/prd/*.md（PRD 文档）"
+      - "state.json"
+    outputs:
+      - { file: "analysis/product-requirements.md", desc: "最终产品需求文档（功能/规则/实体/验收标准）" }
+      - { file: "analysis/product-clarify.json", desc: "产品澄清问题（如有 pending）" }
+      - { file: "analysis/_product-collection.json", desc: "中间产物：PRD 信息收集摘要" }
+      - { file: "analysis/_extraction-result.json", desc: "中间产物：结构化提取结果" }
+
+  CLARIFY_PRODUCT:
+    group: product
+    inputs:
+      - "analysis/product-clarify.json"
+      - "analysis/product-requirements.md"
+    outputs:
+      - { file: "analysis/product-clarify.json", desc: "回填答案后的澄清文件（status→answered/skipped）" }
+      - { file: "analysis/product-requirements.md", desc: "就地回填澄清答案 + clarified:true 标记" }
+
+  ANALYSE_TECH:
+    group: tech
+    inputs:
+      - "analysis/product-requirements.md"
+      - "state.json + 代码画像（如有）"
+    outputs:
+      - { file: "analysis/tech-requirements.md", desc: "技术需求总纲（含接口基准契约 §3.2）" }
+      - { file: "analysis/tech-requirements-backend.md", desc: "后端分端技术需求" }
+      - { file: "analysis/tech-requirements-web.md", desc: "Web 端分端技术需求" }
+      - { file: "analysis/tech-review-report.md", desc: "技术文档校审报告" }
+
+  CLARIFY_TECH:
+    group: tech
+    inputs:
+      - "analysis/tech-clarify.json"
+      - "analysis/tech-requirements.md（及各分端文档）"
+    outputs:
+      - { file: "analysis/tech-clarify.json", desc: "回填答案后的澄清文件" }
+      - { file: "analysis/tech-requirements*.md", desc: "总纲 + 各分端文档就地回填" }
+
+  ARCHITECT_BACKEND:
+    group: arch_backend
+    inputs:
+      - "analysis/tech-requirements.md（总纲）"
+      - "analysis/tech-requirements-backend.md"
+    outputs:
+      - { file: "architecture/backend/architecture.md", desc: "后端全局架构文档" }
+      - { file: "architecture/backend/dependency-graph.md", desc: "服务依赖图" }
+      - { file: "architecture/backend/priority-list.md", desc: "开发优先级清单（拓扑排序）" }
+      - { file: "architecture/backend/domain-registry.json", desc: "领域注册表（领域划分确认后）" }
+      - { file: "architecture/backend/{service}/tech-requirements.md", desc: "各领域文件级技术需求（×N）" }
+
+  CLARIFY_ARCH_BACKEND:
+    group: arch_backend
+    inputs:
+      - "architecture/backend/backend-clarify.json"
+      - "architecture/backend/architecture.md"
+    outputs:
+      - { file: "architecture/backend/backend-clarify.json", desc: "回填答案后的澄清文件" }
+      - { file: "architecture/backend/architecture.md", desc: "就地回填澄清答案 + clarified 标记" }
+
+  ARCHITECT_FRONTEND:
+    group: arch_frontend
+    inputs:
+      - "analysis/tech-requirements.md（§3.2 接口契约）"
+      - "analysis/tech-requirements-web.md / -miniprogram.md"
+      - "architecture/backend/architecture.md（有接口交互时）"
+    outputs:
+      - { file: "architecture/web/architecture.md", desc: "Web 端前端架构文档（web.enabled 时）" }
+      - { file: "architecture/miniprogram/architecture.md", desc: "小程序端前端架构文档（miniprogram.enabled 时）" }
+      - { file: "architecture/{web,miniprogram}/*-clarify.json", desc: "各端澄清问题（可选）" }
+
+  CLARIFY_ARCH_FRONTEND:
+    group: arch_frontend
+    inputs:
+      - "architecture/{web,miniprogram}/*-clarify.json"
+      - "architecture/{web,miniprogram}/architecture.md"
+    outputs:
+      - { file: "architecture/{web,miniprogram}/*-clarify.json", desc: "回填答案后的澄清文件" }
+      - { file: "architecture/{web,miniprogram}/architecture.md", desc: "就地回填澄清答案 + clarified 标记" }
+
+  IMPLEMENT:
+    group: build
+    inputs:
+      - "architecture/backend/architecture.md + domain-registry.json + 各领域 tech-requirements.md"
+      - "architecture/{web,miniprogram}/architecture.md（按启用平台）"
+    outputs:
+      - { file: "implementation/backend/{领域ID}-report.md", desc: "后端各领域实现报告（仅报告，×N）" }
+      - { file: "implementation/web/web-report.md", desc: "Web 端实现报告（web.enabled 时）" }
+      - { file: "implementation/miniprogram/miniprogram-report.md", desc: "小程序端实现报告" }
+      - { file: "🟢 源码产物", desc: "落在项目源码目录 {backend-root}/ {web-project}/ 等，非工作流目录" }
+
+  BUILD_VERIFY:
+    group: build
+    inputs:
+      - "implementation/{backend/*,web,miniprogram}-report.md"
+      - "各端源码"
+    outputs:
+      - { file: "implementation/backend/*-report.md（追加）", desc: "末尾追加『## 编译验证』章节（B1/B2/B2.5）" }
+      - { file: "implementation/web/web-report.md（追加）", desc: "追加 Web 端构建验证章节（B3a）" }
+      - { file: "implementation/miniprogram/miniprogram-report.md（追加）", desc: "追加小程序端构建验证章节（B3b）" }
+
+  VISUAL_REVIEW:
+    group: build
+    inputs:
+      - "analysis/_visual-analysis.json（设计稿信息）"
+      - "architecture/web/architecture.md"
+      - "implementation/web/web-report.md"
+    outputs:
+      - { file: "visual-review/visual-review-report.md", desc: "视觉验收报告（六维度还原度评分 + 差异清单）" }
+      - { file: "visual-review/visual-review-data.json", desc: "机器可读验收数据（评分 + 截图映射）" }
+      - { file: "visual-review/{design,actual}/*.png", desc: "设计稿副本 + 实际页面截图" }
+
+  E2E_VERIFY:
+    group: build
+    inputs:
+      - "implementation/backend/*-report.md"
+      - "architecture/backend/architecture.md + dependency-graph.md"
+      - "{backend-root}/ 源码"
+    outputs:
+      - { file: "implementation/backend/*-report.md（追加）", desc: "末尾追加『## 端到端链路验证』章节（V1-V7）" }
+
+  TEST:
+    group: build
+    inputs:
+      - "docs/prd/{prd}.md + analysis/*-requirements.md"
+      - "architecture/{backend,web,miniprogram}/architecture.md"
+      - "implementation/* 报告 + 全端源码"
+    outputs:
+      - { file: "testing/test-plan.md", desc: "测试方案（策略/范围/场景覆盖矩阵）" }
+      - { file: "testing/test-report.md", desc: "测试报告（L1 契约 / L2 场景推演 / L3 人工用例 + 风险）" }
+
+  ARCHIVE:
+    group: archive
+    inputs:
+      - "state.json + 需求目录全量产物"
+      - "docs/prd/{prd}.md + docs/knowledge-base/"
+    outputs:
+      - { file: "SUMMARY.md", desc: "归档索引（功能关键词 + 产物清单 + 阶段回顾 + 经验教训）" }
+      - { file: "state.json（更新）", desc: "currentPhase→DONE + 补全 phaseHistory" }
+      - { file: "docs/workflows/archived/{需求ID}/", desc: "需求目录整体移动至 archived/" }
+      - { file: "docs/knowledge-base/pitfalls/", desc: "追加项目经验知识条目" }
+
+  DONE:
+    group: archive
+    inputs:
+      - "state.json"
+    outputs: []

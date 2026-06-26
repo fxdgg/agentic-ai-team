@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# ai-team 引擎仓库 pre-commit hook
+#
+# 安装：
+#   bash scripts/hooks/install.sh
+#
+# 作用：每次 git commit 前，自动执行：
+#   1. impact_analyzer  — 列出本次改动的同步影响范围（仅提示）
+#   2. consistency_check — 一致性体检
+#       - 默认（warn 模式）：输出 FAIL 但不阻断 commit；ERROR 阻断
+#       - 严格模式（设 AI_TEAM_HOOK_STRICT=1）：FAIL 也阻断
+#   3. render_visualization — 重新生成 docs/workflow-visualization.html，
+#       若产物变化则 git add 加入本次 commit；warn 模式失败不阻断
+#
+# 跳过 hook：
+#   git commit --no-verify
+#
+# 设计：默认 warn 模式让维护者能在已有漂移基础上继续工作，但保留严格模式给 CI / 关键 commit 使用。
+
+set -u
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# 寻找可用的 Python 解释器（优先 3.8+）
+PY=""
+for cand in python3.12 python3.11 python3.10 python3.9 python3.8 python3; do
+    if command -v "$cand" >/dev/null 2>&1; then
+        if "$cand" -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" 2>/dev/null; then
+            PY="$cand"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PY" ]; then
+    echo "[pre-commit] ⚠ 未找到 Python 3.8+，跳过 ai-team 工具链校验"
+    exit 0
+fi
+
+echo "[pre-commit] 使用 $PY 执行 ai-team 静态校验"
+
+# 1. 影响分析（仅提示，不阻断）
+echo ""
+echo "▼▼▼ 影响范围分析（仅提示）▼▼▼"
+"$PY" scripts/impact_analyzer.py --git-staged || true
+echo "▲▲▲ 影响范围分析结束 ▲▲▲"
+
+# 2. 一致性体检
+echo ""
+echo "▼▼▼ 一致性体检 ▼▼▼"
+"$PY" scripts/consistency_check.py
+EXIT=$?
+
+# 退出码协议：0=PASS / 1=WARN / 2=FAIL / 3=ERROR
+if [ "$EXIT" -eq 3 ]; then
+    echo ""
+    echo "[pre-commit] ✗ 体检脚本异常（ERROR），阻断 commit"
+    echo "             调试：python3 scripts/consistency_check.py --format=json"
+    exit 1
+fi
+
+if [ "$EXIT" -eq 2 ]; then
+    if [ "${AI_TEAM_HOOK_STRICT:-0}" = "1" ]; then
+        echo ""
+        echo "[pre-commit] ✗ 严格模式：体检 FAIL，阻断 commit"
+        echo "             如需强制提交：git commit --no-verify"
+        exit 1
+    else
+        echo ""
+        echo "[pre-commit] ⚠ 体检 FAIL（warn 模式不阻断 commit）"
+        echo "             启用严格模式：AI_TEAM_HOOK_STRICT=1 git commit"
+        # 不 exit，继续走第 3 步
+    fi
+fi
+
+if [ "$EXIT" -eq 1 ]; then
+    echo "[pre-commit] ⚠ 体检 WARN（不阻断）"
+    # 不 exit，继续走第 3 步
+fi
+
+if [ "$EXIT" -eq 0 ]; then
+    echo "[pre-commit] ✓ 一致性体检 PASS"
+fi
+
+# 3. 工作流可视化产物刷新（warn 模式：失败不阻断）
+echo ""
+echo "▼▼▼ 工作流可视化刷新 ▼▼▼"
+VIZ_OUT="docs/workflow-visualization.html"
+VIZ_BEFORE_HASH=""
+if [ -f "$VIZ_OUT" ]; then
+    VIZ_BEFORE_HASH=$("$PY" -c "import hashlib,sys;print(hashlib.sha256(open('$VIZ_OUT','rb').read()).hexdigest())" 2>/dev/null || true)
+fi
+
+"$PY" scripts/render_visualization.py --write --no-consistency
+VIZ_EXIT=$?
+
+if [ "$VIZ_EXIT" -eq 0 ] || [ "$VIZ_EXIT" -eq 1 ]; then
+    if [ -f "$VIZ_OUT" ]; then
+        VIZ_AFTER_HASH=$("$PY" -c "import hashlib,sys;print(hashlib.sha256(open('$VIZ_OUT','rb').read()).hexdigest())" 2>/dev/null || true)
+        if [ "$VIZ_BEFORE_HASH" != "$VIZ_AFTER_HASH" ]; then
+            git add "$VIZ_OUT" 2>/dev/null && \
+                echo "[pre-commit] ✓ 可视化产物已重新生成并 git add（$VIZ_OUT）" || \
+                echo "[pre-commit] ⚠ 可视化产物已重新生成但 git add 失败"
+        else
+            echo "[pre-commit] ✓ 可视化产物已是最新"
+        fi
+    fi
+else
+    echo "[pre-commit] ⚠ 可视化生成失败（exit=$VIZ_EXIT，warn 模式不阻断）"
+fi
+echo "▲▲▲ 工作流可视化刷新结束 ▲▲▲"
+
+exit 0

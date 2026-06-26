@@ -1,0 +1,18 @@
+# ai-team 引擎工具链 - 第三方依赖（仅引擎维护者使用，不部署到业务项目）
+# 需要 Python 3.8+
+
+# --- 运行时依赖（consistency_check / validate_meta / render_artifacts 等） ---
+
+# JSON Schema 校验（draft-07，与现有 state-schema.json 一致）
+jsonschema>=4.0,<5.0
+
+# YAML 解析（DSL 加载与编译）
+PyYAML>=6.0,<7.0
+
+# 模板渲染（render_artifacts 部分场景）
+Jinja2>=3.0,<4.0
+
+# --- 测试依赖（仅 scripts/tests/ 使用，不参与脚本运行时） ---
+
+# pytest 单元测试框架（Phase R 引入）
+pytest>=7.0

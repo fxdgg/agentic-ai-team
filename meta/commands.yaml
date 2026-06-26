@@ -1,0 +1,30 @@
+version: 1
+$comment: 由 scripts/seed_meta_from_existing.py 从 .claude/commands/*.md frontmatter 反向生成。
+commands:
+- name: evolve-apply
+  description: 流水线进化落地。仅限流水线 Owner 使用。浏览 evolve-log 中的 pending 改进记录，逐条审阅后选择性地将改进建议落地到 Agent 定义文件和规则文件中。
+  file: commands/evolve-apply.md
+- name: evolve
+  description: 流水线进化分析。基于刚修复的 Bug，自动追溯根因到流水线的哪个 Agent 环节，产出结构化改进建议并存入进化日志。任何开发者都可触发，改进记录仅做沉淀，不会直接修改流水线定义。
+  file: commands/evolve.md
+- name: flow-import
+  description: 历史项目知识导入。收集项目文档和代码信息，构建标准化知识基线，为后续的需求开发工作流提供项目上下文。
+  file: commands/flow-import.md
+- name: flow-run
+  description: 开启智慧工作流。支持直接启动或附带需求文档启动，自动解析文档内容、创建 PRD 并驱动 AI 开发流水线。
+  file: commands/flow-run.md
+- name: flow-status
+  description: 查看当前工作流状态。快速展示所有需求的进度、当前阶段、风险汇总等信息，无需启动完整的工作流编排器。
+  file: commands/flow-status.md
+- name: flow-upgrade
+  description: 工作流版本更新。从 ur-ai-team 远程仓库拉取最新版本，对比差异后选择性更新本地 .claude/ 和 .codebuddy/ 目录（双平台同步）。
+  file: commands/flow-upgrade.md
+- name: guard
+  description: 开启守卫模式。AI 不会直接执行任何操作，而是逐步确认、逐步推进，确保每一步都经过用户审批后再行动。
+  file: commands/guard.md
+- name: knowledge
+  description: 知识库维护命令。统一入口管理本地和团队知识库，支持状态查看、健康检查、同步、查询、手动添加和提升判定。
+  file: commands/knowledge.md
+- name: team-init
+  description: 初始化当前项目的 AI Team 配置。连接团队知识仓库，关联业务领域和技术栈，启用跨项目团队知识共享。
+  file: commands/team-init.md

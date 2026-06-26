@@ -352,6 +352,8 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 
 ## 可用命令
 
+<!-- BEGIN AUTO-GEN: readme-commands-table hash=3df811f8b308b810 source=commands/*.md frontmatter + 现状 -->
+
 | 命令 | 用途 |
 |------|------|
 | `/flow-run` | 启动交付工作流（支持附带 PRD 文档启动 / 文字描述 / 直接启动三种入口） |
@@ -363,6 +365,8 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 | `/evolve` | 流水线进化分析（基于 Bug 追溯 Agent 环节，产出改进建议存入进化日志） |
 | `/evolve-apply` | 流水线进化落地（仅 Owner 使用，浏览 pending 记录后逐条审阅落地） |
 | `/guard` | 守卫模式开关（开启后 AI 不直接执行操作，逐步确认推进） |
+
+<!-- END AUTO-GEN: readme-commands-table -->
 
 ## 可用 Skills
 
@@ -407,6 +411,82 @@ Agent 不被动接收固定数量的知识推荐，而是通过**三级渐进式
 | `docx` | Word 文档处理（创建、读取、编辑 .docx，支持表格、目录、图片） |
 
 <img width="" src="/uploads/7dcc47b8fb7440f0b3836c09dff6400a/image.png" alt="image.png" />
+
+---
+
+## 开发者工具链（仓库根 `scripts/` + `meta/`）
+
+> **⚠️ 仅引擎维护者使用** — 团队小伙伴在业务项目使用工作流时，按上方「[安装](#安装)」段落 `cp -r .codebuddy/` + `cp -r .claude/` 即可，**完全不需要拷贝 `scripts/` / `meta/` / `ARCHITECTURE.md` 等**。`/flow-run` 等运行时命令与本工具链完全解耦。
+>
+> 需要 Python 3.8+。`pip3 install -r scripts/requirements.txt` 安装依赖（jsonschema / PyYAML / Jinja2 / pytest）。
+
+### 已交付（端到端实测通过）
+
+| 工具 | 何时跑 | 解决什么 | 实测状态 |
+|------|------|---------|---------|
+| `python3 scripts/consistency_check.py` | 改完代码 / pre-commit | **12 维度**一致性体检（双平台对称、阶段流转、Agent 注册、AUTO-GEN 区段 hash、DSL ↔ JSON 等价、DSL sentinel 等） | ✅ 实测通过 |
+| `python3 scripts/impact_analyzer.py --git-status` | 改完待 commit | 列出本次改动需要同步的 ARCHITECTURE 章节 / 双平台镜像目标 | ✅ 实测通过 |
+| `python3 scripts/dry_run.py` | 改完阶段流转后 | **仅校验状态机骨架**（图遍历级，非业务路径） | ✅ 实测通过 |
+| `python3 scripts/render_artifacts.py` | 改完 4 个核心大表 | AUTO-GEN 区段 hash 校验（保护模式，hash 失配触发警告） | ✅ 实测通过 |
+| `python3 scripts/render_artifacts.py --write-json --write` | 改完 `meta/*.yaml` DSL | **DSL → JSON 编译**（双平台 4 个 JSON 重写 + sentinel 注入），canonical 格式 | ✅ Phase 2.5 引入 |
+| `python3 scripts/validate_meta.py` | 改完 `meta/*.yaml` DSL | DSL 内部一致性 + DSL ↔ JSON canonical-equal 校验 | ✅ 实测通过 |
+| `python3 scripts/mirror_platforms.py --status` | 双平台同步前 | 列出**未豁免**的真实漂移（方言-only 差异自动静默） | ✅ Phase 3-new 引入 |
+| `python3 scripts/mirror_platforms.py --mirror=<file> --from=codebuddy --write` | 单文件同步 | 把 `.codebuddy/<file>` 全量覆盖到 `.claude/<file>`（**不翻译**，覆盖前看 diff） | ✅ Phase 3-new 引入 |
+| `python3 -m pytest scripts/tests` | lib/ 改动后 | lib/ 共享库单元测试（**115 个用例 < 8s**） | ✅ Phase R / V 引入 |
+| `python3 scripts/render_visualization.py --write` | 改完 `phases/` / `agents/` / `rules/` / `templates/` / `references/` / `SKILL.md` | 重新生成 `docs/workflow-visualization.html`（**单文件零依赖**交互式工作流地图，pre-commit hook 自动跑） | ✅ Phase V 引入 |
+| `bash scripts/hooks/install.sh` | 仅需一次 | 安装 Git pre-commit hook（warn 模式默认；严格模式见 [hooks/README.md](./scripts/hooks/README.md)） | ✅ 端到端实测 |
+
+所有脚本支持 `--format=console|md|json`，退出码 `0` PASS / `1` WARN / `2` FAIL / `3` ERROR。详见 [`scripts/README.md`](./scripts/README.md)。
+
+### 显式不做（Plan v2 主体声明）
+
+为避免 v1 教训（宏大承诺—暗自降级），v2 显式声明**不做**以下事项：
+
+- ❌ **不做自动方言翻译** — `.codebuddy/` ↔ `.claude/` 工具名 / IDE 名等方言差异由维护者人工同步；mirror 工具仅做对账与单文件覆盖
+- ❌ **不做 30 条业务路径模拟** — `dry_run.py` 仅做图遍历级状态机骨架自检
+- ❌ **不强求 byte-equal** — DSL 编译产出与现有 JSON 仅要求对象树等价（canonical-equal），不强求字符级一致
+- ❌ **不做 SKILL.md 全文拆分** — 76KB 单文件已通过 4 个 AUTO-GEN 区段缓解关键漂移
+- ❌ **不引入运行时校验** — state.json 实际读写正确性靠真实跑 `/flow-run` 验证
+- ❌ **不引入 CI**（候选项，登记在 ARCHITECTURE 附录 C，按需启动）
+
+### 已知 v1 遗留问题
+
+- ~~`meta/state-schema.yaml` 比 `.claude/.../state-schema.json` 多一个 `docsRepoCommitLog` 字段~~ **Phase 2.5 已修复**：disk JSON 现含 `docsRepoCommitLog` 完整字段定义 + `$generatedFrom` sentinel
+- 双平台 13 项内容差异（**Phase 3-new 已消除 76% 噪声**：从 54 → 13；剩余 13 项是真功能差异，需维护者人工同步——不在工具自动覆盖范围）
+
+### AUTO-GEN 区段（Phase 1 引入）
+
+SKILL.md §2.1/§10、ARCHITECTURE.md §4.2、README.md 命令表已用 `<!-- BEGIN AUTO-GEN: ... hash=<sha256> -->` 包裹。改完区段内容后必须运行 `python3 scripts/render_artifacts.py --rerender --write` 更新 hash。
+
+### DSL 单一真相源（Phase 2 引入，Phase 2.5 落地权威切换）
+
+`meta/phases.yaml` / `state-schema.yaml` / `commands.yaml` / `platform-divergence.yaml` 是阶段定义 / state.json schema / 命令清单 / 双平台豁免的"作者源"。详见 [`meta/README.md`](./meta/README.md)。
+
+**Phase 2.5 起，`.{platform}/.../references/state-schema.json` + `phase-transitions.json` 头部含 `$generatedFrom` sentinel**，明示该 JSON 由 DSL 编译产出。直接编辑 disk JSON 会被 `dsl-equivalence` / `dsl-source-marker` 体检维度捕捉。改完 DSL 后运行 `python3 scripts/render_artifacts.py --write-json --write` 重生成。
+
+### 平台方言豁免（Phase 3-new 引入）
+
+`meta/platform-divergence.yaml` 的 `paired_translation` 段登记 17 条已确认方言映射对（5 类：term / tool_name / ide_name / path / config_file）。`platform-symmetry` 体检在判定双平台 content-diff 时，先 normalize（把双方文本中所有 claude 形式替换为 codebuddy 基线），相等则视为方言-only 差异，自动豁免。**不引入自动翻译镜像** — 维护者改完 `.codebuddy/` 后人工翻译同步到 `.claude/`，工具只做对账：
+
+```bash
+# 列出需要人工同步的真漂移
+python3 scripts/mirror_platforms.py --status
+
+# 全量覆盖单文件（不翻译，覆盖前看 diff）
+python3 scripts/mirror_platforms.py --mirror=commands/flow-run.md --from=codebuddy --write
+```
+
+### Phase 进度（诚实清单）
+
+- ✅ **Phase 0** — 静态校验三件套（体检 / 影响分析 / dry-run）已交付
+- ✅ **Phase 1** — 4 个核心大表 AUTO-GEN 区段化已交付
+- ✅ **Phase 2** — DSL canonical-equal 校验已交付
+- ✅ **Phase R**（v2 收口）— pytest 套件 61+ 用例、pre-commit hook 端到端实测、文档诚实化
+- ✅ **Phase 2.5** — DSL 真权威源切换（`$generatedFrom` sentinel 注入 + `--write-json` 模式 + 第 12 体检维度）
+- ✅ **Phase 3-new** — 方言豁免清单 + normalize 体检静默（FAIL 从 54 → 13，76% 噪声消除）
+- ⏳ **Phase 4 候选项** — 30 条业务路径模拟 / 自检清单机器化 / CI 集成（按需启动，登记在 ARCHITECTURE 附录 C）
+
+详细演化脉络见 [`ARCHITECTURE.md` 附录 A](./ARCHITECTURE.md#附录-a更新日志)。
 
 ---
 

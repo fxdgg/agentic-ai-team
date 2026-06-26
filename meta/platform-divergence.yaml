@@ -1,0 +1,135 @@
+# 双平台已知偏差豁免清单（Phase 3 引入）
+#
+# 用途：登记 .claude/ 与 .codebuddy/ 之间的"正当差异"——即不应被一致性体检
+# 报告为 FAIL 的差异。未在本文件登记的差异会被 mirror_platforms.py / consistency_check.py
+# 视为漂移并强制告警。
+#
+# 三类豁免：
+#   1. only-on-platform — 文件仅存在于一个平台（另一边不应出现）
+#   2. content-allowed-differ — 双方都存在但允许内容差异（如平台命名约定下的对应文件）
+#   3. directory-skip — 整个目录不参与对账（如临时草稿目录）
+#
+# 维护原则：
+#   - 每条豁免必须有 reason（解释为什么是正当差异）
+#   - 每条豁免必须有 since（首次登记日期）
+#   - 处理完毕的豁免删除本文件条目，并在 ARCHITECTURE.md 附录 A 追加更新日志
+
+version: 1
+
+$comment: |
+  本文件由 Phase 3 引入，从 ARCHITECTURE.md 附录 B 已登记的 2 项偏差迁入。
+  consistency_check.py / mirror_platforms.py 读取本文件作为豁免来源。
+
+# 仅存在于某一平台的文件 / 目录
+only_on_platform:
+  - path: skills/iwiki-operation
+    platform: codebuddy
+    reason: |
+      iwiki-operation Skill 依赖 CodeBuddy 平台原生集成的 iWiki MCP，
+      Claude Code 平台暂无等价能力，作为已知单平台特例接受。
+    since: 2026-05-28
+    architecture_appendix_b: 1   # 关联 ARCHITECTURE.md 附录 B 第 1 项
+
+  - path: plans
+    platform: codebuddy
+    reason: |
+      .codebuddy/plans/ 是 CodeBuddy IDE 在使用过程中自动产生的过程文件目录
+      （用户当前正在使用 CodeBuddy 工作），属于运行时产物，不要求双平台对称。
+    since: 2026-05-28
+    architecture_appendix_b: 2
+
+# 双方都存在但允许内容差异的对（正则匹配）
+# 用于"按平台命名约定的同义文件"，如 CLAUDE.md ↔ CODEBUDDY.md
+content_allowed_differ:
+  - path: rules/tcb/CLAUDE.md
+    paired_with: rules/tcb/CODEBUDDY.md
+    reason: |
+      tcb（CloudBase）业务规则文档按双平台命名约定分别命名为 CLAUDE.md / CODEBUDDY.md，
+      内容应对称但允许少量平台名称引用差异（如 "Claude Code" vs "CodeBuddy"）。
+      由维护者人工同步内容，体检时不报告 FAIL。
+    since: 2026-05-29
+
+# 整个目录跳过对账
+directory_skip: []
+
+# ---------------------------------------------------------------------------
+# Phase 3-new 引入：双平台方言映射
+# ---------------------------------------------------------------------------
+# paired_translation 段登记 .codebuddy/（前线）与 .claude/（同步副本）之间的
+# **方言对应**——同一概念在两个平台用不同的写法，但语义等价。
+#
+# 用法：
+#   - lib/platform_mirror.py 读取本段，对每对 content-diff 文件执行 normalize_text
+#     （把双方文本中所有方言都替换为统一形式）；如果 normalize 后两份内容相等，
+#     就把这对差异标记为 paired-translation 豁免（不报 FAIL）。
+#   - 不引入自动翻译镜像（误伤风险 + 无 testCases 兜底，详见 ARCHITECTURE 附录 A
+#     2026-05-29 Phase 3-new 条目）。维护者改完 .codebuddy/ 后**人工**翻译同步到 .claude/。
+#
+# kind 取值（按优先级）：
+#   - tool_name   — IDE 工具调用名（如 Read ↔ read_file）
+#   - term        — 工作流术语（如 Parallel Agent ↔ Agent Teams）
+#   - ide_name    — IDE 自身名称（如 Claude Code ↔ CodeBuddy）
+#   - path        — 路径前缀（如 .claude/ ↔ .codebuddy/）
+#   - config_file — 配置文件名（如 settings.json ↔ mcp.json）
+#
+# 替换顺序：长字符串优先（避免子串先被替换），实现见 platform_mirror.normalize_text。
+
+paired_translation:
+  # ----- 工作流术语（先替换长短语，再替换单词，避免短词截断长短语） -----
+  - kind: term
+    claude: Parallel Agent 调度
+    codebuddy: Agent Teams 模式
+  - kind: term
+    claude: Parallel Agent
+    codebuddy: Agent Teams
+
+  # ----- IDE 工具调用名 -----
+  - kind: tool_name
+    claude: AskUserQuestion
+    codebuddy: ask_followup_question
+  - kind: tool_name
+    claude: MultiEdit
+    codebuddy: write_to_file
+  - kind: tool_name
+    claude: Read
+    codebuddy: read_file
+  - kind: tool_name
+    claude: Write
+    codebuddy: write_to_file
+  - kind: tool_name
+    claude: Edit
+    codebuddy: replace_in_file
+  - kind: tool_name
+    claude: Glob
+    codebuddy: list_dir
+  - kind: tool_name
+    claude: Grep
+    codebuddy: codebase_search
+  - kind: tool_name
+    claude: Bash
+    codebuddy: execute_command
+  # Task 在两个平台同名，登记仅作显式说明
+  - kind: tool_name
+    claude: Task
+    codebuddy: Task
+
+  # ----- IDE 名称（先长后短） -----
+  - kind: ide_name
+    claude: Claude Code IDE
+    codebuddy: CodeBuddy IDE
+  - kind: ide_name
+    claude: Claude Code
+    codebuddy: CodeBuddy
+
+  # ----- 路径前缀（先长后短） -----
+  - kind: path
+    claude: ~/.claude/
+    codebuddy: ~/.codebuddy/
+  - kind: path
+    claude: .claude/
+    codebuddy: .codebuddy/
+
+  # ----- 配置文件名 -----
+  - kind: config_file
+    claude: settings.json
+    codebuddy: mcp.json
