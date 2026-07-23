@@ -19,60 +19,9 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
 
 ### Step 0：环境检查与首次运行判断
 
-> **目的**：在工作流正式启动前，完成两项前置检查——① 确保用户拥有最佳的 Markdown 文档预览体验；② 检测当前项目是否曾运行过工作流或导入过知识，判断是否为首次运行。
+> **目的**：在工作流正式启动前，检测当前项目是否曾运行过工作流或导入过知识，判断是否为首次运行。
 
-#### 0-1. 检查 Markdown Preview Enhanced 插件
-
-> Markdown 文件（`.md`）是本项目中最核心的交互文件——Skill 定义、PRD 文档、工作流产物等均以 Markdown 格式存储和呈现。为确保用户拥有最佳的阅读和预览体验，需先检查 IDE 是否已安装 **Markdown Preview Enhanced** 插件。
-
-1. **检测插件安装状态**：
-
-   使用终端命令检测 `Markdown Preview Enhanced` 插件是否已安装。由于不同 IDE（VS Code / CodeBuddy）的 CLI 命令名称和 PATH 配置可能不同，需按以下优先级尝试：
-
-   ```bash
-   # 优先级 1：直接使用 code 命令（VS Code 已配置 PATH 的场景）
-   code --list-extensions 2>/dev/null | grep -i "shd101wyy.markdown-preview-enhanced"
-
-   # 优先级 2：如果 code 命令不可用，尝试通过 CodeBuddy 应用内置路径
-   # macOS CodeBuddy 路径示例（根据实际安装名称调整）：
-   "/Applications/CodeBuddy CN.app/Contents/Resources/app/bin/code" --list-extensions 2>/dev/null | grep -i "shd101wyy.markdown-preview-enhanced"
-   ```
-
-   实际执行时，使用如下合并命令一次性检测：
-
-   ```bash
-   (code --list-extensions 2>/dev/null || "/Applications/CodeBuddy CN.app/Contents/Resources/app/bin/code" --list-extensions 2>/dev/null || "/Applications/CodeBuddy.app/Contents/Resources/app/bin/code" --list-extensions 2>/dev/null) | grep -i "shd101wyy.markdown-preview-enhanced"
-   ```
-
-   - 如果命令返回了扩展 ID（`shd101wyy.markdown-preview-enhanced`），说明插件已安装 → **跳转到 0-2**
-   - 如果所有路径均无输出（未安装或无法检测），→ 继续步骤 2
-   - 如果所有命令均失败（无法识别的 IDE 环境），→ 直接**跳转到 0-2**
-
-2. **提示用户并安装插件**：
-
-   使用 `ask_followup_question` 工具提示用户：
-
-   ```
-   标题: 📦 推荐安装 Markdown Preview Enhanced 插件
-   问题: 检测到您尚未安装 Markdown Preview Enhanced 插件。Markdown 是本项目最核心的交互文件格式，安装该插件可以获得更好的文档预览体验。是否立即安装？
-
-   选项:
-     - "✅ 立即安装 — 自动安装 Markdown Preview Enhanced 插件后继续"
-     - "⏭️ 跳过安装 — 不安装，直接继续工作流"
-   ```
-
-   - 用户选择"立即安装" → 执行安装命令：
-
-     ```bash
-     code --install-extension shd101wyy.markdown-preview-enhanced --force
-     ```
-
-     安装完成后，向用户确认安装成功，提示可通过 `Ctrl+Shift+V`（macOS 为 `Cmd+Shift+V`）或右键菜单打开 Markdown 预览 → **跳转到 0-2**
-
-   - 用户选择"跳过安装" → **跳转到 0-2**
-   - 安装失败 → 向用户报告错误信息，但不阻塞工作流 → **跳转到 0-2**
-
-#### 0-2. 判断工作流是否首次运行
+#### 0-1. 判断工作流是否首次运行
 
 1. **检测工作流运行痕迹**（使用 `list_dir`，**最多 1 次调用**）：
 
@@ -111,8 +60,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
    - 用户选择"直接开始" → **跳转到 Step 1**
 
 4. **🚨 CRITICAL 约束（Step 0 专用）**：
-   - 0-1 **仅检测和安装插件**，不做任何项目结构扫描、文件读取或代码探索；`code` 命令不可用或安装失败时不阻塞工作流
-   - 0-2 **仅检测 `docs/` 目录是否存在且包含有效文件**，不做其他扫描
+   - 0-1 **仅检测 `docs/` 目录是否存在且包含有效文件**，不做其他扫描
    - **禁止**读取任何文件内容（`read_file`、`codebase_search` 等），仅使用 `list_dir` 检测目录结构
    - 如果检测因权限等原因失败，视为"首次运行"，走询问流程
 
@@ -442,25 +390,7 @@ description: 开启智慧工作流。支持直接启动或附带需求文档启�
                               │
                               ▼
                     ┌─────────────────────┐
-                    │  0-1: 检查 Markdown │
-                    │  Preview Enhanced   │
-                    │  插件是否已安装      │
-                    └─────────────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-            ┌──────────────┐    ┌──────────────┐
-            │ 已安装/跳过   │    │ 未安装        │
-            │              │    │ 提示用户安装  │
-            └──────────────┘    └──────────────┘
-                    │                   │
-                    │              ┌────┴────┐
-                    │              ▼         ▼
-                    │          立即安装   跳过安装
-                    │              │         │
-                    ▼              ▼         ▼
-                    ┌─────────────────────┐
-                    │  0-2: 检查          │
+                    │  0-1: 检查          │
                     │  docs/ 是否存在     │
                     │  且有有效文件        │
                     └─────────────────────┘
