@@ -143,10 +143,11 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 
 ## 文档导航
 
-本 README 只承载使用者门户内容；架构性细节以 **[ARCHITECTURE.md](./ARCHITECTURE.md)** 为单一权威源。
+本 README 只承载使用者门户内容。**原理、运行流程、功能边界、是否需要拷贝到业务项目**见 **[使用说明.md](./使用说明.md)**；架构性细节以 **[ARCHITECTURE.md](./ARCHITECTURE.md)** 为单一权威源。
 
 | 想了解 | 去哪看 |
 |--------|--------|
+| 实现原理 / 运行流程 / 功能清单 / 拷贝范围 | [使用说明.md](./使用说明.md) |
 | 架构全景 / 设计哲学 / 与同类系统差异 | [ARCHITECTURE.md](./ARCHITECTURE.md) §1 |
 | 部署拓扑（单仓 / 多仓 `repos[]` + 团队知识仓库） | [ARCHITECTURE.md](./ARCHITECTURE.md) §2 |
 | 双平台镜像设计与方言对照 | [ARCHITECTURE.md](./ARCHITECTURE.md) §3 |
