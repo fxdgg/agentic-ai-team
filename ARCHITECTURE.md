@@ -679,6 +679,9 @@ Figma 设计稿转代码（`figma-d2c` Skill）有**两种**与工作流的集�
 ├── README.md                          # 入口手册（项目介绍 + 安装 + 快速开始 + 命令清单 + 文档导航）
 ├── ARCHITECTURE.md                    # 本文件（项目骨架 + 更新日志）
 ├── CLAUDE.md  +  CODEBUDDY.md         # AI 协作约定（迭代本仓库时生效）
+├── docs/
+│   ├── workflow-visualization.html    # 工作流可视化（pre-commit 自动重生）
+│   └── images/                        # README 门户配图（随仓库分发，不走工蜂 /uploads/）
 │
 ├── .codebuddy/   ←─┐                  # CodeBuddy 平台
 └── .claude/      ←─┘                  # Claude Code 平台（与 .codebuddy/ 镜像维护）
@@ -745,6 +748,8 @@ skills/workflow-orchestrator/
 | `scripts/` | **引擎维护者工具链**（一致性体检 / 影响分析 / dry-run / 渲染 / 镜像） | ❌ **不部署**（仅本仓库迭代时使用） |
 | `meta/` | **引擎维护者 DSL**（工作流元模型单一真相源：phases.yaml / state-schema.yaml / commands.yaml） | ❌ **不部署**（仅本仓库迭代时使用） |
 | `README.md` / `ARCHITECTURE.md` / `CLAUDE.md` / `CODEBUDDY.md` | 引擎仓库自身文档与协作约定 | ❌ 不部署 |
+| `docs/workflow-visualization.html` | 工作流可视化单文件（pre-commit 自动重生） | ❌ 不部署 |
+| `docs/images/` | README 门户配图 | ❌ 不部署 |
 
 > **使用者 vs 维护者 边界（重要）**：
 >
@@ -887,6 +892,17 @@ description: 一句话描述（用于 / 自动补全列表）
 - **变更内容**：具体改了什么（按 commands / skills / agents / phases / knowledge / docs 分类）
 - **影响面**：用户可观察到的行为变化、是否需要重新部署 / 重新跑 `/team-init`
 - **关联文件**：本次变更涉及的核心文件路径
+
+### 2026-08-15 — README 门户配图入库，替换失效的工蜂 /uploads/ 路径
+
+- **背景 / 动机**：README「这是什么」与「可用 Skills」两处配图使用工蜂编辑器附件路径 `/uploads/{uuid}/image.png`。该路径只在工蜂 Web 预览会话内有效，clone 仓库后文件不存在，GitHub/工蜂 README 渲染均为裂图。
+- **变更内容**：
+  - 将原图入库为 `docs/images/ai-team-overview.jpg`（系统全景）与 `docs/images/codebuddy-workflow.jpg`（工作流全流程）
+  - README 改为仓库相对路径 `./docs/images/...`
+  - `.gitignore` 为 `docs/images/` 增加例外（沿用 `docs/` 忽略 + 白名单模式）
+  - §10.1 / §10.4 登记 `docs/images/` 用途边界（不部署到业务项目）
+- **影响面**：纯文档展示修复，运行时零影响，无需重新部署 / 无需重跑 `/team-init`。clone 后 README 配图可正常显示。
+- **关联文件**：`README.md`、`docs/images/ai-team-overview.jpg`、`docs/images/codebuddy-workflow.jpg`、`.gitignore`、本附录 A 条目 + §10.1 / §10.4。
 
 ### 2026-06-26 — 四份核心文档一致性校准 + 统一「16 阶段」+ README 复原为门户
 

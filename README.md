@@ -13,7 +13,7 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 
 **核心价值**：Skill、Agent、工具链会随模型迭代更新，但**领域知识是永恒的**。AI Team 的每次交付都自动沉淀知识到团队共享仓库，所有成员共建共享，新工作流启动时自动站在前人肩上。
 
-<img width="" src="/uploads/d949dcaa81064a538e4c4dc3406af2cc/image.png" alt="image.png" />
+<img src="./docs/images/ai-team-overview.jpg" alt="AI Team 系统全景：核心理念、部署拓扑、16 阶段状态机与知识体系" />
 
 ---
 
@@ -137,7 +137,7 @@ AI Team 是一套**工作流引擎**，安装到你的业务项目后，用一�
 | `pdf` | PDF 读写（提取/合并/分割/旋转/水印/OCR/表单） |
 | `docx` | Word 文档处理（创建、读取、编辑 .docx，支持表格、目录、图片） |
 
-<img width="" src="/uploads/7dcc47b8fb7440f0b3836c09dff6400a/image.png" alt="image.png" />
+<img src="./docs/images/codebuddy-workflow.jpg" alt=".codebuddy 工作流全流程：命令闭环、18 Skills 与 16 阶段流水线" />
 
 ---
 

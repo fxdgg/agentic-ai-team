@@ -21,8 +21,11 @@
 # ─── 本地文档（博文草稿、笔记等，不入库）───
 docs/
 # 例外：工作流可视化产物（pre-commit hook 自动重生，进 git 便于团队同步）
+# 例外：README 门户配图（原 /uploads/ 工蜂附件路径在 clone 后不可达）
 !docs/
 !docs/workflow-visualization.html
+!docs/images/
+!docs/images/**
 
 # ─── Python 运行缓存（scripts/ 工具链产生，不入库）───
 __pycache__/
